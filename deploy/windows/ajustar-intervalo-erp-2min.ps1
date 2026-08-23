@@ -1,4 +1,5 @@
 $ErrorActionPreference = "Stop"
+[Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
 
 function Test-Administrator {
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -79,7 +80,7 @@ foreach ($task in $candidates) {
     [xml]$document = $originalText
     $namespace = New-Object System.Xml.XmlNamespaceManager($document.NameTable)
     $namespace.AddNamespace("t", $document.DocumentElement.NamespaceURI)
-    $repetitions = @($document.SelectNodes("//t:Trigger/t:Repetition", $namespace))
+    $repetitions = @($document.SelectNodes("//t:Repetition", $namespace))
 
     if ($repetitions.Count -eq 0) {
         throw "A tarefa $fullName não possui intervalo de repetição. Nenhuma recriação foi executada para ela."
@@ -112,7 +113,7 @@ foreach ($task in $candidates) {
     [xml]$current = Export-ScheduledTask -TaskName $task.TaskName -TaskPath $task.TaskPath
     $namespace = New-Object System.Xml.XmlNamespaceManager($current.NameTable)
     $namespace.AddNamespace("t", $current.DocumentElement.NamespaceURI)
-    $intervals = @($current.SelectNodes("//t:Trigger/t:Repetition/t:Interval", $namespace) | ForEach-Object { $_.InnerText })
+    $intervals = @($current.SelectNodes("//t:Repetition/t:Interval", $namespace) | ForEach-Object { $_.InnerText })
     if ($intervals.Count -eq 0 -or @($intervals | Where-Object { $_ -ne "PT2M" }).Count -gt 0) {
         throw "A validação da tarefa $(Get-TaskFullName $task) falhou. Backup: $backupDir"
     }
