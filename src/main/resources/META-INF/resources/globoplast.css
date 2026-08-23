@@ -4767,18 +4767,85 @@ html body vaadin-dialog.gp-modal-v053 vaadin-grid::part(footer-cell){
 }
 
 /* ==========================================================================
-   0.0.114 — CABECALHO FIXO NOS LANCAMENTOS EXPANDIDOS
+   0.0.115 — CABECALHO FIXO COM ROLAGEM NORMAL DA PAGINA
    ========================================================================== */
 
-/* Depois de "Mostrar mais", o Grid passa a ter rolagem vertical própria.
-   O cabeçalho nativo do Vaadin permanece visível no topo durante a rolagem. */
-html body vaadin-grid.gp-launch-grid-v059.gp-launch-grid-expanded-v114{
-  height:clamp(360px,68vh,760px)!important;
-  min-height:0!important;
+html body .gp-launch-grid-wrapper-v115{
+  position:relative!important;
+  width:100%!important;
+  min-width:0!important;
+  overflow:visible!important;
 }
-
-@media(max-width:640px){
-  html body vaadin-grid.gp-launch-grid-v059.gp-launch-grid-expanded-v114{
-    height:clamp(300px,62vh,560px)!important;
-  }
+html body .gp-launch-sticky-header-v115{
+  position:absolute!important;
+  top:0!important;
+  left:0;
+  z-index:45!important;
+  width:100%;
+  height:var(--gp-launch-sticky-height-v115,0)!important;
+  overflow:visible!important;
+  visibility:hidden;
+  pointer-events:none!important;
+  box-sizing:border-box!important;
+  background:var(--gp-bg)!important;
+  box-shadow:0 2px 4px rgba(0,0,0,.10);
+}
+html body .gp-launch-sticky-header-v115::after{
+  content:"";
+  position:absolute;
+  top:100%;
+  left:0;
+  width:100%;
+  height:14px;
+  pointer-events:none;
+  background:linear-gradient(to bottom,
+    color-mix(in srgb,var(--gp-bg) 68%,transparent) 0%,
+    color-mix(in srgb,var(--gp-bg) 24%,transparent) 55%,
+    transparent 100%);
+  -webkit-backdrop-filter:blur(3px);
+  backdrop-filter:blur(3px);
+  -webkit-mask-image:linear-gradient(to bottom,#000 0%,transparent 100%);
+  mask-image:linear-gradient(to bottom,#000 0%,transparent 100%);
+}
+html body .gp-launch-sticky-header-v115.gp-ready-v115{
+  height:var(--gp-launch-sticky-height-v115)!important;
+}
+html body .gp-launch-sticky-header-v115.gp-fixed-v115{
+  position:fixed!important;
+  top:0!important;
+  visibility:visible;
+}
+html body .gp-launch-sticky-header-v115.gp-bottom-v115{
+  position:absolute!important;
+  top:calc(100% - var(--gp-launch-sticky-height-v115))!important;
+  visibility:visible;
+}
+html body .gp-launch-sticky-viewport-v115{
+  width:100%!important;
+  height:100%!important;
+  overflow:hidden!important;
+}
+html body .gp-launch-sticky-track-v115{
+  display:flex!important;
+  min-width:100%!important;
+  height:100%!important;
+  will-change:transform;
+}
+html body .gp-launch-sticky-cell-v115{
+  display:flex!important;
+  align-items:center!important;
+  height:100%!important;
+  min-width:0!important;
+  overflow:hidden!important;
+  box-sizing:border-box!important;
+  background:var(--gp-bg)!important;
+  border-bottom:1px solid var(--gp-border)!important;
+}
+html body .gp-launch-sticky-label-v115{
+  display:block!important;
+  width:100%!important;
+  min-width:0!important;
+  overflow:hidden!important;
+  box-sizing:border-box!important;
+  white-space:normal!important;
 }

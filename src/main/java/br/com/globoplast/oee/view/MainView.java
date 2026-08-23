@@ -578,7 +578,7 @@ public class MainView extends VerticalLayout {
 
         Grid<LaunchRecord> grid = launchGrid();
         grid.setId("launch-grid");
-        content.add(grid);
+        content.add(launchGridWithStickyHeader(grid));
         Button more = new Button(t("Mostrar mais"));
         more.setId("launch-more");
         more.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
@@ -697,6 +697,141 @@ public class MainView extends VerticalLayout {
         return grid;
     }
 
+    private Div launchGridWithStickyHeader(Grid<LaunchRecord> grid) {
+        Div stickyHeader = new Div();
+        stickyHeader.addClassName("gp-launch-sticky-header-v115");
+        stickyHeader.getElement().setAttribute("aria-hidden", "true");
+
+        Div wrapper = new Div(stickyHeader, grid);
+        wrapper.addClassName("gp-launch-grid-wrapper-v115");
+
+        grid.addAttachListener(event -> grid.getElement().executeJs("""
+                const grid = this;
+                const sticky = grid.parentElement?.querySelector('.gp-launch-sticky-header-v115');
+                if (!sticky) return;
+
+                let attempts = 0;
+                const install = () => {
+                  const root = grid.shadowRoot;
+                  const table = root?.querySelector('#table');
+                  const header = root?.querySelector('#header');
+                  const row = header?.querySelector('tr:last-child');
+                  if (!table || !header || !row || row.children.length === 0) {
+                    if (grid.isConnected && attempts++ < 120) requestAnimationFrame(install);
+                    return;
+                  }
+
+                  grid.__gpLaunchStickyCleanupV115?.();
+                  const viewport = document.createElement('div');
+                  viewport.className = 'gp-launch-sticky-viewport-v115';
+                  const track = document.createElement('div');
+                  track.className = 'gp-launch-sticky-track-v115';
+                  viewport.append(track);
+                  sticky.replaceChildren(viewport);
+
+                  const headerText = (cell) => {
+                    const assigned = [...cell.querySelectorAll('slot')]
+                      .flatMap(slot => slot.assignedNodes({flatten: true}));
+                    return assigned.map(node => node.textContent || '')
+                      .join(' ').replace(/\\s+/g, ' ').trim();
+                  };
+
+                  const sourceContent = (cell) => [...cell.querySelectorAll('slot')]
+                    .flatMap(slot => slot.assignedElements({flatten: true}))[0] || cell;
+
+                  let frame = 0;
+                  const sync = () => {
+                    frame = 0;
+                    if (!grid.isConnected) return;
+                    const cells = [...row.children].filter(cell => !cell.hidden);
+                    if (track.children.length !== cells.length) {
+                      track.replaceChildren(...cells.map(() => {
+                        const mirror = document.createElement('div');
+                        mirror.className = 'gp-launch-sticky-cell-v115';
+                        const label = document.createElement('span');
+                        label.className = 'gp-launch-sticky-label-v115';
+                        mirror.append(label);
+                        return mirror;
+                      }));
+                    }
+
+                    let trackWidth = 0;
+                    cells.forEach((cell, index) => {
+                      const mirror = track.children[index];
+                      const label = mirror.firstElementChild;
+                      const width = cell.getBoundingClientRect().width;
+                      const cellStyle = getComputedStyle(cell);
+                      const contentStyle = getComputedStyle(sourceContent(cell));
+                      trackWidth += width;
+                      mirror.style.flex = `0 0 ${width}px`;
+                      mirror.style.width = `${width}px`;
+                      mirror.style.backgroundColor = cellStyle.backgroundColor;
+                      label.textContent = headerText(cell);
+                      label.style.padding = contentStyle.padding;
+                      label.style.fontFamily = contentStyle.fontFamily;
+                      label.style.fontSize = contentStyle.fontSize;
+                      label.style.fontWeight = contentStyle.fontWeight;
+                      label.style.lineHeight = contentStyle.lineHeight;
+                      label.style.color = contentStyle.color;
+                      label.style.textAlign = contentStyle.textAlign;
+                    });
+
+                    const height = Math.ceil(header.getBoundingClientRect().height);
+                    const gridRect = grid.getBoundingClientRect();
+                    const originalHeaderTop = header.getBoundingClientRect().top;
+                    const fixed = originalHeaderTop <= 0 && gridRect.bottom > height;
+                    const atBottom = originalHeaderTop <= 0 && gridRect.bottom <= height;
+                    sticky.style.setProperty('--gp-launch-sticky-height-v115', `${height}px`);
+                    track.style.width = `${trackWidth}px`;
+                    track.style.transform = `translate3d(${-table.scrollLeft}px,0,0)`;
+                    sticky.classList.add('gp-ready-v115');
+                    sticky.classList.toggle('gp-fixed-v115', fixed);
+                    sticky.classList.toggle('gp-bottom-v115', atBottom);
+                    if (fixed) {
+                      sticky.style.left = `${gridRect.left}px`;
+                      sticky.style.width = `${gridRect.width}px`;
+                    } else {
+                      sticky.style.left = '0';
+                      sticky.style.width = '100%';
+                    }
+                  };
+
+                  const schedule = () => {
+                    if (!frame) frame = requestAnimationFrame(sync);
+                  };
+                  const resizeObserver = new ResizeObserver(schedule);
+                  resizeObserver.observe(grid);
+                  resizeObserver.observe(header);
+                  resizeObserver.observe(row);
+                  const mutationObserver = new MutationObserver(schedule);
+                  mutationObserver.observe(row, {
+                    childList: true,
+                    subtree: true,
+                    characterData: true,
+                    attributes: true
+                  });
+                  table.addEventListener('scroll', schedule, {passive: true});
+                  window.addEventListener('scroll', schedule, {passive: true});
+                  const connectionObserver = new MutationObserver(() => {
+                    if (!grid.isConnected) grid.__gpLaunchStickyCleanupV115?.();
+                  });
+                  connectionObserver.observe(document.body, {childList: true, subtree: true});
+                  grid.__gpLaunchStickyCleanupV115 = () => {
+                    if (frame) cancelAnimationFrame(frame);
+                    resizeObserver.disconnect();
+                    mutationObserver.disconnect();
+                    connectionObserver.disconnect();
+                    table.removeEventListener('scroll', schedule);
+                    window.removeEventListener('scroll', schedule);
+                  };
+                  schedule();
+                };
+                requestAnimationFrame(install);
+                """));
+
+        return wrapper;
+    }
+
     private Component launchActions(LaunchRecord record) {
         HorizontalLayout actions = new HorizontalLayout();
         actions.setPadding(false);
@@ -747,13 +882,6 @@ public class MainView extends VerticalLayout {
         Component component = byId("launch-grid");
         if (!(component instanceof Grid<?> raw)) return;
         Grid<LaunchRecord> grid = (Grid<LaunchRecord>) raw;
-        boolean expanded = launchLimit > AppConfig.PAGE_SIZE;
-        grid.setAllRowsVisible(!expanded);
-        if (expanded) {
-            grid.addClassName("gp-launch-grid-expanded-v114");
-        } else {
-            grid.removeClassName("gp-launch-grid-expanded-v114");
-        }
         List<LaunchRecord> all = cachedLaunchData(launchStart, launchEnd);
         List<LaunchRecord> filtered = launches.filter(all, launchSearch, launchSectors, launchStart, launchEnd, launchMachines, launchClients);
         grid.setItems(filtered.stream().limit(launchLimit).toList());
