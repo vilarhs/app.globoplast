@@ -4765,3 +4765,20 @@ html body vaadin-dialog.gp-modal-v053 vaadin-grid::part(footer-cell){
   background-color:var(--gp-surface)!important;
   color:var(--gp-text)!important;
 }
+
+/* ==========================================================================
+   0.0.114 — CABECALHO FIXO NOS LANCAMENTOS EXPANDIDOS
+   ========================================================================== */
+
+/* Depois de "Mostrar mais", o Grid passa a ter rolagem vertical própria.
+   O cabeçalho nativo do Vaadin permanece visível no topo durante a rolagem. */
+html body vaadin-grid.gp-launch-grid-v059.gp-launch-grid-expanded-v114{
+  height:clamp(360px,68vh,760px)!important;
+  min-height:0!important;
+}
+
+@media(max-width:640px){
+  html body vaadin-grid.gp-launch-grid-v059.gp-launch-grid-expanded-v114{
+    height:clamp(300px,62vh,560px)!important;
+  }
+}

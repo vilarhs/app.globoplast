@@ -747,6 +747,13 @@ public class MainView extends VerticalLayout {
         Component component = byId("launch-grid");
         if (!(component instanceof Grid<?> raw)) return;
         Grid<LaunchRecord> grid = (Grid<LaunchRecord>) raw;
+        boolean expanded = launchLimit > AppConfig.PAGE_SIZE;
+        grid.setAllRowsVisible(!expanded);
+        if (expanded) {
+            grid.addClassName("gp-launch-grid-expanded-v114");
+        } else {
+            grid.removeClassName("gp-launch-grid-expanded-v114");
+        }
         List<LaunchRecord> all = cachedLaunchData(launchStart, launchEnd);
         List<LaunchRecord> filtered = launches.filter(all, launchSearch, launchSectors, launchStart, launchEnd, launchMachines, launchClients);
         grid.setItems(filtered.stream().limit(launchLimit).toList());
