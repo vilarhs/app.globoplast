@@ -7,7 +7,7 @@ import java.util.List;
 public final class AppConfig {
     private AppConfig() {}
 
-    public static final String VERSION = "0.0.104";
+    public static final String VERSION = "0.0.108";
     public static final ZoneId ZONE = ZoneId.of("America/Sao_Paulo");
     public static final int PBKDF2_ITERATIONS = 260_000;
     public static final String DEFAULT_LANGUAGE = "pt-BR";
@@ -21,7 +21,7 @@ public final class AppConfig {
     public static Path dbFile() {
         String configured = System.getenv("GLOBOPLAST_DB");
         if (configured == null || configured.isBlank()) {
-            configured = "/var/lib/globoplast-java/database.db";
+            configured = "/var/lib/globoplast/database.db";
         }
         return Path.of(configured).toAbsolutePath().normalize();
     }

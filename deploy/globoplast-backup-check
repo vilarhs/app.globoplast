@@ -1,0 +1,73 @@
+#!/usr/bin/env python3
+"""Verifica checksum, descompactação e integridade de um backup Globoplast."""
+
+from __future__ import annotations
+
+import argparse
+import gzip
+import hashlib
+import shutil
+import sqlite3
+import sys
+import tempfile
+from pathlib import Path
+
+
+def digest(path: Path) -> str:
+    value = hashlib.sha256()
+    with path.open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            value.update(block)
+    return value.hexdigest()
+
+
+def newest(directory: Path) -> Path:
+    candidates = sorted(
+        directory.glob("database-*.db.gz"),
+        key=lambda item: item.stat().st_mtime,
+        reverse=True,
+    )
+    if not candidates:
+        raise FileNotFoundError(f"Nenhum backup encontrado em {directory}")
+    return candidates[0]
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Verifica um backup SQLite compactado")
+    parser.add_argument("archive", nargs="?", type=Path)
+    parser.add_argument("--directory", type=Path, default=Path("/var/backups/globoplast"))
+    args = parser.parse_args()
+    try:
+        archive = args.archive or newest(args.directory)
+        checksum_file = archive.with_name(archive.name + ".sha256")
+        expected = checksum_file.read_text(encoding="utf-8").split()[0]
+        actual = digest(archive)
+        if actual != expected:
+            raise RuntimeError(f"Checksum divergente: esperado {expected}, obtido {actual}")
+
+        temporary_path: Path | None = None
+        try:
+            with tempfile.NamedTemporaryFile(prefix="globoplast-verify-", suffix=".db") as temporary:
+                temporary_path = Path(temporary.name)
+                with gzip.open(archive, "rb") as source:
+                    shutil.copyfileobj(source, temporary, length=1024 * 1024)
+                temporary.flush()
+                uri = f"file:{temporary.name}?mode=ro"
+                with sqlite3.connect(uri, uri=True) as connection:
+                    rows = [row[0] for row in connection.execute("PRAGMA integrity_check")]
+                    if rows != ["ok"]:
+                        raise RuntimeError("integrity_check falhou: " + "; ".join(map(str, rows[:10])))
+        finally:
+            if temporary_path is not None:
+                for suffix in ("-wal", "-shm", "-journal"):
+                    temporary_path.with_name(temporary_path.name + suffix).unlink(missing_ok=True)
+
+        print(f"BACKUP VÁLIDO | {archive} | sha256={actual}")
+        return 0
+    except Exception as exc:
+        print(f"BACKUP INVÁLIDO | {exc}", file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

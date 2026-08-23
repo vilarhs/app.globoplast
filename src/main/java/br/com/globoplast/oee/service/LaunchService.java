@@ -449,7 +449,7 @@ public class LaunchService {
         Map<String,Machine>mm=catalog.machineMap();Map<String,Machine>knownMm=knownMachineMetadataMap(mm);List<A>a=new ArrayList<>();List<R>rr=new ArrayList<>();
         try(Connection c=db.open()){
             try(PreparedStatement p=c.prepareStatement("SELECT erp_id,ordem,data_apon,produto,descricao,cliente,maquina,turno,qtd_apon,operador,sincronizado_em FROM erp_apontamento_raw WHERE data_apon BETWEEN ? AND ? ORDER BY erp_id")){p.setString(1,start.toString());p.setString(2,rawEnd.toString());ResultSet r=p.executeQuery();while(r.next())a.add(new A(r.getLong(1),r.getString(2),Norm.isoDate(r.getString(3)),r.getString(4),r.getString(5),r.getString(6),r.getString(7),r.getString(8),r.getDouble(9),r.getString(10),r.getString(11)));}
-            try(PreparedStatement p=c.prepareStatement("SELECT erp_id,data_apon,ordem,maquina,produto,turno,qtd_refugo,peso_br,qtd_itens,sincronizado_em FROM erp_refugo_raw WHERE data_apon BETWEEN ? AND ? ORDER BY erp_id")){p.setString(1,start.toString());p.setString(2,rawEnd.toString());ResultSet r=p.executeQuery();while(r.next()){Object oi=r.getObject(9);Integer items=oi instanceof Number n?n.intValue():null;rr.add(new R(r.getLong(1),Norm.isoDate(r.getString(2)),r.getString(3),r.getString(4),r.getString(5),r.getString(6),r.getDouble(7),r.getDouble(8),items,r.getString(10)));};}
+            try(PreparedStatement p=c.prepareStatement("SELECT erp_id,data_apon,ordem,maquina,produto,turno,qtd_refugo,peso_br,qtd_itens,COALESCE(primeiro_sincronizado_em,sincronizado_em) FROM erp_refugo_raw WHERE data_apon BETWEEN ? AND ? ORDER BY erp_id")){p.setString(1,start.toString());p.setString(2,rawEnd.toString());ResultSet r=p.executeQuery();while(r.next()){Object oi=r.getObject(9);Integer items=oi instanceof Number n?n.intValue():null;rr.add(new R(r.getLong(1),Norm.isoDate(r.getString(2)),r.getString(3),r.getString(4),r.getString(5),r.getString(6),r.getDouble(7),r.getDouble(8),items,r.getString(10)));};}
         }catch(SQLException e){throw new IllegalStateException(e);}
         Map<String,LaunchRecord> groups=new LinkedHashMap<>();
         for(A x:a){LocalDate d=Norm.productiveDate(x.date,x.shift);if(d==null||d.isBefore(start)||d.isAfter(end))continue;String machineNormalized=Norm.machine(x.machine);Machine matchedMachine=resolveMachine(knownMm,machineNormalized);String machine=matchedMachine!=null?matchedMachine.name():machineNormalized,op=Norm.order(x.order),prod=Norm.text(x.product),key=erpKey(d,op,machine,prod);LaunchRecord item=groups.computeIfAbsent(key,k->{LaunchRecord z=new LaunchRecord();z.setErp(true);z.setErpKey(k);z.setId(erpId(k));z.setDate(d);z.setMachine(machine);z.setProduct(prod);z.setOrderNumber(op);Machine cm=matchedMachine!=null?matchedMachine:resolveMachine(knownMm,machine);z.setSector(cm!=null&&!Norm.text(cm.sector()).isBlank()?cm.sector():Norm.sectorFromMachineRaw(x.machine));z.setCapacity24h(cm!=null?cm.capacity():0);z.setOperatorErp(Norm.text(x.operator));z.setDescriptionErp(Norm.text(x.description));z.setClientErp(Norm.text(x.client));return z;});item.getErpIds().add(x.id);int pcs=(int)Math.round(x.qty*1000.0);switch(Norm.token(x.shift)){case"A"->item.setShiftA(item.getShiftA()+pcs);case"B"->item.setShiftB(item.getShiftB()+pcs);case"C"->item.setShiftC(item.getShiftC()+pcs);}item.setTotalProduced(item.getTotalProduced()+pcs);String description=Norm.text(x.description);if(!description.isBlank())item.setDescriptionErp(description);String client=Norm.text(x.client);if(!client.isBlank())item.setClientErp(client);applyMovementIfLater(item,x.sync,true);}
@@ -459,7 +459,7 @@ public class LaunchService {
         Map<Integer,Double> weightAccum=new HashMap<>();
         Map<Integer,Double> weightBase=new HashMap<>();
         for(R r:rr){
-            LocalDate d=Norm.productiveDate(r.date,r.shift);
+            LocalDate d=Norm.productiveScrapDate(r.date,r.shift,r.sync);
             if(d==null||d.isBefore(linkStart)||d.isAfter(linkEnd))continue;
             String op=Norm.order(r.order),prod=Norm.product(r.product);
             if(op.isBlank()||prod.isBlank())continue;
@@ -643,7 +643,7 @@ public class LaunchService {
         if(manual.isEmpty()) return;
         List<R> raw=new ArrayList<>();
         try(Connection c=db.open();PreparedStatement p=c.prepareStatement(
-                "SELECT erp_id,data_apon,ordem,maquina,produto,turno,qtd_refugo,peso_br,qtd_itens,sincronizado_em FROM erp_refugo_raw WHERE data_apon BETWEEN ? AND ? ORDER BY erp_id")){
+                "SELECT erp_id,data_apon,ordem,maquina,produto,turno,qtd_refugo,peso_br,qtd_itens,COALESCE(primeiro_sincronizado_em,sincronizado_em) FROM erp_refugo_raw WHERE data_apon BETWEEN ? AND ? ORDER BY erp_id")){
             p.setString(1,start.toString());
             p.setString(2,end.plusDays(1).toString());
             ResultSet r=p.executeQuery();
@@ -658,7 +658,7 @@ public class LaunchService {
         }
 
         for(R r:raw){
-            LocalDate d=Norm.productiveDate(r.date,r.shift);
+            LocalDate d=Norm.productiveScrapDate(r.date,r.shift,r.sync);
             if(d==null||d.isBefore(start)||d.isAfter(end)) continue;
             String op=Norm.order(r.order),prod=Norm.product(r.product),shift=Norm.token(r.shift);
             if(op.isBlank()||prod.isBlank()||!(shift.equals("A")||shift.equals("B")||shift.equals("C"))) continue;

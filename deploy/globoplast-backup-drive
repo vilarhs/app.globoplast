@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+CONFIG="${GLOBOPLAST_RCLONE_CONFIG:-/home/ubuntu/.config/rclone/rclone.conf}"
+LOCAL_DIR="${GLOBOPLAST_LOCAL_BACKUP_DIR:-/var/backups/globoplast}"
+REMOTE_NAME="${GLOBOPLAST_RCLONE_REMOTE:-globoplast-drive}"
+REMOTE_DIR="${GLOBOPLAST_DRIVE_FOLDER:-Globoplast Backups/Globoplast OEE/SQLite}"
+CHECKER="${GLOBOPLAST_BACKUP_CHECKER:-/usr/local/sbin/globoplast-backup-check}"
+
+test -r "$CONFIG" || { echo "ERRO: configuração rclone ausente em $CONFIG"; exit 1; }
+test -d "$LOCAL_DIR" || { echo "ERRO: diretório local ausente em $LOCAL_DIR"; exit 1; }
+test -x "$CHECKER" || { echo "ERRO: verificador local ausente em $CHECKER"; exit 1; }
+
+mapfile -t archives < <(find "$LOCAL_DIR" -maxdepth 1 -type f -name 'database-*.db.gz' -printf '%f\n' | sort)
+if [[ "${#archives[@]}" -eq 0 ]]; then
+  echo 'ERRO: nenhum backup local encontrado para envio.'
+  exit 1
+fi
+
+"$CHECKER" "$LOCAL_DIR/${archives[-1]}"
+remote="${REMOTE_NAME}:${REMOTE_DIR}"
+echo "INÍCIO GOOGLE DRIVE | arquivos_locais=${#archives[@]} | destino=$remote"
+
+rclone mkdir "$remote" --config "$CONFIG"
+rclone copy "$LOCAL_DIR" "$remote" \
+  --config "$CONFIG" \
+  --include 'database-*.db.gz' \
+  --include 'database-*.db.gz.sha256' \
+  --checksum --immutable --check-first \
+  --transfers 2 --checkers 4 \
+  --retries 5 --retries-sleep 10s --low-level-retries 10 \
+  --contimeout 30s --timeout 5m \
+  --stats-one-line --stats 30s --log-level INFO
+
+rclone check "$LOCAL_DIR" "$remote" \
+  --config "$CONFIG" \
+  --include 'database-*.db.gz' \
+  --include 'database-*.db.gz.sha256' \
+  --checksum --one-way --checkers 4 --retries 3 --log-level NOTICE
+
+remote_count="$(rclone lsf "$remote" --config "$CONFIG" --files-only \
+  --include 'database-*.db.gz' | wc -l)"
+echo "OK GOOGLE DRIVE | backups_remotos=$remote_count | pasta=$remote"

@@ -2438,15 +2438,18 @@ public class MainView extends VerticalLayout {
         menu.getElement().setProperty("selector", ".gp-refugo-bar-column");
 
         if (user != null && user.isAdmin()) {
-            menu.addItem(t("Enviar para outro setor"), e -> {
-                if (!Objects.equals(scrapSelectedDimension, dimension) || scrapSelectedKey.isBlank()) {
-                    notify(t("Selecione um item no gráfico"));
-                    return;
-                }
-                List<RefugoRecord> selectedRows = currentScrapRows().stream()
-                        .filter(r -> scrapMatches(r, dimension, scrapSelectedKey)).toList();
-                showScrapSectorTransfer(selectedRows, dimension);
-            });
+            MenuItem transfer = menu.addItem(t("Enviar para outro setor"));
+            List<String> sectors = catalog.sectors().stream()
+                    .filter(Objects::nonNull)
+                    .map(MainView::uppercaseSector)
+                    .filter(v -> !v.isBlank())
+                    .distinct()
+                    .sorted(String.CASE_INSENSITIVE_ORDER)
+                    .toList();
+            for (String sector : sectors) {
+                transfer.getSubMenu().addItem(sector, e -> transferSelectedScrapToSector(dimension, sector));
+            }
+            transfer.setEnabled(!sectors.isEmpty());
         }
 
         MenuItem exclude = menu.addItem(t("Excluir item"), e -> {
@@ -2477,51 +2480,33 @@ public class MainView extends VerticalLayout {
         }
     }
 
-    private void showScrapSectorTransfer(List<RefugoRecord> selectedRows, String dimension) {
+    private void transferSelectedScrapToSector(String dimension, String destinationSector) {
         if (user == null || !user.isAdmin()) {
             notify(t("Somente um Administrador pode enviar lançamentos para outro setor."));
             return;
         }
-        if (selectedRows == null || selectedRows.isEmpty()) {
+        if (!Objects.equals(scrapSelectedDimension, dimension) || scrapSelectedKey.isBlank()) {
             notify(t("Selecione um item no gráfico"));
             return;
         }
 
-        Dialog d = dialog(t("Enviar para outro setor"));
-        long selectedCount = selectedRows.stream().map(RefugoRecord::analysisId).distinct().count();
-        Paragraph summary = new Paragraph(
-                formatInt((int) selectedCount) + " " +
-                        t(selectedCount == 1 ? "lançamento" : "lançamentos")
-        );
-        summary.addClassName("gp-caption");
+        List<RefugoRecord> selectedRows = currentScrapRows().stream()
+                .filter(r -> scrapMatches(r, dimension, scrapSelectedKey))
+                .toList();
+        if (selectedRows.isEmpty()) {
+            notify(t("Selecione um item no gráfico"));
+            return;
+        }
 
-        ComboBox<String> destination = new ComboBox<>(t("Setor de destino"));
-        List<String> sectors = catalog.sectors().stream().filter(Objects::nonNull)
-                .map(MainView::uppercaseSector).filter(v -> !v.isBlank())
-                .distinct().sorted(String.CASE_INSENSITIVE_ORDER).toList();
-        destination.setItems(sectors);
-        destination.setAllowCustomValue(false);
-        destination.setRequired(true);
-        destination.setWidthFull();
-        destination.addClassNames("gp-admin-standard-field-v057", "gp-scrap-sector-destination-v064");
-
-        Button send = new Button(t("Enviar"), VaadinIcon.ARROW_RIGHT.create());
-        send.addThemeVariants(ButtonVariant.PRIMARY);
-        send.addClickListener(e -> {
-            try {
-                int changed = scraps.reassignSector(selectedRows, destination.getValue(), user);
-                invalidateDataCaches();
-                resetScrapInteraction();
-                d.close();
-                refreshScrap(dimension);
-                notify(formatInt(changed) + " " + t(changed == 1 ? "lançamento enviado." : "lançamentos enviados."));
-            } catch (RuntimeException ex) {
-                notify(ex.getMessage() == null ? t("Não foi possível alterar o setor.") : ex.getMessage());
-            }
-        });
-        d.add(summary, destination);
-        d.getFooter().add(new Button(t("Cancelar"), e -> d.close()), send);
-        d.open();
+        try {
+            int changed = scraps.reassignSector(selectedRows, destinationSector, user);
+            invalidateDataCaches();
+            resetScrapInteraction();
+            refreshScrap(dimension);
+            notify(formatInt(changed) + " " + t(changed == 1 ? "lançamento enviado." : "lançamentos enviados."));
+        } catch (RuntimeException ex) {
+            notify(ex.getMessage() == null ? t("Não foi possível alterar o setor.") : ex.getMessage());
+        }
     }
 
     private static String uppercaseSector(String value) {
@@ -2841,7 +2826,7 @@ public class MainView extends VerticalLayout {
     }
 
     private static String scrapLoadTime(RefugoRecord record) {
-        String time = Norm.syncTime(record == null ? null : record.synchronizedAt());
+        String time = Norm.syncTime(record == null ? null : record.firstDetectedAt());
         return time == null || time.isBlank() ? "—" : time;
     }
 

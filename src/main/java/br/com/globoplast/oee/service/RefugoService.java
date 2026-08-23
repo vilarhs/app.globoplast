@@ -46,7 +46,7 @@ public class RefugoService {
 
         LocalDate rawEnd = end.plusDays(1);
         List<RawScrap> rawRows = new ArrayList<>();
-        String sql = "SELECT erp_id,data_apon,ordem,qtd_planej,maquina,produto,descricao,cliente,turno,operador,qtd_refugo,motivo,peso_br,qtd_itens,sincronizado_em " +
+        String sql = "SELECT erp_id,data_apon,ordem,qtd_planej,maquina,produto,descricao,cliente,turno,operador,qtd_refugo,motivo,peso_br,qtd_itens,COALESCE(primeiro_sincronizado_em,sincronizado_em) primeiro_sincronizado_em " +
                 "FROM erp_refugo_raw WHERE data_apon BETWEEN ? AND ? ORDER BY erp_id DESC";
 
         try (Connection c = db.open(); PreparedStatement p = c.prepareStatement(sql)) {
@@ -139,19 +139,19 @@ public class RefugoService {
         return new RawScrap(
                 erpId, rawDate, order, plannedUnits, machine, product, description, client,
                 shift, operator, scrapKg, motive, unitWeightG, itemCount, sector,
-                informed(Norm.text(r.getString("sincronizado_em")))
+                informed(Norm.text(r.getString("primeiro_sincronizado_em")))
         );
     }
 
     private void emit(List<RefugoRecord> out, RawScrap row, String shift, double kg, double items,
                       LocalDate start, LocalDate end) {
-        LocalDate productive = Norm.productiveDate(row.rawDate(), shift);
+        LocalDate productive = Norm.productiveScrapDate(row.rawDate(), shift, row.firstDetectedAt());
         if (productive == null || productive.isBefore(start) || productive.isAfter(end)) return;
         String analysisId = row.erpId() + "¦" + shift;
         out.add(new RefugoRecord(
                 row.erpId(), analysisId, productive, row.rawDate(), row.orderNumber(), row.plannedQty(),
                 row.machine(), row.product(), row.description(), row.client(), shift, row.operator(),
-                kg, row.motive(), row.unitWeightG(), items, row.sector(), row.synchronizedAt()
+                kg, row.motive(), row.unitWeightG(), items, row.sector(), row.firstDetectedAt()
         ));
     }
 
@@ -268,14 +268,14 @@ public class RefugoService {
     private static RawScrap withSector(RawScrap row, String sector) {
         return new RawScrap(row.erpId(), row.rawDate(), row.orderNumber(), row.plannedQty(), row.machine(),
                 row.product(), row.description(), row.client(), row.shift(), row.operator(), row.scrapKg(),
-                row.motive(), row.unitWeightG(), row.itemCount(), sector, row.synchronizedAt());
+                row.motive(), row.unitWeightG(), row.itemCount(), sector, row.firstDetectedAt());
     }
 
     private static RefugoRecord withSector(RefugoRecord row, String sector) {
         return new RefugoRecord(row.erpId(), row.analysisId(), row.productiveDate(), row.rawDate(),
                 row.orderNumber(), row.plannedQty(), row.machine(), row.product(), row.description(),
                 row.client(), row.shift(), row.operator(), row.scrapKg(), row.motive(), row.unitWeightG(),
-                row.itemCount(), sector, row.synchronizedAt());
+                row.itemCount(), sector, row.firstDetectedAt());
     }
 
     public List<RefugoRecord> filter(List<RefugoRecord> src, String search, Set<String> sectors,
@@ -339,6 +339,6 @@ public class RefugoService {
             long erpId, LocalDate rawDate, String orderNumber, double plannedQty, String machine,
             String product, String description, String client, String shift, String operator,
             double scrapKg, String motive, double unitWeightG, double itemCount, String sector,
-            String synchronizedAt
+            String firstDetectedAt
     ) {}
 }

@@ -1,0 +1,11 @@
+[Unit]
+Description=Agenda diária do backup Globoplast
+
+[Timer]
+OnCalendar=*-*-* 03:15:00 America/Sao_Paulo
+Persistent=true
+AccuracySec=1min
+Unit=globoplast-backup.service
+
+[Install]
+WantedBy=timers.target

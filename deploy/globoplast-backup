@@ -1,0 +1,188 @@
+#!/usr/bin/env python3
+"""Cria backup consistente, compactado e validado do SQLite do Globoplast."""
+
+from __future__ import annotations
+
+import argparse
+import fcntl
+import gzip
+import hashlib
+import os
+import shutil
+import sqlite3
+import sys
+import tempfile
+import time
+from datetime import datetime
+from pathlib import Path
+from urllib.parse import quote
+from zoneinfo import ZoneInfo
+
+DEFAULT_DATABASE = Path("/var/lib/globoplast/database.db")
+DEFAULT_DESTINATION = Path("/var/backups/globoplast")
+DEFAULT_RETENTION_DAYS = 30
+TIMEZONE = ZoneInfo("America/Sao_Paulo")
+
+
+def log(message: str) -> None:
+    print(f"{datetime.now(TIMEZONE):%Y-%m-%d %H:%M:%S %Z} | {message}", flush=True)
+
+
+def sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def validate_database(path: Path) -> tuple[int, int]:
+    uri = f"file:{quote(str(path))}?mode=ro"
+    with sqlite3.connect(uri, uri=True, timeout=60) as connection:
+        rows = [row[0] for row in connection.execute("PRAGMA integrity_check")]
+        if rows != ["ok"]:
+            raise RuntimeError("integrity_check falhou: " + "; ".join(map(str, rows[:10])))
+        page_count = int(connection.execute("PRAGMA page_count").fetchone()[0])
+        page_size = int(connection.execute("PRAGMA page_size").fetchone()[0])
+        return page_count, page_size
+
+
+def create_consistent_copy(source: Path, destination: Path) -> None:
+    uri = f"file:{quote(str(source))}?mode=ro"
+    with sqlite3.connect(uri, uri=True, timeout=60) as source_connection:
+        source_connection.execute("PRAGMA busy_timeout=60000")
+        with sqlite3.connect(destination, timeout=60) as destination_connection:
+            source_connection.backup(destination_connection, pages=4096, sleep=0.05)
+            destination_connection.commit()
+
+
+def remove_sqlite_sidecars(path: Path) -> None:
+    for suffix in ("", "-wal", "-shm", "-journal"):
+        path.with_name(path.name + suffix).unlink(missing_ok=True)
+
+
+def compress(source: Path, destination: Path) -> None:
+    with source.open("rb") as input_stream, destination.open("wb") as raw_output:
+        with gzip.GzipFile(
+            fileobj=raw_output,
+            mode="wb",
+            filename="database.db",
+            compresslevel=6,
+        ) as output_stream:
+            shutil.copyfileobj(input_stream, output_stream, length=1024 * 1024)
+        raw_output.flush()
+        os.fsync(raw_output.fileno())
+
+
+def atomic_text(path: Path, content: str) -> None:
+    descriptor, name = tempfile.mkstemp(
+        prefix=f".{path.name}.", suffix=".partial", dir=path.parent
+    )
+    temporary = Path(name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+            stream.write(content)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.chmod(temporary, 0o600)
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def prune(destination: Path, retention_days: int) -> int:
+    cutoff = time.time() - retention_days * 86400
+    archives = sorted(
+        destination.glob("database-*.db.gz"),
+        key=lambda item: item.stat().st_mtime,
+        reverse=True,
+    )
+    removed = 0
+    for archive in archives[3:]:
+        if archive.stat().st_mtime >= cutoff:
+            continue
+        archive.unlink()
+        archive.with_name(archive.name + ".sha256").unlink(missing_ok=True)
+        removed += 1
+    return removed
+
+
+def backup(database: Path, destination: Path, retention_days: int) -> Path:
+    if retention_days < 1:
+        raise ValueError("A retenção deve ser de pelo menos um dia.")
+    if not database.is_file() or database.is_symlink():
+        raise FileNotFoundError(f"Banco SQLite inválido ou ausente: {database}")
+
+    destination.mkdir(parents=True, exist_ok=True, mode=0o750)
+    if destination.is_symlink():
+        raise RuntimeError(f"O diretório de backup não pode ser um link: {destination}")
+
+    lock_path = destination / ".backup.lock"
+    with lock_path.open("a+b") as lock:
+        try:
+            fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as exc:
+            raise RuntimeError("Já existe outro backup do Globoplast em execução.") from exc
+
+        wal = database.with_name(database.name + "-wal")
+        required = max(
+            100 * 1024 * 1024,
+            (database.stat().st_size + (wal.stat().st_size if wal.is_file() else 0)) * 3,
+        )
+        free = shutil.disk_usage(destination).free
+        if free < required:
+            raise RuntimeError(
+                f"Espaço insuficiente: {free / 1024**2:.1f} MiB livres; "
+                f"mínimo seguro {required / 1024**2:.1f} MiB."
+            )
+
+        timestamp = datetime.now(TIMEZONE).strftime("%Y%m%d-%H%M%S")
+        final_archive = destination / f"database-{timestamp}.db.gz"
+        final_checksum = final_archive.with_name(final_archive.name + ".sha256")
+        raw_fd, raw_name = tempfile.mkstemp(
+            prefix=f".{timestamp}.", suffix=".db.partial", dir=destination
+        )
+        os.close(raw_fd)
+        archive_fd, archive_name = tempfile.mkstemp(
+            prefix=f".{timestamp}.", suffix=".db.gz.partial", dir=destination
+        )
+        os.close(archive_fd)
+        temporary_database = Path(raw_name)
+        temporary_archive = Path(archive_name)
+
+        try:
+            log(f"INÍCIO | origem={database} | destino={destination}")
+            create_consistent_copy(database, temporary_database)
+            page_count, page_size = validate_database(temporary_database)
+            compress(temporary_database, temporary_archive)
+            digest = sha256(temporary_archive)
+            os.chmod(temporary_archive, 0o600)
+            os.replace(temporary_archive, final_archive)
+            atomic_text(final_checksum, f"{digest}  {final_archive.name}\n")
+            removed = prune(destination, retention_days)
+            log(
+                f"OK | arquivo={final_archive.name} | sha256={digest} | "
+                f"paginas={page_count} | bytes_por_pagina={page_size} | removidos={removed}"
+            )
+            return final_archive
+        finally:
+            remove_sqlite_sidecars(temporary_database)
+            temporary_archive.unlink(missing_ok=True)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Backup consistente do SQLite do Globoplast")
+    parser.add_argument("--database", type=Path, default=DEFAULT_DATABASE)
+    parser.add_argument("--destination", type=Path, default=DEFAULT_DESTINATION)
+    parser.add_argument("--retention-days", type=int, default=DEFAULT_RETENTION_DAYS)
+    args = parser.parse_args()
+    try:
+        backup(args.database, args.destination, args.retention_days)
+        return 0
+    except Exception as exc:
+        log(f"ERRO | {exc}")
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -35,16 +35,70 @@ echo '=== MAVEN ==='
 mvn -version
 
 echo
+echo '=== V108 IDENTIDADE GLOBOPLAST CONSOLIDADA ==='
+must "$CONFIG" 'VERSION = "0.0.108"' 'versão interna incorreta'
+must pom.xml '<artifactId>globoplast</artifactId>' 'artifactId ainda usa o nome antigo'
+must pom.xml '<version>0.0.108</version>' 'versão Maven incorreta'
+must src/main/resources/application.properties 'spring.application.name=globoplast' 'nome Spring não foi padronizado'
+must "$SYNC" '"servico","globoplast"' 'health ainda anuncia o nome antigo'
+must_not "$SYNC" '"servico","globoplast-java"' 'health ainda contém globoplast-java'
+must deploy/deploy-vps.sh 'br.com.globoplast/globoplast/pom.properties' 'deploy procura coordenadas Maven antigas'
+echo OK
+
+echo
+echo '=== V107 PADRONIZACAO VPS / DEPLOY AUTOMATIZADO ==='
+must "$CONFIG" 'VERSION = "0.0.108"' 'versão interna incorreta'
+must pom.xml '<version>0.0.108</version>' 'versão Maven incorreta'
+must pom.xml '<finalName>globoplast</finalName>' 'nome final do JAR não foi padronizado'
+must "$CONFIG" 'configured = "/var/lib/globoplast/database.db"' 'caminho padrão do banco não foi padronizado'
+must deploy/globoplast.service 'WorkingDirectory=/opt/globoplast' 'serviço ainda usa diretório antigo'
+must deploy/globoplast.service 'EnvironmentFile=-/etc/globoplast.env' 'serviço ainda usa arquivo de ambiente antigo'
+must deploy/globoplast.service '/opt/globoplast/globoplast.jar' 'serviço não usa o JAR padronizado'
+must deploy/deploy-vps.sh 'health check falhou; iniciando rollback' 'deploy sem rollback automático'
+must deploy/deploy-vps.sh 'NR > 4' 'deploy não limita releases antigas'
+must deploy/globoplast-backup 'remove_sqlite_sidecars' 'backup não limpa sidecars temporários'
+test -f deploy/globoplast-backup-check || { echo 'ERRO: verificador de backup ausente'; exit 1; }
+test -f deploy/globoplast-backup-drive || { echo 'ERRO: cópia para Drive ausente'; exit 1; }
+bash -n deploy/deploy-vps.sh
+bash -n deploy/padronizar-vps.sh
+bash -n deploy/globoplast-backup-drive
+echo OK
+
+echo
+echo '=== V106 CORTE DAS 06H / PRIMEIRA DETECCAO DO REFUGO ==='
+must "$CONFIG" 'VERSION = "0.0.108"' 'versão interna incorreta'
+must pom.xml '<version>0.0.108</version>' 'versão Maven incorreta'
+must "$DATABASE" 'primeiro_sincronizado_em TEXT NOT NULL' 'primeira detecção não faz parte da tabela nova de Refugo'
+must "$DATABASE" 'ADD COLUMN primeiro_sincronizado_em TEXT' 'migração da primeira detecção ausente'
+must "$DATABASE" 'SET primeiro_sincronizado_em=sincronizado_em' 'histórico não recebe a primeira detecção conhecida'
+must "$SYNCSERVICE" 'payload_hash,primeiro_sincronizado_em,sincronizado_em' 'sincronização não grava os dois instantes do Refugo'
+must "$NORM" 'productiveScrapDate' 'regra produtiva específica do Refugo ausente'
+must "$NORM" 'detected.getHour() < 6' 'corte das 06h não é aplicado à primeira detecção'
+must "$REFUGO" 'Norm.productiveScrapDate(row.rawDate(), shift, row.firstDetectedAt())' 'página de Refugo não usa o corte produtivo preciso'
+must "$LAUNCH" 'Norm.productiveScrapDate(r.date,r.shift,r.sync)' 'OEE não usa o mesmo corte produtivo do Refugo'
+must "$MAIN" 'record.firstDetectedAt()' 'hora exibida não usa a primeira detecção'
+echo OK
+
+echo
+echo '=== V105 ENVIO DIRETO PELO SUBMENU DO GRAFICO ==='
+must "$CONFIG" 'VERSION = "0.0.108"' 'versão interna incorreta'
+must pom.xml '<version>0.0.108</version>' 'versão Maven incorreta'
+must "$MAIN" 'transfer.getSubMenu().addItem' 'submenu de setores ausente no menu do gráfico'
+must "$MAIN" 'transferSelectedScrapToSector' 'envio direto pelo submenu ausente'
+must_not "$MAIN" 'showScrapSectorTransfer' 'modal antigo de envio ainda está presente'
+echo OK
+
+echo
 echo '=== V104 CURSOR MAO NO V. DO RODAPE ==='
-must "$CONFIG" 'VERSION = "0.0.104"' 'versão interna incorreta'
-must pom.xml '<version>0.0.104</version>' 'versão Maven incorreta'
+must "$CONFIG" 'VERSION = "0.0.108"' 'versão interna incorreta'
+must pom.xml '<version>0.0.108</version>' 'versão Maven incorreta'
 must "$CSS" 'cursor:pointer!important' 'cursor de mão ausente no v. do rodapé'
 echo OK
 
 echo
 echo '=== V103 RODAPE SOMENTE V / TOOLTIP DA VERSAO / ESPACO -25PX ==='
-must "$CONFIG" 'VERSION = "0.0.104"' 'versão interna incorreta'
-must pom.xml '<version>0.0.104</version>' 'versão Maven incorreta'
+must "$CONFIG" 'VERSION = "0.0.108"' 'versão interna incorreta'
+must pom.xml '<version>0.0.108</version>' 'versão Maven incorreta'
 must "$MAIN" 'Span signature = new Span("v.");' 'assinatura v. ausente no rodapé'
 must "$MAIN" 'String versionText = "globoplast.app " + AppConfig.VERSION;' 'texto dinâmico da versão ausente no tooltip do rodapé'
 must "$MAIN" 'Tooltip.forComponent(signature).withText(versionText).withPosition(Tooltip.TooltipPosition.TOP);' 'tooltip da versão ausente no v. do rodapé'
@@ -55,8 +109,8 @@ echo OK
 
 echo
 echo '=== V102 LIXEIRA DE LANCAMENTOS / 30 DIAS ==='
-must "$CONFIG" 'VERSION = "0.0.104"' 'versão interna incorreta'
-must pom.xml '<version>0.0.104</version>' 'versão Maven incorreta'
+must "$CONFIG" 'VERSION = "0.0.108"' 'versão interna incorreta'
+must pom.xml '<version>0.0.108</version>' 'versão Maven incorreta'
 must "$DATABASE" 'CREATE TABLE IF NOT EXISTS lancamentos_lixeira' 'tabela da lixeira de Lançamentos ausente'
 must "$DATABASE" 'idx_lancamentos_lixeira_expira' 'índice de expiração da lixeira ausente'
 must "$LAUNCH" 'putInTrash(c,"MANUAL"' 'exclusão manual não envia para a lixeira'
@@ -72,8 +126,8 @@ echo OK
 
 echo
 echo '=== V101 MULTISSELECAO NO RESUMO DIA ==='
-must "$CONFIG" 'VERSION = "0.0.104"' 'versão interna incorreta'
-must pom.xml '<version>0.0.104</version>' 'versão Maven incorreta'
+must "$CONFIG" 'VERSION = "0.0.108"' 'versão interna incorreta'
+must pom.xml '<version>0.0.108</version>' 'versão Maven incorreta'
 must "$MAIN" 'private final Set<String> summaryDaySectors = new LinkedHashSet<>();' 'estado multisseleção de Setor ausente no Resumo Dia'
 must "$MAIN" 'private final Set<String> summaryDayMachines = new LinkedHashSet<>();' 'estado multisseleção de Máquina ausente no Resumo Dia'
 must "$MAIN" 'private final Set<String> summaryDayShifts = new LinkedHashSet<>();' 'estado multisseleção de Turno ausente no Resumo Dia'
@@ -87,24 +141,24 @@ echo OK
 
 echo
 echo '=== V100 TITULO VISUALIZAR SEM CODIGO DO PRODUTO ==='
-must "$CONFIG" 'VERSION = "0.0.104"' 'versão interna incorreta'
-must pom.xml '<version>0.0.104</version>' 'versão Maven incorreta'
+must "$CONFIG" 'VERSION = "0.0.108"' 'versão interna incorreta'
+must pom.xml '<version>0.0.108</version>' 'versão Maven incorreta'
 must "$MAIN" 'Dialog dialog = launchDialog(t("Visualizar lançamento"));' 'título de Visualizar lançamento sem código ausente'
 must_not "$MAIN" 't("Visualizar lançamento") + " · " + product' 'Código do Produto ainda aparece após Visualizar lançamento / View entry'
 echo OK
 
 echo
 echo '=== V099 PREFLIGHT CORRIGIDO / V098 COLUNA CODIGO COMPACTA ==='
-must "$CONFIG" 'VERSION = "0.0.104"' 'versão interna incorreta'
-must pom.xml '<version>0.0.104</version>' 'versão Maven incorreta'
+must "$CONFIG" 'VERSION = "0.0.108"' 'versão interna incorreta'
+must pom.xml '<version>0.0.108</version>' 'versão Maven incorreta'
 must "$MAIN" 'String compact = code.isBlank() ? full : code + (full.equals(code) ? "" : "...");' 'abreviação Código... ausente na coluna de Lançamentos'
 must "$MAIN" '.withText(full)' 'tooltip completo Código · Cliente · Descrição ausente'
 echo OK
 
 echo
 echo '=== V097 BASE V096 / COMPILACAO COLLECTION / VERSAO ==='
-must "$CONFIG" 'VERSION = "0.0.104"' 'versão interna incorreta'
-must pom.xml '<version>0.0.104</version>' 'versão Maven incorreta'
+must "$CONFIG" 'VERSION = "0.0.108"' 'versão interna incorreta'
+must pom.xml '<version>0.0.108</version>' 'versão Maven incorreta'
 must "$MAIN" 'import java.util.Collection;' 'import java.util.Collection ausente no MainView'
 test -f PARIDADE_APPV723.md || { echo 'ERRO: matriz de paridade ausente'; exit 1; }
 echo OK
@@ -582,7 +636,9 @@ echo '=== V064 REFUGO / BOTAO DIREITO / DROPDOWNS / TROCA DE SETOR ==='
 must "$MAIN" '__gpScrapScrollV065' 'preservação atual da posição da página ao trocar abas ausente'
 must "$MAIN" 'gp-refugo-sector-chart-v064' 'classe exclusiva do título Análise por Setor ausente'
 must "$MAIN" 'Enviar para outro setor' 'ação de troca de setor ausente no menu do gráfico'
-must "$MAIN" 'showScrapSectorTransfer' 'modal de seleção do setor de destino ausente'
+must "$MAIN" 'transfer.getSubMenu().addItem' 'submenu de seleção do setor de destino ausente'
+must "$MAIN" 'transferSelectedScrapToSector' 'envio direto para o setor selecionado ausente'
+must_not "$MAIN" 'showScrapSectorTransfer' 'modal antigo de seleção do setor de destino ainda está presente'
 must_not "$MAIN" '__gpDoubleContextV060' 'evento sintético de duplo clique ainda está ativo'
 must "$CHART" 'addEventListener("contextmenu"' 'barra não comunica o botão direito ao servidor'
 must_not "$CHART" 'addEventListener("dblclick"' 'duplo clique ainda abre o menu do gráfico'
@@ -652,7 +708,7 @@ echo '=== V069 POSICAO / RECUO 65PX / TRANSFERENCIA FILTRADA ==='
 must "$MAIN" 'gp-refugo-page-v069' 'classe de geometria v069 ausente'
 must "$MAIN" 'gp-refugo-sector-chart-v069' 'classe específica v069 do título Setor ausente'
 must "$MAIN" 'List<RefugoRecord> selectedRows = currentScrapRows().stream()' 'transferência não recalcula as linhas do filtro ativo'
-must "$MAIN" 'map(RefugoRecord::analysisId).distinct().count()' 'contagem da transferência não usa linhas analíticas'
+must "$MAIN" 'scraps.reassignSector(selectedRows, destinationSector, user)' 'submenu não envia diretamente as linhas analíticas selecionadas'
 must "$REFUGO" 'Map<String, Long> ids = new LinkedHashMap<>()' 'transferência ainda agrupa somente pelo ERP bruto'
 must "$REFUGO" 'loadAnalysisSectorOverrides()' 'override analítico não é carregado'
 must "$REFUGO" 'erp_refugo_analysis_setor_overrides' 'persistência por analysis_id ausente'
@@ -721,7 +777,7 @@ echo OK
 
 echo
 echo '=== V076 EXCLUSOES DO REFUGO SINCRONIZADAS ==='
-must "$CONFIG" 'VERSION = "0.0.104"' 'base funcional v076 não está integrada à versão atual'
+must "$CONFIG" 'VERSION = "0.0.108"' 'base funcional v076 não está integrada à versão atual'
 must "$SYNCSERVICE" 'reconcileRefugoSnapshot' 'reconciliação autoritativa do Refugo ausente'
 must "$SYNCSERVICE" 'ChronoUnit.DAYS.between(start,end)>30' 'limite seguro de 31 dias ausente'
 must "$SYNCSERVICE" 'DELETE FROM erp_refugo_raw WHERE erp_id=?' 'registro bruto excluído no ERP não é removido'
@@ -847,7 +903,7 @@ echo '=== V085 ABAS REFUGO / HORA REAL DA CARGA ==='
 must "$MAIN" 'grid.addColumn(MainView::scrapLoadTime).setHeader(t("Hora")).setAutoWidth(true);' 'Lançamentos recentes não usam a hora comum de carga'
 must "$MAIN" 'grid.addColumn(MainView::scrapLoadTime).setHeader(t("Hora"));' 'Ver lançamentos não usa a hora comum de carga'
 must "$MAIN" 'private static String scrapLoadTime(RefugoRecord record)' 'conversão comum da hora de carga ausente'
-must "$MAIN" 'Norm.syncTime(record == null ? null : record.synchronizedAt())' 'hora não vem de sincronizado_em'
+must "$MAIN" 'Norm.syncTime(record == null ? null : record.firstDetectedAt())' 'hora não vem da primeira detecção'
 must_not "$MAIN" 'setHeader(t("Hora aprox."))' 'Ver lançamentos ainda mostra hora aproximada'
 echo OK
 
@@ -954,8 +1010,8 @@ mvn clean package -DskipTests
 
 echo
 echo '=== JAR ==='
-test -f target/globoplast-java.jar
-ls -lh target/globoplast-java.jar
+test -f target/globoplast.jar
+ls -lh target/globoplast.jar
 
 echo
 echo 'PRE-FLIGHT OK'

@@ -20,5 +20,5 @@ public record RefugoRecord(
         double unitWeightG,
         double itemCount,
         String sector,
-        String synchronizedAt
+        String firstDetectedAt
 ) {}

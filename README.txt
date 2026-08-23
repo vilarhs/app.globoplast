@@ -1,13 +1,33 @@
-GLOBOPLAST JAVA v102
+GLOBOPLAST v108
 
-VERSÃO ATUAL: 0.0.104
+VERSÃO ATUAL: 0.0.108
+
+V108
+- Nome Maven, nome Spring e identificação dos endpoints de saúde passam de `globoplast-java` para `globoplast`.
+- O deploy automatizado é validado sobre a estrutura padronizada da VPS.
+
+V107
+- A instalação da VPS passa a usar somente os nomes `globoplast`: serviço, diretórios, configuração e rotinas de backup.
+- O servidor mantém apenas o JAR executável e até quatro releases para rollback; fontes e artefatos intermediários ficam no GitHub/local.
+- `deploy/deploy-vps.sh` automatiza build, upload, troca atômica, health check, rollback e retenção de releases.
+- Backups SQLite deixam de acumular arquivos laterais temporários e continuam com validação de integridade e checksum.
+
+V106
+- Refugos A/B detectados antes das 06h, na mesma data informada pelo ERP, passam ao dia produtivo anterior.
+- Turno C preserva a regra histórica de pertencer ao dia anterior, inclusive quando a sincronização termina depois das 06h.
+- A hora exibida passa a ser a primeira detecção do registro e não muda se o payload for atualizado posteriormente.
+- O mesmo corte produtivo é aplicado ao Refugo da página, aos lançamentos automáticos e ao cálculo do OEE.
+
+V105
+- No menu do gráfico de Refugo, “Enviar para outro setor” abre os setores em submenu, como idioma e tema.
+- A transferência é executada diretamente ao escolher o setor, sem abrir modal.
 
 V104
 - Cursor de mão ao passar sobre “v.” no rodapé.
 
 V103
-- Rodapé: oculta “globoplast.app 0.0.104” e mantém visível somente “v.”.
-- Hover sobre “v.” mostra “globoplast.app 0.0.104”, usando AppConfig.VERSION.
+- Rodapé: oculta a versão completa e mantém visível somente “v.”.
+- Hover sobre “v.” mostra a versão atual, usando AppConfig.VERSION.
 - Espaço entre “Mostrar mais” e “v.” reduzido em mais 25 px.
 V102: Lixeira de Lançamentos no filtro, restauração por 30 dias e exclusão definitiva automática após o prazo.
 V101: Resumo Dia permite multisseleção de Setor, Máquina e Turno, mantendo os demais comportamentos da v100.
@@ -68,7 +88,7 @@ V093 - LANÇAMENTO MAIS RECENTE OU ATUALIZADO NO TOPO
 V092 - RÓTULO INGLÊS E ESPAÇAMENTO DO RODAPÉ
 - Em inglês, “Search and Entries” passa a ser exibido somente como “Entries”.
 - As informações do rodapé descem mais 3 px, passando de 10 px para 13 px de deslocamento total.
-- O rodapé exibe somente “v.”; ao passar o mouse, mostra “globoplast.app 0.0.104”. O espaço entre “Mostrar mais” e “v.” foi reduzido em mais 25 px (38 px de redução total em relação à base original).
+- O rodapé exibe somente “v.”; ao passar o mouse, mostra a versão atual. O espaço entre “Mostrar mais” e “v.” foi reduzido em mais 25 px (38 px de redução total em relação à base original).
 - Nenhuma regra de OEE, Refugo, produção, sincronização, filtro, calendário, login, tooltip ou backup foi alterada.
 
 V091 - REFUGO REDUZ EFETIVAMENTE O OEE
@@ -396,14 +416,14 @@ EXTENSÕES DELIBERADAS PEDIDAS APÓS A V723
 
 SEGURANÇA
 - Firebird/DealerSystem: SOMENTE LEITURA pelo sincronizador externo.
-- Banco Java: /var/lib/globoplast-java/database.db.
+- Banco: /var/lib/globoplast/database.db.
 - Produção Streamlit/globoplast.app não é alterada durante a migração.
 
 BUILD
 bash deploy/preflight.sh
 
 Após BUILD SUCCESS / PRE-FLIGHT OK:
-target/globoplast-java.jar
+target/globoplast.jar
 
 V030 — OEE / EDIÇÃO ERP / LAYOUT
 - Edição de linha ERP preserva máquina, capacidade e setor mesmo sem cadastro local atual.

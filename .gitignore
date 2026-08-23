@@ -4,6 +4,7 @@ target/
 
 # Vaadin frontend gerado
 node_modules/
+/src/main/frontend/
 frontend/generated/
 frontend/index.html
 frontend/generated
@@ -23,7 +24,9 @@ vite.generated.ts
 # Segredos / configuração de ambiente local
 .env
 *.env
-/etc/globoplast-java.env
+*.key
+*.pem
+/etc/globoplast.env
 
 # IDE
 .idea/

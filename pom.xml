@@ -12,8 +12,8 @@
     </parent>
 
     <groupId>br.com.globoplast</groupId>
-    <artifactId>globoplast-java</artifactId>
-    <version>0.0.104</version>
+    <artifactId>globoplast</artifactId>
+    <version>0.0.108</version>
     <name>Globoplast OEE Java</name>
 
     <properties>
@@ -55,7 +55,7 @@
     </dependencies>
 
     <build>
-        <finalName>globoplast-java</finalName>
+        <finalName>globoplast</finalName>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>

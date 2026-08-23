@@ -690,3 +690,26 @@ Backend e regras funcionais permanecem iguais à v034/v032.
 - Um recorte com dados de mais de um mês habilita o comparativo mensal; com dados de mais de um ano habilita também o comparativo anual, preservando a regra do original.
 - Se o usuário reduzir o período enquanto estiver em um comparativo que deixou de ser aplicável, a tela retorna com segurança para Setor.
 - A tabela Ver lançamentos do menu do gráfico passa a mostrar o operador na coluna Lançado por.
+
+## v105 — envio direto pelo menu do gráfico
+
+- “Enviar para outro setor” passa a abrir um submenu com os setores cadastrados, no mesmo padrão dos submenus de idioma e tema.
+- A escolha do setor executa a transferência imediatamente, sem abrir modal, preservando os filtros ativos e a seleção do gráfico.
+
+## v106 — corte produtivo e primeira detecção do Refugo
+
+- Registros A/B cuja primeira detecção ocorre antes das 06h na própria `DATA_APON` são classificados no dia produtivo anterior.
+- O Turno C continua sempre associado ao dia anterior, preservando a regra operacional existente.
+- `primeiro_sincronizado_em` registra a primeira detecção de cada ID e permanece imutável em atualizações posteriores.
+- Página de Refugo, associação aos lançamentos e OEE passam a compartilhar exatamente a mesma data produtiva.
+
+## v107 — padronização operacional e deploy automatizado
+
+- Serviço, diretórios de aplicação, banco, backups e arquivo de ambiente passam a usar somente o nome `globoplast`.
+- A VPS conserva apenas releases executáveis; código-fonte, classes intermediárias e histórico ficam no repositório Git.
+- O deploy automatizado valida a versão do JAR, troca o release atomicamente, executa health check e restaura o anterior em caso de falha.
+
+## v108 — identidade Globoplast consolidada
+
+- Coordenadas Maven, nome Spring e identificação dos endpoints de saúde passam a usar `globoplast`.
+- O script de deploy é exercitado na estrutura final da VPS e mantém as quatro releases mais recentes para rollback.

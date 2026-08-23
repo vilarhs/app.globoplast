@@ -74,6 +74,31 @@ public final class Norm {
         return "C".equalsIgnoreCase(text(shift)) ? rawDate.minusDays(1) : rawDate;
     }
 
+    /**
+     * Refugo não traz hora de lançamento no payload do ERP. Para A/B, usa a
+     * primeira detecção somente quando ela pertence à própria DATA_APON; antes
+     * das 06h o registro ainda pertence ao dia produtivo anterior. O Turno C
+     * conserva a regra operacional histórica e sempre retrocede um dia.
+     */
+    public static LocalDate productiveScrapDate(LocalDate rawDate, String shift, Object firstDetectedAt) {
+        LocalDate legacy = productiveDate(rawDate, shift);
+        if (rawDate == null || "C".equalsIgnoreCase(text(shift))) return legacy;
+
+        String value = text(firstDetectedAt);
+        if (value.isBlank()) return legacy;
+        try {
+            ZonedDateTime detected = ZonedDateTime.parse(value).withZoneSameInstant(AppConfig.ZONE);
+            if (detected.toLocalDate().equals(rawDate) && detected.getHour() < 6) return rawDate.minusDays(1);
+        } catch (Exception ignored) {
+            try {
+                OffsetDateTime detected = OffsetDateTime.parse(value);
+                ZonedDateTime local = detected.atZoneSameInstant(AppConfig.ZONE);
+                if (local.toLocalDate().equals(rawDate) && local.getHour() < 6) return rawDate.minusDays(1);
+            } catch (Exception ignoredAgain) { }
+        }
+        return legacy;
+    }
+
     public static LocalDate productiveToday() {
         ZonedDateTime now = ZonedDateTime.now(AppConfig.ZONE);
         if (now.getHour() < 6) now = now.minusDays(1);

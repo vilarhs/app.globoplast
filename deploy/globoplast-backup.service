@@ -1,0 +1,26 @@
+[Unit]
+Description=Backup consistente do banco Globoplast
+After=local-fs.target
+ConditionPathExists=/var/lib/globoplast/database.db
+
+[Service]
+Type=oneshot
+User=ubuntu
+Group=ubuntu
+UMask=0077
+Environment=TZ=America/Sao_Paulo
+ExecStart=/usr/local/sbin/globoplast-backup --database /var/lib/globoplast/database.db --destination /var/backups/globoplast --retention-days 30
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

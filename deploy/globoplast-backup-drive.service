@@ -1,0 +1,28 @@
+[Unit]
+Description=Segunda cópia dos backups Globoplast no Google Drive
+Wants=network-online.target
+After=network-online.target globoplast-backup.service
+ConditionPathExists=/home/ubuntu/.config/rclone/rclone.conf
+
+[Service]
+Type=oneshot
+User=ubuntu
+Group=ubuntu
+UMask=0077
+Environment=HOME=/home/ubuntu
+Environment=TZ=America/Sao_Paulo
+ExecStart=/usr/local/sbin/globoplast-backup-drive
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=false
+ProtectSystem=full
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

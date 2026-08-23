@@ -1,0 +1,11 @@
+[Unit]
+Description=Agenda diária da segunda cópia Globoplast no Google Drive
+
+[Timer]
+OnCalendar=*-*-* 03:45:00 America/Sao_Paulo
+Persistent=true
+AccuracySec=1min
+Unit=globoplast-backup-drive.service
+
+[Install]
+WantedBy=timers.target
