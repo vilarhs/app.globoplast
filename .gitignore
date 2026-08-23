@@ -42,3 +42,6 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Grafo local do código (regenerável pelo Graphify)
+graphify-out/
