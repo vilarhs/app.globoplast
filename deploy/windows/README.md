@@ -25,6 +25,16 @@ py -u globoplast_sync_refugo_online.py --executar
 
 Antes de substituir o script instalado, faça uma cópia do arquivo atual. A configuração existente não deve ser incluída no Git.
 
+## Identificar o estoque do ERP
+
+`diagnosticar_estoque_erp.py` consulta somente os metadados do Firebird e lista
+tabelas/colunas candidatas a estoque. Ele não exibe credenciais nem altera a
+base. Copie-o para o Windows e execute:
+
+```text
+py diagnosticar_estoque_erp.py > estrutura-estoque-erp.txt
+```
+
 ## Restaurar o intervalo de 2 minutos
 
 No servidor do DealerSystem, abra o PowerShell como Administrador e execute:
