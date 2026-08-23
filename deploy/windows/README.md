@@ -8,6 +8,7 @@
 - A auditoria histórica começa em 01/01/2025 e reconcilia exclusões do ERP.
 - Arquivos operacionais ficam em `C:\ProgramData\GloboplastSync`.
 - A tarefa agendada esperada é `Globoplast Refugo Online`.
+- Produção e Refugo devem sincronizar a cada 2 minutos.
 - O log fica em `C:\ProgramData\GloboplastSync\refugo_online.log`.
 
 Para configurar uma instalação nova, copie o script para a pasta operacional e execute em um Prompt de Comando como Administrador:
@@ -23,3 +24,13 @@ py -u globoplast_sync_refugo_online.py --executar
 ```
 
 Antes de substituir o script instalado, faça uma cópia do arquivo atual. A configuração existente não deve ser incluída no Git.
+
+## Restaurar o intervalo de 2 minutos
+
+No servidor do DealerSystem, abra o PowerShell como Administrador e execute:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\ajustar-intervalo-erp-2min.ps1
+```
+
+O utilitário identifica somente as tarefas Globoplast atuais, ativas e executadas com sucesso recentemente. Antes da alteração, salva o XML original em `C:\ProgramData\GloboplastSync\task-backups` e valida que o intervalo final ficou em `PT2M`.

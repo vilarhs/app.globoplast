@@ -46,6 +46,7 @@ required_files=(
   deploy/globoplast-backup-drive.service
   deploy/globoplast-backup-drive.timer
   deploy/nginx.conf
+  deploy/windows/ajustar-intervalo-erp-2min.ps1
   deploy/windows/globoplast_sync_refugo_online.py
   src/main/resources/META-INF/resources/favicon.ico
   src/main/resources/META-INF/resources/favicon.png
