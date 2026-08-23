@@ -262,7 +262,7 @@ public class MainView extends VerticalLayout {
             if(values!=null&&!values.isEmpty()) selected=values.get(values.size()-1);
         } catch(Exception ignored) { }
         if(selected==null||selected.isBlank()) selected=(String)VaadinSession.getCurrent().getAttribute("gp_tab");
-        if(selected==null||selected.isBlank()) selected="lancamentos";
+        if(selected==null||selected.isBlank()) selected=user.canSeeSummaries()?"dia":"lancamentos";
         selectTab(selected);
         lastSyncSignature = syncSignature();
         UI.getCurrent().setPollInterval(30000);
@@ -282,7 +282,7 @@ public class MainView extends VerticalLayout {
                     if ("lancamentos".equals(selectedTab)) {
                         refreshLaunchGrid();
                         refreshMenuSyncStatus();
-                    } else if ("producao".equals(selectedTab)) {
+                    } else if ("estoque".equals(selectedTab) || "producao".equals(selectedTab)) {
                         refreshOrderProduction();
                     } else if ("refugo".equals(selectedTab)) {
                         refreshScrap(scrapActiveDimension);
@@ -319,14 +319,11 @@ public class MainView extends VerticalLayout {
     private Div navigation() {
         tabKeys.clear();
         List<Tab> tabs = new ArrayList<>();
-        Tab launchesTab = tab("📋 " + t("Lançamentos") + " ▾", "lancamentos");
-        installLaunchesMenu(launchesTab);
-        tabs.add(launchesTab);
-        if (user.canSeeSummaries()) {
-            tabs.add(tab("📅 " + t("Resumo do Dia"), "dia"));
-            tabs.add(tab("📊 " + t("Resumo do Mês"), "mes"));
-        }
-        tabs.add(tab("♻️ " + t("Refugo"), "refugo"));
+        String productionDefault = user.canSeeSummaries() ? "dia" : "lancamentos";
+        Tab productionTab = tab("🏭 " + t("Produção") + " ▾", productionDefault);
+        installProductionMenu(productionTab);
+        tabs.add(productionTab);
+        tabs.add(tab("📦 " + t("Estoque"), "estoque"));
         mainTabs = new Tabs(tabs.toArray(Tab[]::new));
         mainTabs.addClassName("gp-main-tabs");
         mainTabs.setWidthFull();
@@ -356,30 +353,37 @@ public class MainView extends VerticalLayout {
         return tab;
     }
 
-    private void installLaunchesMenu(Tab launchesTab) {
+    private void installProductionMenu(Tab productionTab) {
         ContextMenu dropdown = new ContextMenu();
-        dropdown.setTarget(launchesTab);
+        dropdown.setTarget(productionTab);
         dropdown.setOpenOnClick(true);
-        dropdown.addItem(t("Lançamentos"), e -> openLaunchesSubPage("lancamentos"));
-        dropdown.addItem(t("Produção"), e -> openLaunchesSubPage("producao"));
+        dropdown.addItem(t("Lançamentos"), e -> openProductionSubPage("lancamentos"));
+        if (user.canSeeSummaries()) {
+            dropdown.addItem(t("Resumo do Dia"), e -> openProductionSubPage("dia"));
+            dropdown.addItem(t("Resumo do Mês"), e -> openProductionSubPage("mes"));
+        }
+        dropdown.addItem(t("Refugo"), e -> openProductionSubPage("refugo"));
         if (user != null && user.canModifyLaunches()) {
             dropdown.addItem(t("Lixeira"), e -> showLaunchTrash());
         }
-        installContextMenuHoverOnly(launchesTab);
+        installContextMenuHoverOnly(productionTab);
     }
 
-    private void openLaunchesSubPage(String key) {
+    private void openProductionSubPage(String key) {
         renderedTabKey = "";
         activateTab(key);
     }
 
     private void selectTab(String key) {
-        String selectedKey = "producao".equals(key) ? "lancamentos" : key;
+        String normalizedKey = "producao".equals(key) ? "estoque" : key;
+        String selectedKey = Set.of("lancamentos", "dia", "mes", "refugo").contains(normalizedKey)
+                ? (user.canSeeSummaries() ? "dia" : "lancamentos")
+                : normalizedKey;
         for (var e : tabKeys.entrySet()) {
             if (e.getValue().equals(selectedKey)) {
                 mainTabs.setSelectedTab(e.getKey());
                 renderedTabKey = "";
-                activateTab(key);
+                activateTab(normalizedKey);
                 return;
             }
         }
@@ -529,7 +533,7 @@ public class MainView extends VerticalLayout {
             case "dia" -> renderDay();
             case "mes" -> renderMonth();
             case "refugo" -> renderScrap();
-            case "producao" -> renderOrderProduction();
+            case "estoque", "producao" -> renderOrderProduction();
             default -> renderLaunches();
         }
     }
@@ -590,10 +594,10 @@ public class MainView extends VerticalLayout {
 
     private void renderOrderProduction() {
         content.removeAll();
-        H2 title = new H2(t("Produção por OP"));
+        H2 title = new H2(t("Estoque por OP"));
         title.addClassName("gp-section-title");
 
-        Paragraph explanation = new Paragraph(t("Dados do Planejamento/Estoque do ERP, separados por OP e processo. Produção zero também é exibida quando o processo estiver previsto na OP."));
+        Paragraph explanation = new Paragraph(t("Dados do ERP separados por OP e processo. OPs atuais usam Planejamento/Estoque; OPs encerradas ausentes do planejamento usam os Apontamentos do ERP."));
         explanation.addClassName("gp-muted");
 
         TextField order = new TextField(t("Nº da OP"));
@@ -660,7 +664,7 @@ public class MainView extends VerticalLayout {
         grid.setItems(rows);
         if (state != null) {
             state.setText(rows.isEmpty()
-                    ? t("Nenhum planejamento de estoque encontrado para esta OP.")
+                    ? t("Nenhum dado de produção encontrado no ERP para esta OP.")
                     : t("OP") + " " + productionOrderSearch + " · " + rows.size() + " " + t(rows.size() == 1 ? "processo encontrado" : "processos encontrados"));
         }
     }

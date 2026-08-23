@@ -158,6 +158,38 @@ public class LaunchService {
         } catch (SQLException e) {
             throw new IllegalStateException(e);
         }
+        if (!out.isEmpty()) return out;
+
+        // O DealerSystem pode remover OPs encerradas da tabela PLANEJAMENTO.
+        // Nesses casos, preservamos a consulta histórica usando exclusivamente
+        // os apontamentos do próprio ERP, nunca os lançamentos manuais do app.
+        String fallbackSql = "SELECT CAST(ordem AS TEXT) ordem,SUBSTR(TRIM(produto),1,3) codigo_processo,produto," +
+                "MAX(COALESCE(descricao,'')) descricao,MAX(qtd_plan) programado," +
+                "SUM(COALESCE(qtd_apon,0)) produzido,MIN(data_apon) primeira_data,MAX(data_apon) ultima_data " +
+                "FROM erp_apontamento_raw WHERE ordem=? " +
+                "AND SUBSTR(TRIM(produto),1,3) IN (" + placeholders + ") " +
+                "GROUP BY ordem,codigo_processo,produto ORDER BY CASE codigo_processo " +
+                "WHEN '770' THEN 1 WHEN '771' THEN 2 WHEN '772' THEN 3 WHEN '773' THEN 4 " +
+                "WHEN '775' THEN 5 WHEN '776' THEN 6 ELSE 99 END,produto";
+        try (Connection c = db.open(); PreparedStatement p = c.prepareStatement(fallbackSql)) {
+            int index = 1;
+            p.setLong(index++, orderValue);
+            for (String process : TRACKED_ORDER_PROCESSES) p.setString(index++, process);
+            try (ResultSet r = p.executeQuery()) {
+                while (r.next()) {
+                    String process = Norm.text(r.getString("codigo_processo"));
+                    int planned = (int) Math.round(Math.max(0, r.getDouble("programado")) * 1000.0);
+                    int produced = (int) Math.round(Math.max(0, r.getDouble("produzido")) * 1000.0);
+                    out.add(new OrderProcessProgress(
+                            Norm.text(r.getString("ordem")), process, Norm.scrapSector(process),
+                            Norm.text(r.getString("produto")), Norm.text(r.getString("descricao")),
+                            planned, produced, Math.max(0, planned - produced),
+                            Norm.isoDate(r.getString("primeira_data")), Norm.isoDate(r.getString("ultima_data"))));
+                }
+            }
+        } catch (SQLException e) {
+            throw new IllegalStateException(e);
+        }
         return out;
     }
 
@@ -189,19 +221,56 @@ public class LaunchService {
                 .collect(Collectors.toCollection(LinkedHashSet::new));
         if (relevant.isEmpty()) return;
 
+        Set<Long> relevantOrders = records.stream()
+                .map(record -> Norm.order(record.getOrderNumber()))
+                .filter(order -> order.matches("\\d+"))
+                .map(order -> {
+                    try { return Long.parseLong(order); }
+                    catch (NumberFormatException ignored) { return null; }
+                })
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (relevantOrders.isEmpty()) return;
+        String orderPlaceholders = String.join(",", Collections.nCopies(relevantOrders.size(), "?"));
+
         Map<String,double[]> progress = new HashMap<>();
         String sql = "SELECT ordem,produto,MAX(qtd_plan) qtd_plan,MAX(COALESCE(qtd_prod,0)) qtd_prod " +
-                "FROM erp_planejamento_raw WHERE ordem IS NOT NULL AND TRIM(COALESCE(produto,''))<>'' " +
+                "FROM erp_planejamento_raw WHERE ordem IN (" + orderPlaceholders + ") " +
+                "AND TRIM(COALESCE(produto,''))<>'' " +
                 "GROUP BY ordem,produto";
-        try (Connection c = db.open(); PreparedStatement p = c.prepareStatement(sql); ResultSet r = p.executeQuery()) {
-            while (r.next()) {
-                String key = orderProgressKey(r.getString("ordem"), r.getString("produto"));
-                if (!relevant.contains(key)) continue;
-                double[] values = progress.computeIfAbsent(key, ignored -> new double[2]);
-                Object planned = r.getObject("qtd_plan");
-                if (planned instanceof Number number) values[0] = Math.max(values[0], number.doubleValue());
-                Object launched = r.getObject("qtd_prod");
-                if (launched instanceof Number number) values[1] += Math.max(0, number.doubleValue());
+        try (Connection c = db.open(); PreparedStatement p = c.prepareStatement(sql)) {
+            int index = 1;
+            for (Long order : relevantOrders) p.setLong(index++, order);
+            try (ResultSet r = p.executeQuery()) {
+                while (r.next()) {
+                    String key = orderProgressKey(r.getString("ordem"), r.getString("produto"));
+                    if (!relevant.contains(key)) continue;
+                    double[] values = progress.computeIfAbsent(key, ignored -> new double[2]);
+                    Object planned = r.getObject("qtd_plan");
+                    if (planned instanceof Number number) values[0] = Math.max(values[0], number.doubleValue());
+                    Object launched = r.getObject("qtd_prod");
+                    if (launched instanceof Number number) values[1] += Math.max(0, number.doubleValue());
+                }
+            }
+        } catch (SQLException e) {
+            throw new IllegalStateException(e);
+        }
+
+        String fallbackSql = "SELECT ordem,produto,MAX(qtd_plan) qtd_plan,SUM(COALESCE(qtd_apon,0)) qtd_prod " +
+                "FROM erp_apontamento_raw WHERE ordem IN (" + orderPlaceholders + ") " +
+                "AND TRIM(COALESCE(produto,''))<>'' " +
+                "GROUP BY ordem,produto";
+        try (Connection c = db.open(); PreparedStatement p = c.prepareStatement(fallbackSql)) {
+            int index = 1;
+            for (Long order : relevantOrders) p.setLong(index++, order);
+            try (ResultSet r = p.executeQuery()) {
+                while (r.next()) {
+                    String key = orderProgressKey(r.getString("ordem"), r.getString("produto"));
+                    if (!relevant.contains(key) || progress.containsKey(key)) continue;
+                    double planned = Math.max(0, r.getDouble("qtd_plan"));
+                    double produced = Math.max(0, r.getDouble("qtd_prod"));
+                    if (planned > 0) progress.put(key, new double[]{planned, produced});
+                }
             }
         } catch (SQLException e) {
             throw new IllegalStateException(e);
