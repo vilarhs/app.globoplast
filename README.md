@@ -4,7 +4,7 @@ Sistema web de acompanhamento de produção, OEE e Refugo da Globoplast.
 
 ## Estado atual
 
-- Versão: `0.0.109`
+- Versão: `0.0.110`
 - Java 21, Spring Boot, Vaadin e SQLite
 - Aplicação publicada em `globoplast.app`
 - Serviço da VPS: `globoplast.service`
@@ -19,6 +19,7 @@ O código atual é a fonte de verdade. Documentos e ferramentas da migração in
 - O turno C pertence ao dia produtivo anterior.
 - Refugos A/B detectados antes das 06:00, quando o ERP informa a data civil corrente, pertencem ao dia produtivo anterior.
 - A hora apresentada no Refugo usa a primeira detecção conhecida, preservada em `primeiro_sincronizado_em`.
+- Lançamentos exibe o progresso acumulado por OP após o percentual de Refugo; o submenu Produção consulta separadamente os processos 770, 771, 772, 773, 775 e 776.
 - O OEE é consolidado por máquina e dia produtivo em uma única janela de 24 horas.
 - Desempenho usa peças boas sobre a capacidade de 24 horas; Qualidade desconta o Refugo.
 - O banco do DealerSystem/Firebird é acessado somente para leitura pelo sincronizador Windows.

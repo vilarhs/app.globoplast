@@ -97,6 +97,7 @@ public class MainView extends VerticalLayout {
     private final Set<String> launchMachines = new LinkedHashSet<>();
     private final Set<String> launchClients = new LinkedHashSet<>();
     private String launchSearch = "";
+    private String productionOrderSearch = "";
     private int launchLimit = AppConfig.PAGE_SIZE;
 
     private LocalDate scrapStart = Norm.productiveToday();
@@ -254,6 +255,7 @@ public class MainView extends VerticalLayout {
         ensureFavicon();
         UI.getCurrent().setLocale(locale());
         shell.add(header(), navigation(), content, footer());
+        installOverflowTooltips();
         String selected = null;
         try {
             Map<String,List<String>> params = UI.getCurrent().getInternals().getActiveViewLocation().getQueryParameters().getParameters();
@@ -281,6 +283,8 @@ public class MainView extends VerticalLayout {
                     if ("lancamentos".equals(selectedTab)) {
                         refreshLaunchGrid();
                         refreshMenuSyncStatus();
+                    } else if ("producao".equals(selectedTab)) {
+                        refreshOrderProduction();
                     } else if ("refugo".equals(selectedTab)) {
                         refreshScrap(scrapActiveDimension);
                     } else if ("dia".equals(selectedTab)) {
@@ -316,7 +320,9 @@ public class MainView extends VerticalLayout {
     private Div navigation() {
         tabKeys.clear();
         List<Tab> tabs = new ArrayList<>();
-        tabs.add(tab("📋 " + t("Lançamentos"), "lancamentos"));
+        Tab launchesTab = tab("📋 " + t("Lançamentos") + " ▾", "lancamentos");
+        installLaunchesMenu(launchesTab);
+        tabs.add(launchesTab);
         if (user.canSeeSummaries()) {
             tabs.add(tab("📅 " + t("Resumo do Dia"), "dia"));
             tabs.add(tab("📊 " + t("Resumo do Mês"), "mes"));
@@ -351,10 +357,29 @@ public class MainView extends VerticalLayout {
         return tab;
     }
 
+    private void installLaunchesMenu(Tab launchesTab) {
+        ContextMenu dropdown = new ContextMenu();
+        dropdown.setTarget(launchesTab);
+        dropdown.setOpenOnClick(true);
+        dropdown.addItem(t("Lançamentos"), e -> openLaunchesSubPage("lancamentos"));
+        dropdown.addItem(t("Produção"), e -> openLaunchesSubPage("producao"));
+        if (user != null && user.canModifyLaunches()) {
+            dropdown.addItem(t("Lixeira"), e -> showLaunchTrash());
+        }
+        installContextMenuHoverOnly(launchesTab);
+    }
+
+    private void openLaunchesSubPage(String key) {
+        renderedTabKey = "";
+        activateTab(key);
+    }
+
     private void selectTab(String key) {
+        String selectedKey = "producao".equals(key) ? "lancamentos" : key;
         for (var e : tabKeys.entrySet()) {
-            if (e.getValue().equals(key)) {
+            if (e.getValue().equals(selectedKey)) {
                 mainTabs.setSelectedTab(e.getKey());
+                renderedTabKey = "";
                 activateTab(key);
                 return;
             }
@@ -505,6 +530,7 @@ public class MainView extends VerticalLayout {
             case "dia" -> renderDay();
             case "mes" -> renderMonth();
             case "refugo" -> renderScrap();
+            case "producao" -> renderOrderProduction();
             default -> renderLaunches();
         }
     }
@@ -563,21 +589,107 @@ public class MainView extends VerticalLayout {
         refreshMenuSyncStatus();
     }
 
+    private void renderOrderProduction() {
+        content.removeAll();
+        H2 title = new H2(t("Produção por OP"));
+        title.addClassName("gp-section-title");
+
+        Paragraph explanation = new Paragraph(t("Consulte uma OP para comparar as quantidades realizadas em cada processo. Os processos são apurados separadamente e a diferença não é tratada automaticamente como estoque."));
+        explanation.addClassName("gp-muted");
+
+        TextField order = new TextField(t("Nº da OP"));
+        order.setPlaceholder(t("Digite o Nº da OP"));
+        order.setValue(productionOrderSearch);
+        order.setClearButtonVisible(true);
+        order.getElement().setAttribute("autocomplete", "off");
+        Button search = new Button(t("Buscar"), VaadinIcon.SEARCH.create());
+        search.addThemeVariants(ButtonVariant.PRIMARY);
+        Runnable apply = () -> {
+            productionOrderSearch = Norm.order(order.getValue());
+            order.setValue(productionOrderSearch);
+            refreshOrderProduction();
+        };
+        search.addClickListener(e -> apply.run());
+        order.addKeyPressListener(Key.ENTER, e -> apply.run());
+        order.addValueChangeListener(e -> {
+            if (e.getValue() == null || e.getValue().isBlank()) {
+                productionOrderSearch = "";
+                refreshOrderProduction();
+            }
+        });
+
+        Div searchRow = new Div(order, search);
+        searchRow.addClassName("gp-order-production-search-v110");
+
+        Span state = new Span();
+        state.setId("order-production-state");
+        state.addClassName("gp-muted");
+
+        Grid<LaunchService.OrderProcessProgress> grid = new Grid<>(LaunchService.OrderProcessProgress.class, false);
+        grid.setId("order-production-grid");
+        grid.addClassName("gp-order-production-grid-v110");
+        grid.addThemeVariants(GridVariant.LUMO_NO_BORDER, GridVariant.LUMO_ROW_STRIPES);
+        grid.addColumn(LaunchService.OrderProcessProgress::process).setHeader(t("Processo")).setAutoWidth(true);
+        grid.addColumn(r -> t(r.processName())).setHeader(t("Etapa")).setAutoWidth(true);
+        grid.addColumn(new ComponentRenderer<>(r -> fullTextCell(r.product())))
+                .setHeader(t("Código Produto")).setWidth("160px").setFlexGrow(0);
+        grid.addColumn(new ComponentRenderer<>(r -> fullTextCell(r.description())))
+                .setHeader(t("Descrição")).setWidth("300px").setFlexGrow(1);
+        grid.addColumn(new ComponentRenderer<>(r -> fullTextCell(r.machines())))
+                .setHeader(t("Máquina")).setWidth("220px").setFlexGrow(0);
+        grid.addColumn(r -> formatInt(r.plannedPcs())).setHeader(t("Programado (OP)")).setAutoWidth(true);
+        grid.addColumn(r -> formatInt(r.producedPcs())).setHeader(t("Produzido (OP)")).setAutoWidth(true);
+        grid.addColumn(r -> formatInt(r.remainingPcs())).setHeader(t("Falta (OP)")).setAutoWidth(true);
+        grid.addColumn(r -> productionPeriod(r.firstDate(), r.lastDate())).setHeader(t("Período")).setAutoWidth(true);
+        grid.setAllRowsVisible(true);
+
+        content.add(title, explanation, searchRow, state, grid);
+        refreshOrderProduction();
+    }
+
+    @SuppressWarnings("unchecked")
+    private void refreshOrderProduction() {
+        Component component = byId("order-production-grid");
+        if (!(component instanceof Grid<?> raw)) return;
+        Grid<LaunchService.OrderProcessProgress> grid = (Grid<LaunchService.OrderProcessProgress>) raw;
+        Component stateComponent = byId("order-production-state");
+        Span state = stateComponent instanceof Span span ? span : null;
+        if (productionOrderSearch == null || productionOrderSearch.isBlank()) {
+            grid.setItems(List.of());
+            if (state != null) state.setText(t("Informe uma OP para consultar os processos 770, 771, 772, 773, 775 e 776."));
+            return;
+        }
+        List<LaunchService.OrderProcessProgress> rows = launches.orderProcessProgress(productionOrderSearch);
+        grid.setItems(rows);
+        if (state != null) {
+            state.setText(rows.isEmpty()
+                    ? t("Nenhuma produção encontrada para esta OP nos processos selecionados.")
+                    : t("OP") + " " + productionOrderSearch + " · " + rows.size() + " " + t(rows.size() == 1 ? "processo encontrado" : "processos encontrados"));
+        }
+    }
+
+    private String productionPeriod(LocalDate first, LocalDate last) {
+        if (first == null && last == null) return "—";
+        if (Objects.equals(first, last)) return Norm.br(first);
+        return Norm.br(first) + " – " + Norm.br(last);
+    }
+
     private Grid<LaunchRecord> launchGrid() {
         Grid<LaunchRecord> grid = new Grid<>(LaunchRecord.class, false);
         grid.addClassName("gp-launch-grid-v059");
         grid.addThemeVariants(GridVariant.LUMO_NO_BORDER, GridVariant.LUMO_ROW_STRIPES);
         grid.addColumn(r -> Norm.br(r.getDate())).setHeader(t("Data")).setAutoWidth(true);
-        grid.addColumn(LaunchRecord::getMachine).setHeader(t("Máquina")).setFlexGrow(2);
+        grid.addColumn(new ComponentRenderer<>(r -> fullTextCell(r.getMachine())))
+                .setHeader(t("Máquina")).setWidth("220px").setFlexGrow(0);
         grid.addColumn(new ComponentRenderer<>(this::launchProductCell)).setHeader(t("Código Produto")).setFlexGrow(2);
         grid.addColumn(new ComponentRenderer<>(this::launchOrderCell)).setHeader(t("Nº da OP")).setAutoWidth(true);
-        grid.addColumn(r -> r.isOrderProgressAvailable() ? formatInt(r.getOrderPlannedPcs()) : "—").setHeader(t("Programado")).setAutoWidth(true);
-        grid.addColumn(r -> r.isOrderProgressAvailable() ? formatInt(r.getOrderLaunchedPcs()) : "—").setHeader(t("Lançado")).setAutoWidth(true);
-        grid.addColumn(r -> r.isOrderProgressAvailable() ? formatInt(r.getOrderRemainingPcs()) : "—").setHeader(t("Falta")).setAutoWidth(true);
-        grid.addColumn(r -> formatInt(r.getTotalProduced())).setHeader(t("Total Produzido")).setAutoWidth(true);
+        grid.addColumn(r -> formatInt(r.getTotalProduced())).setHeader(t("Total Lançamento")).setAutoWidth(true);
         grid.addColumn(r -> format(r.getScrapTotalKg())).setHeader(t("Refugo (kg)")).setAutoWidth(true);
         grid.addColumn(r -> formatInt(r.getScrapTotalPcs())).setHeader(t("Refugo (pçs)")).setAutoWidth(true);
         grid.addColumn(r -> format(r.getScrapPct()) + "%").setHeader(t("Refugo (%)")).setAutoWidth(true);
+        grid.addColumn(r -> r.isOrderProgressAvailable() ? formatInt(r.getOrderPlannedPcs()) : "—").setHeader(t("Programado (OP)")).setAutoWidth(true);
+        grid.addColumn(r -> r.isOrderProgressAvailable() ? formatInt(r.getOrderLaunchedPcs()) : "—").setHeader(t("Produzido (OP)")).setAutoWidth(true);
+        grid.addColumn(r -> r.isOrderProgressAvailable() ? formatInt(r.getOrderRemainingPcs()) : "—").setHeader(t("Falta (OP)")).setAutoWidth(true);
         grid.addColumn(new ComponentRenderer<>(r -> oeeCell(r, 1))).setHeader("OEE").setAutoWidth(true);
         grid.addColumn(new ComponentRenderer<>(this::launchActions)).setHeader(t("Ações")).setAutoWidth(true);
         grid.setAllRowsVisible(true);
@@ -823,16 +935,6 @@ public class MainView extends VerticalLayout {
         Div fields = new Div(period, sector, machine, client);
         fields.addClassName("gp-filter-dropdown-grid");
         Div actions = new Div();
-        if (user != null && user.canModifyLaunches()) {
-            Button trash = new Button(t("Lixeira"), VaadinIcon.TRASH.create());
-            trash.setWidthFull();
-            trash.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
-            trash.addClickListener(e -> {
-                p.setOpened(false);
-                showLaunchTrash();
-            });
-            actions.add(trash);
-        }
         actions.add(clear);
         actions.addClassName("gp-filter-dropdown-actions");
         Div body = new Div(fields, actions);
@@ -1698,11 +1800,27 @@ public class MainView extends VerticalLayout {
             String all = String.join("\n", items);
             value.getElement().setAttribute("tabindex", "0");
             value.getElement().setAttribute("aria-label", all);
+            value.getElement().setAttribute("data-gp-tooltip", "true");
             Tooltip.forComponent(value)
                     .withText(all)
                     .withPosition(Tooltip.TooltipPosition.TOP)
                     .withHoverDelay(150);
         }
+        return value;
+    }
+
+    private Component fullTextCell(String text) {
+        String full = Norm.text(text);
+        if (full.isBlank()) return new Span("—");
+        Span value = new Span(full);
+        value.addClassName("gp-full-text-cell-v110");
+        value.getElement().setAttribute("tabindex", "0");
+        value.getElement().setAttribute("aria-label", full);
+        value.getElement().setAttribute("data-gp-tooltip", "true");
+        Tooltip.forComponent(value)
+                .withText(full)
+                .withPosition(Tooltip.TooltipPosition.TOP)
+                .withHoverDelay(150);
         return value;
     }
 
@@ -1733,6 +1851,7 @@ public class MainView extends VerticalLayout {
         String all = String.join("\n", lines);
         value.getElement().setAttribute("tabindex", "0");
         value.getElement().setAttribute("aria-label", all);
+        value.getElement().setAttribute("data-gp-tooltip", "true");
         Tooltip.forComponent(value)
                 .withText(all)
                 .withPosition(Tooltip.TooltipPosition.TOP)
@@ -1762,6 +1881,7 @@ public class MainView extends VerticalLayout {
         value.addClassName("gp-launch-product-description-v094");
         value.getElement().setAttribute("tabindex", "0");
         value.getElement().setAttribute("aria-label", full);
+        value.getElement().setAttribute("data-gp-tooltip", "true");
         Tooltip.forComponent(value)
                 .withText(full)
                 .withPosition(Tooltip.TooltipPosition.TOP)
@@ -3121,6 +3241,37 @@ public class MainView extends VerticalLayout {
                     }
                 })();
                 """));
+    }
+
+    /**
+     * Complementa os tooltips explícitos dos grids: qualquer texto realmente
+     * cortado por falta de espaço recebe um balão nativo com o conteúdo inteiro.
+     */
+    private void installOverflowTooltips() {
+        UI.getCurrent().getPage().executeJs("""
+            (() => {
+                if (window.__gpOverflowTooltipV110) return;
+                window.__gpOverflowTooltipV110 = true;
+                document.addEventListener('pointerover', event => {
+                    const path = event.composedPath();
+                    if (path.some(node => node instanceof HTMLElement &&
+                        (node.hasAttribute('data-gp-tooltip') || node.hasAttribute('has-tooltip')))) return;
+                    for (const node of path) {
+                        if (!(node instanceof HTMLElement)) continue;
+                        if (node.matches('button,input,textarea,vaadin-icon')) continue;
+                        const clipped = node.scrollWidth > node.clientWidth + 1 ||
+                                        node.scrollHeight > node.clientHeight + 1;
+                        if (!clipped) continue;
+                        const text = String(node.innerText || node.textContent || '').trim();
+                        if (text && text.length > 2 && !node.getAttribute('title')) {
+                            node.setAttribute('title', text);
+                            node.setAttribute('aria-label', node.getAttribute('aria-label') || text);
+                        }
+                        break;
+                    }
+                }, true);
+            })();
+        """);
     }
 
     private void enforceLoginInputContrast(Component field) {

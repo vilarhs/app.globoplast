@@ -67,6 +67,7 @@ public class Database {
             s.executeUpdate("CREATE INDEX IF NOT EXISTS idx_erp_apontamento_data_sync ON erp_apontamento_raw(data_apon, sincronizado_em)");
             s.executeUpdate("CREATE INDEX IF NOT EXISTS idx_erp_apontamento_sync ON erp_apontamento_raw(sincronizado_em)");
             s.executeUpdate("CREATE INDEX IF NOT EXISTS idx_erp_apontamento_turno_data ON erp_apontamento_raw(turno, data_apon)");
+            s.executeUpdate("CREATE INDEX IF NOT EXISTS idx_erp_apontamento_ordem_produto ON erp_apontamento_raw(ordem, produto)");
             s.executeUpdate("CREATE INDEX IF NOT EXISTS idx_erp_apontamento_produto_sync ON erp_apontamento_raw(UPPER(REPLACE(TRIM(produto),' ','')), sincronizado_em DESC)");
             s.executeUpdate("CREATE INDEX IF NOT EXISTS idx_erp_refugo_data ON erp_refugo_raw(data_apon)");
             s.executeUpdate("CREATE INDEX IF NOT EXISTS idx_erp_refugo_maquina_data ON erp_refugo_raw(maquina, data_apon)");

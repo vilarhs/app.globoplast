@@ -26,6 +26,7 @@ import java.util.stream.Collectors;
 
 @Service
 public class LaunchService {
+    private static final List<String> TRACKED_ORDER_PROCESSES = List.of("770", "771", "772", "773", "775", "776");
     private static final String PRODUCT_METADATA_SQL = "SELECT descricao,cliente FROM erp_apontamento_raw " +
             "WHERE UPPER(REPLACE(TRIM(produto),' ',''))=? " +
             "AND (TRIM(COALESCE(descricao,''))<>'' OR TRIM(COALESCE(cliente,''))<>'') " +
@@ -113,6 +114,53 @@ public class LaunchService {
 
     public String productDescription(String productCode) {
         return productMetadata(productCode).description();
+    }
+
+    /**
+     * Retorna o realizado acumulado de uma OP, separado por processo e produto.
+     * A OP faz parte obrigatória do filtro, pois um produto pode existir em
+     * várias ordens diferentes.
+     */
+    public List<OrderProcessProgress> orderProcessProgress(String orderNumber) {
+        String order = Norm.order(orderNumber);
+        if (!order.matches("\\d+")) return List.of();
+        long orderValue;
+        try { orderValue = Long.parseLong(order); }
+        catch (NumberFormatException ignored) { return List.of(); }
+
+        String placeholders = String.join(",", Collections.nCopies(TRACKED_ORDER_PROCESSES.size(), "?"));
+        String sql = "SELECT CAST(ordem AS TEXT) ordem,SUBSTR(TRIM(produto),1,3) processo,produto," +
+                "MAX(COALESCE(descricao,'')) descricao,MAX(COALESCE(cliente,'')) cliente," +
+                "GROUP_CONCAT(DISTINCT maquina) maquinas,MAX(qtd_plan) programado," +
+                "SUM(COALESCE(qtd_apon,0)) produzido,MIN(data_apon) primeira_data,MAX(data_apon) ultima_data " +
+                "FROM erp_apontamento_raw WHERE ordem=? " +
+                "AND SUBSTR(TRIM(produto),1,3) IN (" + placeholders + ") " +
+                "GROUP BY ordem,processo,produto ORDER BY CASE processo " +
+                "WHEN '770' THEN 1 WHEN '771' THEN 2 WHEN '772' THEN 3 WHEN '773' THEN 4 " +
+                "WHEN '775' THEN 5 WHEN '776' THEN 6 ELSE 99 END,produto";
+
+        List<OrderProcessProgress> out = new ArrayList<>();
+        try (Connection c = db.open(); PreparedStatement p = c.prepareStatement(sql)) {
+            int index = 1;
+            p.setLong(index++, orderValue);
+            for (String process : TRACKED_ORDER_PROCESSES) p.setString(index++, process);
+            try (ResultSet r = p.executeQuery()) {
+                while (r.next()) {
+                    String process = Norm.text(r.getString("processo"));
+                    int planned = (int) Math.round(Math.max(0, r.getDouble("programado")) * 1000.0);
+                    int produced = (int) Math.round(Math.max(0, r.getDouble("produzido")) * 1000.0);
+                    out.add(new OrderProcessProgress(
+                            Norm.text(r.getString("ordem")), process, Norm.scrapSector(process),
+                            Norm.text(r.getString("produto")), Norm.text(r.getString("descricao")),
+                            Norm.text(r.getString("cliente")), Norm.text(r.getString("maquinas")),
+                            planned, produced, Math.max(0, planned - produced),
+                            Norm.isoDate(r.getString("primeira_data")), Norm.isoDate(r.getString("ultima_data"))));
+                }
+            }
+        } catch (SQLException e) {
+            throw new IllegalStateException(e);
+        }
+        return out;
     }
 
     private void fillMissingProductMetadata(List<LaunchRecord> records) {
@@ -798,6 +846,9 @@ public class LaunchService {
     private static long erpId(String key){try{byte[]b=MessageDigest.getInstance("SHA-1").digest(key.getBytes(StandardCharsets.UTF_8));long v=0;for(int i=0;i<7;i++)v=(v<<8)|(b[i]&255);return 8_000_000_000_000L+(Math.abs(v)%900_000_000_000L);}catch(Exception e){return 8_000_000_000_000L+Math.abs(key.hashCode());}}
     public record ProductMetadata(String description,String client){}
     public record TrashItem(long id,String type,LaunchRecord record,String deletedBy,String deletedAt,String expiresAt){}
+    public record OrderProcessProgress(String orderNumber,String process,String processName,String product,
+                                       String description,String client,String machines,int plannedPcs,
+                                       int producedPcs,int remainingPcs,LocalDate firstDate,LocalDate lastDate){}
     private record A(long id,String order,LocalDate date,String product,String description,String client,String machine,String shift,double qty,String operator,String sync){}
     private record R(long id,LocalDate date,String order,String machine,String product,String shift,double kg,double weight,Integer items,String sync){}
     private record Override(boolean hidden,Map<String,Object>payload,String updatedAt){}
