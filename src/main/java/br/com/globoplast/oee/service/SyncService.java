@@ -53,7 +53,7 @@ public class SyncService {
                 }
                 try(PreparedStatement p=c.prepareStatement("INSERT INTO maquinas_snapshot(maquina,capacidade,setor,atualizado_em) VALUES(?,?,?,?) ON CONFLICT(maquina) DO UPDATE SET capacidade=excluded.capacidade,setor=excluded.setor,atualizado_em=excluded.atualizado_em")){p.setString(1,name);p.setInt(2,capacity);p.setString(3,sector);p.setString(4,now);p.executeUpdate();}
             }
-            // Histórico do appv723: entra apenas no snapshot. Não cria máquinas no
+            // Histórico importado: entra apenas no snapshot. Não cria máquinas no
             // cadastro atual, mas preserva capacidades conhecidas de equipamentos
             // antigos/ERP para que a edição e o OEE continuem funcionando.
             for(Map<String,Object> m:safeHistorical){

@@ -11,7 +11,7 @@ import java.time.LocalDate;
 import java.util.*;
 
 /**
- * Pipeline analítico de Refugo espelhado do appv723.
+ * Pipeline analítico atual de Refugo.
  * O staging ERP permanece bruto: Qtd.Planej é convertida de milhares para unidades
  * somente aqui, turnos inválidos são diluídos somente aqui e o Turno C é atribuído
  * ao dia produtivo anterior somente aqui.

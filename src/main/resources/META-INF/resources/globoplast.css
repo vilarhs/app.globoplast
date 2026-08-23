@@ -332,7 +332,7 @@ vaadin-grid::part(row),vaadin-grid::part(cell),vaadin-grid::part(header-cell){co
 .gp-caption{display:block;color:var(--gp-muted);font-size:.82rem;margin:-.25rem 0 .45rem}.gp-subsection-title{color:var(--gp-text);font-size:1.05rem;margin:.85rem 0 .45rem}.gp-detail-main{display:block;font-size:1.05rem;font-weight:600;color:var(--gp-text)}.gp-detail-captions{display:flex;gap:1rem;flex-wrap:wrap;color:var(--gp-muted);font-size:.84rem;margin:.25rem 0 .55rem}.gp-refugo-chart-line{position:relative;width:100%}.gp-chart-menu-button{position:absolute;right:4px;top:0;z-index:3;width:36px;min-width:36px;height:36px;padding:0!important;background:transparent!important;border:0!important;box-shadow:none!important}.gp-refugo-analysis,.gp-refugo-details{width:100%}.gp-month-kpis{grid-template-columns:repeat(4,minmax(0,1fr))}
 @media(max-width:767px){.gp-month-kpis{grid-template-columns:1fr 1fr}.gp-period-ranking-row{grid-template-columns:62px repeat(var(--gp-period-count),minmax(155px,1fr))}}
 
-/* v016 — paridade visual/funcional com o appv723. */
+/* Base visual consolidada do Globoplast. */
 html[theme~="dark"],html[data-gp-theme="dark"]{
   color-scheme:dark;
   --gp-bg:#0e1117;
@@ -1642,7 +1642,7 @@ html[data-gp-theme="light"] .gp-filter-button::before{
 .gp-oee-info:hover::after,.gp-oee-info:focus::after,.gp-oee-info:focus-visible::after{display:block!important}
 
 /* ==========================================================
-   0.0.25 — Refugo: rótulos determinísticos e detalhe fiel ao appv723
+   Refugo: rótulos determinísticos e detalhamento consolidado
    ========================================================== */
 /* O Java já entrega o texto abreviado; esta regra é igual em qualquer página,
    inclusive na última página com poucos itens. */
@@ -1691,7 +1691,7 @@ html[data-gp-theme="light"] .gp-filter-button::before{
   padding:0!important;
 }
 
-/* O funil replica a geometria 15x14 do appv723. */
+/* Geometria estável do ícone de funil. */
 .gp-filter-button{
   position:relative!important;
   display:flex!important;
@@ -2160,7 +2160,7 @@ html[data-gp-theme="light"] .gp-filter-tune-icon{color:#31333f!important}
 }
 
 /* ==========================================================
-   0.0.29 — PARIDADE GLOBAL APPV723 (override final)
+   Camada global consolidada (override final)
    Este bloco é intencionalmente o último: neutraliza experimentos visuais
    das v027/v028 e retorna a geometria funcional da referência Python.
    ========================================================== */

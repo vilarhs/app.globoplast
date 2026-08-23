@@ -82,7 +82,7 @@ cleanup() {
 trap cleanup EXIT
 
 test -f "$UPLOAD" || { echo "ERRO: upload ausente: $UPLOAD" >&2; exit 1; }
-test -d "$APP_DIR" || { echo "ERRO: execute primeiro a padronização da VPS" >&2; exit 1; }
+test -d "$APP_DIR" || { echo "ERRO: estrutura atual da VPS ausente: $APP_DIR" >&2; exit 1; }
 systemctl cat "$SERVICE.service" >/dev/null
 
 sudo install -o root -g root -m 0755 "$STAGE/globoplast-backup" /usr/local/sbin/globoplast-backup

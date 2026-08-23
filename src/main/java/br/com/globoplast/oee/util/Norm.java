@@ -122,7 +122,7 @@ public final class Norm {
     /**
      * Nome canônico usado pelos apontamentos ERP.
      *
-     * A appv723 já normalizava COL TPA/EXTRUSÃO/FOR DE OMBRO/DECORAÇÃO.
+     * Normaliza aliases históricos de COL TPA/EXTRUSÃO/FOR DE OMBRO/DECORAÇÃO.
      * Na base real foi identificado também o par operacional INJEÇÃO -> INJETORA
      * e FECHA HOT AIR -> HOT AIR. Esses dois aliases são necessários para que o
      * catálogo real (maquinas) seja encontrado sem alterar o valor bruto do ERP.

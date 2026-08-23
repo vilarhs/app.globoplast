@@ -4,7 +4,7 @@ import java.text.NumberFormat;
 import java.util.Locale;
 
 /**
- * Formatação visual determinística equivalente ao appv723.
+ * Formatação visual determinística do Globoplast.
  * pt-BR: ponto para milhares e vírgula para decimais.
  * en-US: vírgula para milhares e ponto para decimais.
  */

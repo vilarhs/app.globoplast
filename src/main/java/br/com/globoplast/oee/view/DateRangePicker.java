@@ -300,7 +300,7 @@ public final class DateRangePicker extends Div {
             Button day = new Button(String.valueOf(date.getDayOfMonth()));
             // Sem variante tertiary-inline: ela sobrescrevia visualmente o estado
             // selecionado em alguns temas do Vaadin. O calendário usa somente
-            // as classes próprias, como no componente original do appv723.
+            // as classes próprias do componente.
             day.addClassName("gp-period-day");
             if (date.getMonth() != visibleMonth.getMonth()) day.addClassName("gp-period-outside");
             if (date.isBefore(min) || date.isAfter(max)) {
