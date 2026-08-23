@@ -27,6 +27,30 @@ if (-not (Test-Path $baseConnector) -or -not (Test-Path $configFile)) {
     throw "A configuração existente do sincronizador de Refugo não foi encontrada em $appDir."
 }
 
+# A tarefa roda como SYSTEM, que normalmente não possui o comando `py` no PATH.
+# Descubra agora o executável real usado pelo launcher e grave o caminho absoluto
+# no arquivo .cmd da tarefa.
+$pythonExe = $null
+try {
+    $pythonExe = (& py -3 -c "import sys; print(sys.executable)" 2>$null | Select-Object -Last 1)
+} catch {
+    $pythonExe = $null
+}
+if ([string]::IsNullOrWhiteSpace($pythonExe)) {
+    try {
+        $pythonExe = (& python -c "import sys; print(sys.executable)" 2>$null | Select-Object -Last 1)
+    } catch {
+        $pythonExe = $null
+    }
+}
+if ([string]::IsNullOrWhiteSpace($pythonExe)) {
+    throw "Python não encontrado. Confirme que o comando py ou python funciona neste PowerShell."
+}
+$pythonExe = $pythonExe.Trim()
+if (-not (Test-Path -LiteralPath $pythonExe -PathType Leaf)) {
+    throw "Executável do Python não encontrado: $pythonExe"
+}
+
 New-Item -ItemType Directory -Path $appDir -Force | Out-Null
 if (Test-Path $targetScript) {
     $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
@@ -37,7 +61,7 @@ Copy-Item $sourceScript $targetScript -Force
 $command = @"
 @echo off
 cd /d "$appDir"
-py -u "$targetScript" --executar >> "$appDir\planejamento_task.log" 2>&1
+"$pythonExe" -u "$targetScript" --executar >> "$appDir\planejamento_task.log" 2>&1
 exit /b %errorlevel%
 "@
 [IO.File]::WriteAllText($commandFile, $command, [Text.Encoding]::ASCII)
@@ -54,4 +78,5 @@ if ($LASTEXITCODE -ne 0) {
 
 Write-Host "Sincronização de Planejamento instalada a cada 2 minutos." -ForegroundColor Green
 Write-Host "Tarefa: $taskName"
+Write-Host "Python: $pythonExe"
 Write-Host "Log: $appDir\planejamento_online.log"

@@ -10,7 +10,8 @@
 - A tarefa agendada esperada é `Globoplast Refugo Online`.
 - Produção e Refugo devem sincronizar a cada 2 minutos.
 - O Planejamento/Estoque por OP também sincroniza a cada 2 minutos pela tarefa `Globoplast Planejamento Online`.
-- O log fica em `C:\ProgramData\GloboplastSync\refugo_online.log`.
+- Os logs ficam em `C:\ProgramData\GloboplastSync\refugo_online.log` e
+  `C:\ProgramData\GloboplastSync\planejamento_online.log`.
 
 Para configurar uma instalação nova, copie o script para a pasta operacional e execute em um Prompt de Comando como Administrador:
 
@@ -47,7 +48,9 @@ powershell -ExecutionPolicy Bypass -File .\instalar-planejamento-erp.ps1
 ```
 
 O instalador reutiliza a configuração Firebird/token já protegida pelo DPAPI,
-faz backup do conector anterior e cria a tarefa com intervalo de 2 minutos.
+faz backup do conector anterior, identifica o caminho absoluto do Python e cria
+a tarefa com intervalo de 2 minutos. O caminho absoluto é necessário porque a
+tarefa executada como `SYSTEM` normalmente não encontra o comando `py` no PATH.
 
 ## Restaurar o intervalo de 2 minutos
 
