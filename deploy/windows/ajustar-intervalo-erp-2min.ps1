@@ -14,9 +14,12 @@ function Get-TaskFullName($task) {
     return "$($task.TaskPath.TrimEnd('\'))\$($task.TaskName)"
 }
 
-function Save-Utf8Xml([xml]$document, [string]$path) {
+function Save-TaskXml([xml]$document, [string]$path) {
+    if ($document.FirstChild -is [System.Xml.XmlDeclaration]) {
+        $document.FirstChild.Encoding = "UTF-16"
+    }
     $settings = New-Object System.Xml.XmlWriterSettings
-    $settings.Encoding = New-Object System.Text.UTF8Encoding($false)
+    $settings.Encoding = [System.Text.Encoding]::Unicode
     $settings.Indent = $true
     $writer = [System.Xml.XmlWriter]::Create($path, $settings)
     try {
@@ -75,7 +78,7 @@ foreach ($task in $candidates) {
     $originalText = Export-ScheduledTask -TaskName $task.TaskName -TaskPath $task.TaskPath
     $safeName = ($fullName -replace '[\\/:*?"<>|]', '_').Trim('_')
     $backupPath = Join-Path $backupDir "$safeName.xml"
-    [IO.File]::WriteAllText($backupPath, $originalText, (New-Object Text.UTF8Encoding($false)))
+    [IO.File]::WriteAllText($backupPath, $originalText, [System.Text.Encoding]::Unicode)
 
     [xml]$document = $originalText
     $namespace = New-Object System.Xml.XmlNamespaceManager($document.NameTable)
@@ -97,7 +100,7 @@ foreach ($task in $candidates) {
 
     $temporaryPath = Join-Path $env:TEMP "globoplast-$safeName-$timestamp.xml"
     try {
-        Save-Utf8Xml $document $temporaryPath
+        Save-TaskXml $document $temporaryPath
         & schtasks.exe /Create /TN $fullName /XML $temporaryPath /F | Out-Host
         if ($LASTEXITCODE -ne 0) {
             throw "Falha ao atualizar a tarefa $fullName. XML original: $backupPath"
