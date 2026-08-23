@@ -129,13 +129,12 @@ public class LaunchService {
         catch (NumberFormatException ignored) { return List.of(); }
 
         String placeholders = String.join(",", Collections.nCopies(TRACKED_ORDER_PROCESSES.size(), "?"));
-        String sql = "SELECT CAST(ordem AS TEXT) ordem,SUBSTR(TRIM(produto),1,3) processo,produto," +
-                "MAX(COALESCE(descricao,'')) descricao,MAX(COALESCE(cliente,'')) cliente," +
-                "GROUP_CONCAT(DISTINCT maquina) maquinas,MAX(qtd_plan) programado," +
-                "SUM(COALESCE(qtd_apon,0)) produzido,MIN(data_apon) primeira_data,MAX(data_apon) ultima_data " +
-                "FROM erp_apontamento_raw WHERE ordem=? " +
+        String sql = "SELECT CAST(ordem AS TEXT) ordem,SUBSTR(TRIM(produto),1,3) codigo_processo,produto," +
+                "MAX(COALESCE(descricao,'')) descricao,MAX(qtd_plan) programado," +
+                "MAX(COALESCE(qtd_prod,0)) produzido,MIN(data_plan) primeira_data,MAX(data_plan) ultima_data " +
+                "FROM erp_planejamento_raw WHERE ordem=? " +
                 "AND SUBSTR(TRIM(produto),1,3) IN (" + placeholders + ") " +
-                "GROUP BY ordem,processo,produto ORDER BY CASE processo " +
+                "GROUP BY ordem,codigo_processo,produto ORDER BY CASE codigo_processo " +
                 "WHEN '770' THEN 1 WHEN '771' THEN 2 WHEN '772' THEN 3 WHEN '773' THEN 4 " +
                 "WHEN '775' THEN 5 WHEN '776' THEN 6 ELSE 99 END,produto";
 
@@ -146,13 +145,12 @@ public class LaunchService {
             for (String process : TRACKED_ORDER_PROCESSES) p.setString(index++, process);
             try (ResultSet r = p.executeQuery()) {
                 while (r.next()) {
-                    String process = Norm.text(r.getString("processo"));
+                    String process = Norm.text(r.getString("codigo_processo"));
                     int planned = (int) Math.round(Math.max(0, r.getDouble("programado")) * 1000.0);
                     int produced = (int) Math.round(Math.max(0, r.getDouble("produzido")) * 1000.0);
                     out.add(new OrderProcessProgress(
                             Norm.text(r.getString("ordem")), process, Norm.scrapSector(process),
                             Norm.text(r.getString("produto")), Norm.text(r.getString("descricao")),
-                            Norm.text(r.getString("cliente")), Norm.text(r.getString("maquinas")),
                             planned, produced, Math.max(0, planned - produced),
                             Norm.isoDate(r.getString("primeira_data")), Norm.isoDate(r.getString("ultima_data"))));
                 }
@@ -192,8 +190,8 @@ public class LaunchService {
         if (relevant.isEmpty()) return;
 
         Map<String,double[]> progress = new HashMap<>();
-        String sql = "SELECT ordem,produto,MAX(qtd_plan) qtd_plan,SUM(COALESCE(qtd_apon,0)) qtd_apon " +
-                "FROM erp_apontamento_raw WHERE ordem IS NOT NULL AND TRIM(COALESCE(produto,''))<>'' " +
+        String sql = "SELECT ordem,produto,MAX(qtd_plan) qtd_plan,MAX(COALESCE(qtd_prod,0)) qtd_prod " +
+                "FROM erp_planejamento_raw WHERE ordem IS NOT NULL AND TRIM(COALESCE(produto,''))<>'' " +
                 "GROUP BY ordem,produto";
         try (Connection c = db.open(); PreparedStatement p = c.prepareStatement(sql); ResultSet r = p.executeQuery()) {
             while (r.next()) {
@@ -202,7 +200,7 @@ public class LaunchService {
                 double[] values = progress.computeIfAbsent(key, ignored -> new double[2]);
                 Object planned = r.getObject("qtd_plan");
                 if (planned instanceof Number number) values[0] = Math.max(values[0], number.doubleValue());
-                Object launched = r.getObject("qtd_apon");
+                Object launched = r.getObject("qtd_prod");
                 if (launched instanceof Number number) values[1] += Math.max(0, number.doubleValue());
             }
         } catch (SQLException e) {
@@ -847,7 +845,7 @@ public class LaunchService {
     public record ProductMetadata(String description,String client){}
     public record TrashItem(long id,String type,LaunchRecord record,String deletedBy,String deletedAt,String expiresAt){}
     public record OrderProcessProgress(String orderNumber,String process,String processName,String product,
-                                       String description,String client,String machines,int plannedPcs,
+                                       String description,int plannedPcs,
                                        int producedPcs,int remainingPcs,LocalDate firstDate,LocalDate lastDate){}
     private record A(long id,String order,LocalDate date,String product,String description,String client,String machine,String shift,double qty,String operator,String sync){}
     private record R(long id,LocalDate date,String order,String machine,String product,String shift,double kg,double weight,Integer items,String sync){}

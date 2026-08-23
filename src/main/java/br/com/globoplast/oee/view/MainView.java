@@ -593,7 +593,7 @@ public class MainView extends VerticalLayout {
         H2 title = new H2(t("Produção por OP"));
         title.addClassName("gp-section-title");
 
-        Paragraph explanation = new Paragraph(t("A consulta de Produção será alimentada pelo estoque do ERP. A integração está aguardando a identificação segura das tabelas do DealerSystem."));
+        Paragraph explanation = new Paragraph(t("Dados do Planejamento/Estoque do ERP, separados por OP e processo. Produção zero também é exibida quando o processo estiver previsto na OP."));
         explanation.addClassName("gp-muted");
 
         TextField order = new TextField(t("Nº da OP"));
@@ -634,8 +634,6 @@ public class MainView extends VerticalLayout {
                 .setHeader(t("Código Produto")).setWidth("160px").setFlexGrow(0);
         grid.addColumn(new ComponentRenderer<>(r -> fullTextCell(r.description())))
                 .setHeader(t("Descrição")).setWidth("300px").setFlexGrow(1);
-        grid.addColumn(new ComponentRenderer<>(r -> fullTextCell(r.machines())))
-                .setHeader(t("Máquina")).setAutoWidth(true).setFlexGrow(0);
         grid.addColumn(r -> formatInt(r.plannedPcs())).setHeader(t("Programado (OP)")).setAutoWidth(true);
         grid.addColumn(r -> formatInt(r.producedPcs())).setHeader(t("Produzido (OP)")).setAutoWidth(true);
         grid.addColumn(r -> formatInt(r.remainingPcs())).setHeader(t("Falta (OP)")).setAutoWidth(true);
@@ -658,10 +656,13 @@ public class MainView extends VerticalLayout {
             if (state != null) state.setText(t("Informe uma OP para consultar os processos 770, 771, 772, 773, 775 e 776."));
             return;
         }
-        // Não usa apontamentos como substituto de estoque. A consulta só será
-        // ativada após mapearmos e sincronizarmos as tabelas reais do Firebird.
-        grid.setItems(List.of());
-        if (state != null) state.setText(t("Consulta temporariamente indisponível enquanto o estoque do ERP é integrado."));
+        List<LaunchService.OrderProcessProgress> rows = launches.orderProcessProgress(productionOrderSearch);
+        grid.setItems(rows);
+        if (state != null) {
+            state.setText(rows.isEmpty()
+                    ? t("Nenhum planejamento de estoque encontrado para esta OP.")
+                    : t("OP") + " " + productionOrderSearch + " · " + rows.size() + " " + t(rows.size() == 1 ? "processo encontrado" : "processos encontrados"));
+        }
     }
 
     private String productionPeriod(LocalDate first, LocalDate last) {

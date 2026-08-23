@@ -47,7 +47,10 @@ required_files=(
   deploy/globoplast-backup-drive.timer
   deploy/nginx.conf
   deploy/windows/ajustar-intervalo-erp-2min.ps1
+  deploy/windows/diagnosticar_estoque_erp.py
+  deploy/windows/globoplast_sync_planejamento_online.py
   deploy/windows/globoplast_sync_refugo_online.py
+  deploy/windows/instalar-planejamento-erp.ps1
   src/main/resources/META-INF/resources/favicon.ico
   src/main/resources/META-INF/resources/favicon.png
   src/main/resources/META-INF/resources/images/globoplast-logo.png
@@ -72,6 +75,8 @@ bash -n deploy/globoplast-backup-drive
 python3 -c 'import ast, pathlib, sys; [ast.parse(pathlib.Path(name).read_text(encoding="utf-8"), filename=name) for name in sys.argv[1:]]' \
   deploy/globoplast-backup \
   deploy/globoplast-backup-check \
+  deploy/windows/diagnosticar_estoque_erp.py \
+  deploy/windows/globoplast_sync_planejamento_online.py \
   deploy/windows/globoplast_sync_refugo_online.py
 
 echo

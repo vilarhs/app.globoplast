@@ -9,6 +9,7 @@
 - Arquivos operacionais ficam em `C:\ProgramData\GloboplastSync`.
 - A tarefa agendada esperada é `Globoplast Refugo Online`.
 - Produção e Refugo devem sincronizar a cada 2 minutos.
+- O Planejamento/Estoque por OP também sincroniza a cada 2 minutos pela tarefa `Globoplast Planejamento Online`.
 - O log fica em `C:\ProgramData\GloboplastSync\refugo_online.log`.
 
 Para configurar uma instalação nova, copie o script para a pasta operacional e execute em um Prompt de Comando como Administrador:
@@ -34,6 +35,19 @@ base. Copie-o para o Windows e execute:
 ```text
 py diagnosticar_estoque_erp.py > estrutura-estoque-erp.txt
 ```
+
+## Instalar Planejamento/Estoque por OP
+
+Depois que a versão compatível estiver publicada na VPS, copie
+`globoplast_sync_planejamento_online.py` e `instalar-planejamento-erp.ps1` para
+a mesma pasta no Windows. Abra o PowerShell como Administrador e execute:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\instalar-planejamento-erp.ps1
+```
+
+O instalador reutiliza a configuração Firebird/token já protegida pelo DPAPI,
+faz backup do conector anterior e cria a tarefa com intervalo de 2 minutos.
 
 ## Restaurar o intervalo de 2 minutos
 
