@@ -83,6 +83,7 @@ public class LaunchService {
         List<LaunchRecord> out=new ArrayList<>(auto.size()+manual.size());
         out.addAll(auto);
         out.addAll(manual);
+        applyOrderProgress(out);
 
         // Regra atual: Máquina + Dia produtivo representa uma única operação de
         // 24h e uma única capacidade, mesmo com várias OPs/linhas/turnos.
@@ -131,6 +132,46 @@ public class LaunchService {
                 if (Norm.text(record.getClientErp()).isBlank()) record.setClientErp(metadata.client());
             }
         }
+    }
+
+    private void applyOrderProgress(List<LaunchRecord> records) {
+        if (records == null || records.isEmpty()) return;
+        Set<String> relevant = records.stream()
+                .filter(record -> !Norm.order(record.getOrderNumber()).isBlank())
+                .filter(record -> !Norm.product(record.getProduct()).isBlank())
+                .map(record -> orderProgressKey(record.getOrderNumber(), record.getProduct()))
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (relevant.isEmpty()) return;
+
+        Map<String,double[]> progress = new HashMap<>();
+        String sql = "SELECT ordem,produto,MAX(qtd_plan) qtd_plan,SUM(COALESCE(qtd_apon,0)) qtd_apon " +
+                "FROM erp_apontamento_raw WHERE ordem IS NOT NULL AND TRIM(COALESCE(produto,''))<>'' " +
+                "GROUP BY ordem,produto";
+        try (Connection c = db.open(); PreparedStatement p = c.prepareStatement(sql); ResultSet r = p.executeQuery()) {
+            while (r.next()) {
+                String key = orderProgressKey(r.getString("ordem"), r.getString("produto"));
+                if (!relevant.contains(key)) continue;
+                double[] values = progress.computeIfAbsent(key, ignored -> new double[2]);
+                Object planned = r.getObject("qtd_plan");
+                if (planned instanceof Number number) values[0] = Math.max(values[0], number.doubleValue());
+                Object launched = r.getObject("qtd_apon");
+                if (launched instanceof Number number) values[1] += Math.max(0, number.doubleValue());
+            }
+        } catch (SQLException e) {
+            throw new IllegalStateException(e);
+        }
+
+        for (LaunchRecord record : records) {
+            double[] values = progress.get(orderProgressKey(record.getOrderNumber(), record.getProduct()));
+            if (values == null || values[0] <= 0) continue;
+            record.setOrderProgressAvailable(true);
+            record.setOrderPlannedPcs((int) Math.round(values[0] * 1000.0));
+            record.setOrderLaunchedPcs((int) Math.round(values[1] * 1000.0));
+        }
+    }
+
+    private static String orderProgressKey(Object order, Object product) {
+        return Norm.order(order) + "|" + Norm.product(product);
     }
 
     private static Comparator<LaunchRecord> recentFirst() {

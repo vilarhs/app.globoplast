@@ -571,6 +571,9 @@ public class MainView extends VerticalLayout {
         grid.addColumn(LaunchRecord::getMachine).setHeader(t("Máquina")).setFlexGrow(2);
         grid.addColumn(new ComponentRenderer<>(this::launchProductCell)).setHeader(t("Código Produto")).setFlexGrow(2);
         grid.addColumn(new ComponentRenderer<>(this::launchOrderCell)).setHeader(t("Nº da OP")).setAutoWidth(true);
+        grid.addColumn(r -> r.isOrderProgressAvailable() ? formatInt(r.getOrderPlannedPcs()) : "—").setHeader(t("Programado")).setAutoWidth(true);
+        grid.addColumn(r -> r.isOrderProgressAvailable() ? formatInt(r.getOrderLaunchedPcs()) : "—").setHeader(t("Lançado")).setAutoWidth(true);
+        grid.addColumn(r -> r.isOrderProgressAvailable() ? formatInt(r.getOrderRemainingPcs()) : "—").setHeader(t("Falta")).setAutoWidth(true);
         grid.addColumn(r -> formatInt(r.getTotalProduced())).setHeader(t("Total Produzido")).setAutoWidth(true);
         grid.addColumn(r -> format(r.getScrapTotalKg())).setHeader(t("Refugo (kg)")).setAutoWidth(true);
         grid.addColumn(r -> formatInt(r.getScrapTotalPcs())).setHeader(t("Refugo (pçs)")).setAutoWidth(true);

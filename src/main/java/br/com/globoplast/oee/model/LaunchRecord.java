@@ -45,6 +45,9 @@ public class LaunchRecord {
     private String descriptionErp = "";
     private String clientErp = "";
     private int launchCount = 1;
+    private boolean orderProgressAvailable;
+    private int orderPlannedPcs;
+    private int orderLaunchedPcs;
 
     public long getId() { return id; }
     public void setId(long id) { this.id = id; }
@@ -126,6 +129,13 @@ public class LaunchRecord {
     public void setClientErp(String clientErp) { this.clientErp = nz(clientErp); }
     public int getLaunchCount() { return launchCount; }
     public void setLaunchCount(int launchCount) { this.launchCount = Math.max(0, launchCount); }
+    public boolean isOrderProgressAvailable() { return orderProgressAvailable; }
+    public void setOrderProgressAvailable(boolean orderProgressAvailable) { this.orderProgressAvailable = orderProgressAvailable; }
+    public int getOrderPlannedPcs() { return orderPlannedPcs; }
+    public void setOrderPlannedPcs(int orderPlannedPcs) { this.orderPlannedPcs = Math.max(0, orderPlannedPcs); }
+    public int getOrderLaunchedPcs() { return orderLaunchedPcs; }
+    public void setOrderLaunchedPcs(int orderLaunchedPcs) { this.orderLaunchedPcs = Math.max(0, orderLaunchedPcs); }
+    public int getOrderRemainingPcs() { return Math.max(0, orderPlannedPcs - orderLaunchedPcs); }
 
     public int processedPcs() { return Math.max(0, totalProduced) + Math.max(0, scrapTotalPcs); }
     public String identityKey() {
@@ -141,6 +151,7 @@ public class LaunchRecord {
         x.scrapPct=scrapPct; x.changeovers=changeovers; x.setupHours=setupHours; x.breakdownHours=breakdownHours; x.producingHours=producingHours;
         x.availabilityPct=availabilityPct; x.performancePct=performancePct; x.qualityPct=qualityPct; x.oeePct=oeePct;
         x.problem=problem; x.actionTaken=actionTaken; x.launchTime=launchTime; x.movementAt=movementAt; x.operatorErp=operatorErp; x.descriptionErp=descriptionErp; x.clientErp=clientErp; x.launchCount=launchCount;
+        x.orderProgressAvailable=orderProgressAvailable; x.orderPlannedPcs=orderPlannedPcs; x.orderLaunchedPcs=orderLaunchedPcs;
         return x;
     }
     private static String nz(String v) { return v == null ? "" : v; }

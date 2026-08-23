@@ -4,7 +4,7 @@ Sistema web de acompanhamento de produção, OEE e Refugo da Globoplast.
 
 ## Estado atual
 
-- Versão estável: `0.0.108`
+- Versão: `0.0.109`
 - Java 21, Spring Boot, Vaadin e SQLite
 - Aplicação publicada em `globoplast.app`
 - Serviço da VPS: `globoplast.service`
@@ -23,6 +23,7 @@ O código atual é a fonte de verdade. Documentos e ferramentas da migração in
 - Desempenho usa peças boas sobre a capacidade de 24 horas; Qualidade desconta o Refugo.
 - O banco do DealerSystem/Firebird é acessado somente para leitura pelo sincronizador Windows.
 - Edições de lançamentos ERP são overrides locais e não escrevem no ERP.
+- Na tabela de Lançamentos, Programado, Lançado e Falta mostram o avanço acumulado por `OP + Código do Produto`; valores do ERP em milhares são convertidos para peças.
 
 ## Estrutura
 
