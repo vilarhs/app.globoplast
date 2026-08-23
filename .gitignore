@@ -1,0 +1,41 @@
+# Build
+target/
+*.class
+
+# Vaadin frontend gerado
+node_modules/
+frontend/generated/
+frontend/index.html
+frontend/generated
+package.json
+package-lock.json
+pnpm-lock.yaml
+webpack.generated.js
+tsconfig.json
+types.d.ts
+vite.generated.ts
+
+# Banco de dados local (nunca versionar dados de produção)
+*.db
+*.db-shm
+*.db-wal
+
+# Segredos / configuração de ambiente local
+.env
+*.env
+/etc/globoplast-java.env
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+
+# SO
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

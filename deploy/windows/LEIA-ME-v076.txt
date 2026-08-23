@@ -1,0 +1,37 @@
+GLOBOPLAST - ATUALIZAÇÃO DO SINCRONIZADOR DE REFUGO V076
+
+ORDEM OBRIGATÓRIA
+1. Instale primeiro globoplast-java-v076.zip na nova VPS.
+2. Somente depois atualize o sincronizador no servidor Windows do Dealersystem.
+
+ATUALIZAÇÃO NO WINDOWS
+1. Extraia globoplast-sync-refugo-v076.zip.
+2. Abra o Prompt de Comando como Administrador.
+3. Entre na pasta extraída.
+4. Execute:
+
+   py -u atualizar_globoplast_refugo_v076.py
+
+O atualizador:
+- interrompe apenas uma eventual execução atual da tarefa;
+- preserva configuração, token e senha protegidos pelo Windows DPAPI;
+- cria backup do sincronizador anterior;
+- instala e testa a nova versão;
+- restaura automaticamente o backup se o teste falhar;
+- mantém a tarefa “Globoplast Refugo Online” e sua programação atual.
+
+COMPORTAMENTO NOVO
+- Os últimos 7 dias são reconciliados em toda execução.
+- Uma auditoria histórica desde 01/01/2025 roda uma vez ao dia.
+- O Firebird permanece SOMENTE LEITURA.
+- Uma exclusão no ERP remove o Refugo correspondente do Java e, por consequência,
+  retira seu efeito do lançamento de produção, da Qualidade e do OEE.
+
+LOG
+C:\ProgramData\GloboplastSync\refugo_online.log
+
+ESTADO DA AUDITORIA
+C:\ProgramData\GloboplastSync\refugo_online_state.json
+
+BACKUP AUTOMÁTICO
+C:\ProgramData\GloboplastSync\globoplast_sync_refugo_online.pre-v076.py

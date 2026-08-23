@@ -1,0 +1,18 @@
+[Unit]
+Description=Globoplast OEE Java
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/opt/globoplast-java
+EnvironmentFile=-/etc/globoplast-java.env
+Environment=TZ=America/Sao_Paulo
+ExecStart=/usr/bin/java -Duser.timezone=America/Sao_Paulo -Xms256m -Xmx2048m -jar /opt/globoplast-java/target/globoplast-java.jar
+Restart=always
+RestartSec=3
+SuccessExitStatus=143
+
+[Install]
+WantedBy=multi-user.target
