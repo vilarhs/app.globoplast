@@ -76,6 +76,7 @@ import java.util.stream.Collectors;
 @PageTitle("GLOBOPLAST APP")
 public class MainView extends VerticalLayout {
     private static final String TAB_AUTH_STORAGE_KEY = "globoplast_tab_auth_v078";
+    private static final String SCRAP_REPORT_KEY = "relatorios_refugo";
 
     private final AuthService auth;
     private final CatalogService catalog;
@@ -286,6 +287,8 @@ public class MainView extends VerticalLayout {
                         refreshOrderProduction();
                     } else if ("refugo".equals(selectedTab)) {
                         refreshScrap(scrapActiveDimension);
+                    } else if (SCRAP_REPORT_KEY.equals(selectedTab)) {
+                        refreshScrapReport();
                     } else if ("dia".equals(selectedTab)) {
                         if (activeDayRefresh != null) activeDayRefresh.run();
                     } else if ("mes".equals(selectedTab)) {
@@ -319,11 +322,13 @@ public class MainView extends VerticalLayout {
     private Div navigation() {
         tabKeys.clear();
         List<Tab> tabs = new ArrayList<>();
-        String productionDefault = user.canSeeSummaries() ? "dia" : "lancamentos";
-        Tab productionTab = tab("🏭 " + t("Produção") + " ▾", productionDefault);
+        Tab productionTab = tab("🏭 " + t("Produção") + " ▾", "lancamentos");
         installProductionMenu(productionTab);
         tabs.add(productionTab);
         tabs.add(tab("📦 " + t("Estoque"), "estoque"));
+        Tab reportsTab = tab("📊 " + t("Relatórios") + " ▾", SCRAP_REPORT_KEY);
+        installReportsMenu(reportsTab);
+        tabs.add(reportsTab);
         mainTabs = new Tabs(tabs.toArray(Tab[]::new));
         mainTabs.addClassName("gp-main-tabs");
         mainTabs.setWidthFull();
@@ -356,7 +361,7 @@ public class MainView extends VerticalLayout {
     private void installProductionMenu(Tab productionTab) {
         ContextMenu dropdown = new ContextMenu();
         dropdown.setTarget(productionTab);
-        dropdown.setOpenOnClick(true);
+        dropdown.setOpenOnClick(false);
         dropdown.addItem(t("Lançamentos"), e -> openProductionSubPage("lancamentos"));
         if (user.canSeeSummaries()) {
             dropdown.addItem(t("Resumo do Dia"), e -> openProductionSubPage("dia"));
@@ -366,7 +371,25 @@ public class MainView extends VerticalLayout {
         if (user != null && user.canModifyLaunches()) {
             dropdown.addItem(t("Lixeira"), e -> showLaunchTrash());
         }
+        productionTab.getElement().addEventListener("click", e -> {
+            dropdown.close();
+            if (!Objects.equals(renderedTabKey, "lancamentos")) openProductionSubPage("lancamentos");
+        });
+        installNavigationMenuHover(productionTab);
         installContextMenuHoverOnly(productionTab);
+    }
+
+    private void installReportsMenu(Tab reportsTab) {
+        ContextMenu dropdown = new ContextMenu();
+        dropdown.setTarget(reportsTab);
+        dropdown.setOpenOnClick(false);
+        dropdown.addItem(t("Refugo"), e -> openProductionSubPage(SCRAP_REPORT_KEY));
+        reportsTab.getElement().addEventListener("click", e -> {
+            dropdown.close();
+            if (!Objects.equals(renderedTabKey, SCRAP_REPORT_KEY)) openProductionSubPage(SCRAP_REPORT_KEY);
+        });
+        installNavigationMenuHover(reportsTab);
+        installContextMenuHoverOnly(reportsTab);
     }
 
     private void openProductionSubPage(String key) {
@@ -377,7 +400,7 @@ public class MainView extends VerticalLayout {
     private void selectTab(String key) {
         String normalizedKey = "producao".equals(key) ? "estoque" : key;
         String selectedKey = Set.of("lancamentos", "dia", "mes", "refugo").contains(normalizedKey)
-                ? (user.canSeeSummaries() ? "dia" : "lancamentos")
+                ? "lancamentos"
                 : normalizedKey;
         for (var e : tabKeys.entrySet()) {
             if (e.getValue().equals(selectedKey)) {
@@ -418,7 +441,6 @@ public class MainView extends VerticalLayout {
         } else {
             dropdown.addItem(t("Alterar Senha"), e -> showOwnPassword());
         }
-        dropdown.addItem(t("Relatórios"), e -> showReports());
         MenuItem languageMenu = dropdown.addItem("pt-BR / en-US");
         languageMenu.getSubMenu().addItem("pt-BR", e -> changeLanguage("pt-BR"));
         languageMenu.getSubMenu().addItem("en-US", e -> changeLanguage("en-US"));
@@ -533,6 +555,7 @@ public class MainView extends VerticalLayout {
             case "dia" -> renderDay();
             case "mes" -> renderMonth();
             case "refugo" -> renderScrap();
+            case SCRAP_REPORT_KEY -> renderScrapReport();
             case "estoque", "producao" -> renderOrderProduction();
             default -> renderLaunches();
         }
@@ -2430,7 +2453,7 @@ public class MainView extends VerticalLayout {
             scrapActiveDimension = selected;
             refreshScrap(selected);
         };
-        Popover filterDropdown = scrapFilterDropdown(filter, refreshSelected);
+        Popover filterDropdown = scrapFilterDropdown(filter, refreshSelected, this::renderScrap);
         Div page = new Div(titleRow, toolbar, filterDropdown, kpis, dims, chart, details, recent);
         page.addClassNames("gp-refugo-page", "gp-refugo-page-v065", "gp-refugo-page-v066", "gp-refugo-page-v067", "gp-refugo-page-v068", "gp-refugo-page-v069", "gp-refugo-page-v070");
         content.add(page);
@@ -2455,6 +2478,136 @@ public class MainView extends VerticalLayout {
             """);
         });
         refreshSelected.run();
+    }
+
+    private void renderScrapReport() {
+        content.removeAll();
+
+        H2 title = new H2(t("Relatório de Refugo"));
+        title.addClassName("gp-section-title");
+        Div titleRow = new Div(title);
+        titleRow.addClassNames("gp-title-row", "gp-title-row-static");
+
+        TextField search = new TextField(t("Pesquisar refugo"));
+        search.setPlaceholder(t("Ordem, produto ou descrição"));
+        search.setClearButtonVisible(true);
+        search.setValue(scrapSearch);
+        search.setValueChangeMode(ValueChangeMode.EAGER);
+        search.setValueChangeTimeout(100);
+
+        Button filter = searchFilterButton();
+        filter.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
+        filter.addClassName("gp-filter-button");
+        filter.setAriaLabel(t("Filtros"));
+        filter.setTooltipText(t("Filtros")).withPosition(Tooltip.TooltipPosition.TOP);
+
+        Div toolbar = new Div(search, filter);
+        toolbar.addClassNames("gp-toolbar", "gp-tab-controls", "gp-search-filter-toolbar-v044", "gp-scrap-report-toolbar-v116");
+        Popover filterDropdown = scrapFilterDropdown(filter, this::refreshScrapReport, this::renderScrapReport);
+
+        Paragraph explanation = new Paragraph(t("Todos os setores de refugo aparecem no relatório, mesmo quando não possuem lançamentos no período."));
+        explanation.addClassName("gp-muted");
+
+        Div kpis = new Div();
+        kpis.setId("scrap-report-kpis");
+        kpis.addClassNames("gp-kpis", "gp-scrap-report-kpis-v116");
+
+        Div sectors = new Div();
+        sectors.setId("scrap-report-sectors");
+        sectors.addClassName("gp-scrap-report-sectors-v116");
+
+        Div reasons = new Div();
+        reasons.setId("scrap-report-reasons");
+        reasons.addClassName("gp-scrap-report-reasons-v116");
+
+        Div page = new Div(titleRow, toolbar, filterDropdown, explanation, kpis, sectors, reasons);
+        page.addClassName("gp-scrap-report-page-v116");
+        content.add(page);
+
+        search.addValueChangeListener(e -> {
+            scrapSearch = e.getValue();
+            refreshScrapReport();
+        });
+        refreshScrapReport();
+    }
+
+    private void refreshScrapReport() {
+        List<RefugoRecord> rows = currentScrapReportRows();
+        double totalKg = rows.stream().mapToDouble(RefugoRecord::scrapKg).sum();
+
+        List<ScrapSectorReportRow> sectorRows = new ArrayList<>();
+        for (String sector : Norm.scrapSectors()) {
+            List<RefugoRecord> scope = rows.stream()
+                    .filter(row -> sector.equalsIgnoreCase(row.sector()))
+                    .toList();
+            double kg = scope.stream().mapToDouble(RefugoRecord::scrapKg).sum();
+            double participation = totalKg > 0 ? kg * 100.0 / totalKg : 0.0;
+            sectorRows.add(new ScrapSectorReportRow(sector, kg, scope.size(), participation));
+        }
+
+        Div kpis = (Div) byId("scrap-report-kpis");
+        if (kpis != null) {
+            long sectorsWithScrap = sectorRows.stream().filter(row -> row.scrapKg() > 0).count();
+            kpis.removeAll();
+            kpis.add(
+                    kpi(t("Total Refugo"), format(totalKg) + " kg"),
+                    kpi(t("Setores com Refugo"), formatInt(sectorsWithScrap)),
+                    kpi(t("Setores sem Refugo"), formatInt(sectorRows.size() - sectorsWithScrap)),
+                    kpi(t("Total de Lançamentos"), formatInt(rows.size())),
+                    kpi(t("Período"), reportPeriodLabel())
+            );
+        }
+
+        Div sectors = (Div) byId("scrap-report-sectors");
+        if (sectors != null) {
+            sectors.removeAll();
+            H3 sectionTitle = new H3(t("Refugo por Setor"));
+            sectionTitle.addClassName("gp-subsection-title");
+            Grid<ScrapSectorReportRow> grid = new Grid<>(ScrapSectorReportRow.class, false);
+            grid.addClassNames("gp-scrap-report-grid-v116", "gp-admin-grid");
+            grid.addThemeVariants(GridVariant.LUMO_NO_BORDER, GridVariant.LUMO_ROW_STRIPES);
+            grid.addColumn(row -> t(row.sector())).setHeader(t("Setor")).setAutoWidth(true).setFlexGrow(1);
+            grid.addColumn(row -> format(row.scrapKg())).setHeader(t("Refugo (kg)")).setAutoWidth(true).setFlexGrow(0);
+            grid.addColumn(row -> formatInt(row.launches())).setHeader(t("Total de Lançamentos")).setAutoWidth(true).setFlexGrow(0);
+            grid.addColumn(row -> format1(row.participation()) + "%").setHeader(t("Participação (%)")).setAutoWidth(true).setFlexGrow(0);
+            grid.setItems(sectorRows);
+            grid.setAllRowsVisible(true);
+            sectors.add(sectionTitle, grid);
+        }
+
+        Div reasons = (Div) byId("scrap-report-reasons");
+        if (reasons != null) {
+            reasons.removeAll();
+            H3 sectionTitle = new H3(t("Top 5 Motivos por Setor"));
+            sectionTitle.addClassName("gp-subsection-title");
+            Span caption = new Span(t("Ranking independente para os seis setores produtivos definidos no relatório."));
+            caption.addClassName("gp-caption");
+            Div cards = new Div();
+            cards.addClassName("gp-scrap-reason-cards-v116");
+            for (String sector : Norm.scrapReasonReportSectors()) {
+                List<RefugoRecord> scope = rows.stream()
+                        .filter(row -> sector.equalsIgnoreCase(row.sector()))
+                        .toList();
+                double sectorTotal = scope.stream().mapToDouble(RefugoRecord::scrapKg).sum();
+                H3 cardTitle = new H3(t(sector));
+                cardTitle.addClassName("gp-scrap-reason-title-v116");
+                Div card = new Div(cardTitle, rankingTable(aggregateScrap(scope, "Motivo"), sectorTotal, sector));
+                card.addClassName("gp-scrap-reason-card-v116");
+                cards.add(card);
+            }
+            reasons.add(sectionTitle, caption, cards);
+        }
+    }
+
+    private List<RefugoRecord> currentScrapReportRows() {
+        List<RefugoRecord> base = cachedScrapData(scrapStart, scrapEnd);
+        return scraps.filter(base, scrapSearch, scrapSectors, scrapOrders, scrapMachines, scrapProducts,
+                scrapDescriptions, scrapClients, scrapShifts, scrapOperators, scrapMotives);
+    }
+
+    private String reportPeriodLabel() {
+        if (Objects.equals(scrapStart, scrapEnd)) return Norm.br(scrapStart);
+        return Norm.br(scrapStart) + " – " + Norm.br(scrapEnd);
     }
 
     private Tab dimensionTab(Map<Tab, String> dimensions, String canonical) {
@@ -3100,7 +3253,7 @@ public class MainView extends VerticalLayout {
         return (value > 0 ? "+" : "") + format1(value);
     }
 
-    private Popover scrapFilterDropdown(Button target, Runnable refresh) {
+    private Popover scrapFilterDropdown(Button target, Runnable refresh, Runnable clearView) {
         Popover p = new Popover();
         p.setTarget(target);
         p.setPosition(PopoverPosition.BOTTOM_END);
@@ -3252,7 +3405,7 @@ public class MainView extends VerticalLayout {
             invalidateDataCaches();
             updateFilterButton(target, scrapFiltersActive());
             p.setOpened(false);
-            renderScrap();
+            clearView.run();
         });
         clear.setWidthFull();
         clear.addClassName("gp-filter-clear");
@@ -3386,6 +3539,38 @@ public class MainView extends VerticalLayout {
                 """));
     }
 
+    /**
+     * Abre os dropdowns da navegação ao manter o ponteiro sobre a aba, sem
+     * transformar o clique normal em abertura de menu. O clique continua sendo
+     * tratado pelo Tab e leva à página principal do grupo.
+     */
+    private void installNavigationMenuHover(Component trigger) {
+        if (trigger == null) return;
+        trigger.addAttachListener(e -> trigger.getElement().executeJs(
+                """
+                (() => {
+                    const trigger = this;
+                    if (trigger.__gpNavigationMenuHoverV116) return;
+                    trigger.__gpNavigationMenuHoverV116 = true;
+
+                    const supportsHover = () => window.matchMedia?.('(hover: hover)').matches !== false;
+                    const openMenu = event => {
+                        if (!supportsHover() || event.pointerType === 'touch') return;
+                        const box = trigger.getBoundingClientRect();
+                        trigger.dispatchEvent(new MouseEvent('contextmenu', {
+                            bubbles: true,
+                            composed: true,
+                            cancelable: true,
+                            clientX: box.left + box.width / 2,
+                            clientY: box.bottom
+                        }));
+                    };
+
+                    trigger.addEventListener('pointerenter', openMenu, {passive:true});
+                })();
+                """));
+    }
+
     private void enforceLoginInputContrast(Component field) {
         if (field == null) return;
         field.addAttachListener(e -> field.getElement().executeJs(
@@ -3457,14 +3642,6 @@ public class MainView extends VerticalLayout {
             if (!value.isBlank()) unique.add(value);
         }
         return String.join(" / ", unique);
-    }
-
-    private void showReports() {
-        Dialog d=dialog(t("Relatórios"));
-        Span caption=new Span(t("Selecione um relatório."));
-        caption.addClassName("gp-caption");
-        d.add(caption);
-        d.open();
     }
 
     private void showRegistry() {
@@ -4141,6 +4318,8 @@ public class MainView extends VerticalLayout {
     }
 
     private static record ScrapDetailRow(String date, String order, String product, double planned, double scrapKg, int items, Double lossPct) {}
+
+    private static record ScrapSectorReportRow(String sector, double scrapKg, long launches, double participation) {}
 
     private static class LaunchFormFields {
         Div root;

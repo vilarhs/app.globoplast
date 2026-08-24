@@ -4849,3 +4849,63 @@ html body .gp-launch-sticky-label-v115{
   box-sizing:border-box!important;
   white-space:normal!important;
 }
+
+/* ==========================================================================
+   0.0.116 — NAVEGACAO E RELATORIO DE REFUGO
+   ========================================================================== */
+
+html body .gp-main-tabs vaadin-tab{
+  cursor:pointer;
+}
+html body .gp-scrap-report-page-v116{
+  display:flex;
+  flex-direction:column;
+  width:100%;
+  min-width:0;
+}
+html body .gp-scrap-report-toolbar-v116{
+  margin-bottom:.25rem;
+}
+html body .gp-scrap-report-kpis-v116{
+  margin:.35rem 0 1rem;
+}
+html body .gp-scrap-report-sectors-v116,
+html body .gp-scrap-report-reasons-v116{
+  width:100%;
+  min-width:0;
+}
+html body .gp-scrap-report-grid-v116{
+  width:100%;
+  min-width:0;
+  margin-bottom:1.2rem;
+}
+html body .gp-scrap-reason-cards-v116{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:1rem;
+  width:100%;
+  min-width:0;
+  margin:.65rem 0 1rem;
+}
+html body .gp-scrap-reason-card-v116{
+  min-width:0;
+  padding:.9rem 1rem .25rem;
+  border:1px solid var(--gp-border);
+  border-radius:.65rem;
+  background:var(--gp-surface);
+  box-sizing:border-box;
+}
+html body .gp-scrap-reason-title-v116{
+  margin:0 0 .35rem;
+  color:var(--gp-text);
+  font-size:1rem;
+}
+html body .gp-scrap-reason-card-v116 .gp-ranking-table{
+  margin-bottom:.5rem;
+}
+
+@media (max-width:760px){
+  html body .gp-scrap-reason-cards-v116{
+    grid-template-columns:1fr;
+  }
+}

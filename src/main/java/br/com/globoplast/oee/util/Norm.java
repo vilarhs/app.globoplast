@@ -6,9 +6,36 @@ import java.text.Normalizer;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.List;
 import java.util.Locale;
 
 public final class Norm {
+    private static final List<String> SCRAP_SECTORS = List.of(
+            "Extrusão",
+            "Impressão",
+            "Silk Screen",
+            "Hot Stamping",
+            "Fechamento de Fundo",
+            "Colocação de Tampa",
+            "Injetados",
+            "Qualidade",
+            "Desenvolvimento",
+            "Preparação MP",
+            "Varredura Armazém",
+            "Devolução Cliente",
+            "Material Obsoleto",
+            "Varredura Fábrica"
+    );
+
+    private static final List<String> SCRAP_REASON_REPORT_SECTORS = List.of(
+            "Extrusão",
+            "Impressão",
+            "Hot Stamping",
+            "Silk Screen",
+            "Fechamento de Fundo",
+            "Colocação de Tampa"
+    );
+
     private Norm() {}
 
     public static String text(Object value) {
@@ -218,6 +245,14 @@ public final class Norm {
                 default -> "Injetados";
             };
         };
+    }
+
+    public static List<String> scrapSectors() {
+        return SCRAP_SECTORS;
+    }
+
+    public static List<String> scrapReasonReportSectors() {
+        return SCRAP_REASON_REPORT_SECTORS;
     }
 
     public static String canonicalSector(Object value) {
