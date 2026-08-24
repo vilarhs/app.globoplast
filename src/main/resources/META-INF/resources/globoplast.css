@@ -4879,6 +4879,12 @@ html body .gp-scrap-report-grid-v116{
   min-width:0;
   margin-bottom:1.2rem;
 }
+html body .gp-scrap-report-grid-v116::part(odd-row-cell){
+  background:var(--gp-bg)!important;
+}
+html body .gp-scrap-report-grid-v116::part(even-row-cell){
+  background:var(--gp-surface-2)!important;
+}
 html body .gp-scrap-reason-cards-v116{
   display:grid;
   grid-template-columns:repeat(2,minmax(0,1fr));
@@ -4907,5 +4913,118 @@ html body .gp-scrap-reason-card-v116 .gp-ranking-table{
 @media (max-width:760px){
   html body .gp-scrap-reason-cards-v116{
     grid-template-columns:1fr;
+  }
+}
+
+/* ==========================================================================
+   0.0.117 — MENUS AUTOFECHAVEIS E EXPORTACAO DO RELATORIO
+   ========================================================================== */
+
+html body .gp-scrap-report-toolbar-v116{
+  flex-wrap:wrap!important;
+}
+html body .gp-scrap-report-toolbar-v116>vaadin-text-field{
+  flex:1 1 420px!important;
+}
+html body .gp-scrap-report-export-v117{
+  flex:0 0 auto!important;
+  min-height:44px!important;
+  margin-left:auto!important;
+  align-self:flex-end!important;
+}
+html body .gp-scrap-report-print-header-v117{
+  display:none!important;
+}
+
+@media (max-width:700px){
+  html body .gp-scrap-report-export-v117{
+    width:100%!important;
+    margin-left:0!important;
+  }
+}
+
+@media print{
+  @page{size:A4 landscape;margin:9mm}
+  html.gp-print-scrap-report-v117,
+  html.gp-print-scrap-report-v117 body{
+    --gp-bg:#fff!important;
+    --gp-surface:#fff!important;
+    --gp-text:#1f2430!important;
+    --gp-muted:#5d6470!important;
+    --gp-border:#cfd3da!important;
+    --lumo-base-color:#fff!important;
+    --lumo-body-text-color:#1f2430!important;
+    --lumo-header-text-color:#1f2430!important;
+    width:auto!important;
+    min-width:0!important;
+    height:auto!important;
+    min-height:0!important;
+    margin:0!important;
+    padding:0!important;
+    overflow:visible!important;
+    background:#fff!important;
+    color:#1f2430!important;
+    -webkit-print-color-adjust:exact;
+    print-color-adjust:exact;
+  }
+  html.gp-print-scrap-report-v117 .gp-main-header,
+  html.gp-print-scrap-report-v117 .gp-navigation,
+  html.gp-print-scrap-report-v117 .gp-footer,
+  html.gp-print-scrap-report-v117 .gp-scrap-report-toolbar-v116,
+  html.gp-print-scrap-report-v117 .gp-scrap-report-page-v116>.gp-title-row,
+  html.gp-print-scrap-report-v117 .gp-scrap-report-explanation-v117,
+  html.gp-print-scrap-report-v117 vaadin-tooltip-overlay,
+  html.gp-print-scrap-report-v117 vaadin-popover-overlay,
+  html.gp-print-scrap-report-v117 vaadin-context-menu-overlay{
+    display:none!important;
+  }
+  html.gp-print-scrap-report-v117 .gp-root,
+  html.gp-print-scrap-report-v117 .gp-shell,
+  html.gp-print-scrap-report-v117 .gp-content,
+  html.gp-print-scrap-report-v117 .gp-scrap-report-page-v116{
+    display:block!important;
+    width:100%!important;
+    max-width:none!important;
+    min-width:0!important;
+    min-height:0!important;
+    margin:0!important;
+    padding:0!important;
+    overflow:visible!important;
+    background:#fff!important;
+    color:#1f2430!important;
+  }
+  html.gp-print-scrap-report-v117 .gp-scrap-report-print-header-v117{
+    display:flex!important;
+    align-items:flex-start!important;
+    justify-content:flex-end!important;
+    width:100%!important;
+    min-height:18mm!important;
+    margin:0 0 4mm!important;
+    break-inside:avoid;
+  }
+  html.gp-print-scrap-report-v117 .gp-scrap-report-print-logo-v117{
+    display:block!important;
+    width:46mm!important;
+    max-width:175px!important;
+    height:auto!important;
+    object-fit:contain!important;
+  }
+  html.gp-print-scrap-report-v117 .gp-scrap-report-kpis-v116{
+    grid-template-columns:repeat(5,minmax(0,1fr))!important;
+    break-inside:avoid;
+  }
+  html.gp-print-scrap-report-v117 .gp-scrap-reason-cards-v116{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:6mm!important;
+  }
+  html.gp-print-scrap-report-v117 .gp-scrap-reason-card-v116{
+    break-inside:avoid;
+    page-break-inside:avoid;
+    background:#fff!important;
+    color:#1f2430!important;
+    box-shadow:none!important;
+  }
+  html.gp-print-scrap-report-v117 .gp-scrap-report-grid-v116{
+    break-inside:auto;
   }
 }

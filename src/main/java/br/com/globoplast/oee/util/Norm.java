@@ -33,7 +33,8 @@ public final class Norm {
             "Hot Stamping",
             "Silk Screen",
             "Fechamento de Fundo",
-            "Colocação de Tampa"
+            "Colocação de Tampa",
+            "Injetados"
     );
 
     private Norm() {}

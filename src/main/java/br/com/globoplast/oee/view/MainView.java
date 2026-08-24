@@ -375,7 +375,7 @@ public class MainView extends VerticalLayout {
             dropdown.close();
             if (!Objects.equals(renderedTabKey, "lancamentos")) openProductionSubPage("lancamentos");
         });
-        installNavigationMenuHover(productionTab);
+        installMenuHoverBehavior(productionTab, dropdown, false);
         installContextMenuHoverOnly(productionTab);
     }
 
@@ -388,7 +388,7 @@ public class MainView extends VerticalLayout {
             dropdown.close();
             if (!Objects.equals(renderedTabKey, SCRAP_REPORT_KEY)) openProductionSubPage(SCRAP_REPORT_KEY);
         });
-        installNavigationMenuHover(reportsTab);
+        installMenuHoverBehavior(reportsTab, dropdown, false);
         installContextMenuHoverOnly(reportsTab);
     }
 
@@ -431,7 +431,7 @@ public class MainView extends VerticalLayout {
         trigger.setAriaLabel(t("Menu"));
         ContextMenu dropdown = new ContextMenu();
         dropdown.setTarget(trigger);
-        dropdown.setOpenOnClick(true);
+        dropdown.setOpenOnClick(false);
         MenuItem me = dropdown.addItem(user.username());
         me.addClassName("gp-menu-caption");
         me.setEnabled(false);
@@ -458,6 +458,7 @@ public class MainView extends VerticalLayout {
         menuSyncItem.setEnabled(false);
         menuSyncItem.addClassName("gp-menu-sync-info-v045");
         refreshMenuSyncStatus();
+        installMenuHoverBehavior(trigger, dropdown, true);
         installContextMenuHoverOnly(trigger);
         return trigger;
     }
@@ -2501,12 +2502,24 @@ public class MainView extends VerticalLayout {
         filter.setAriaLabel(t("Filtros"));
         filter.setTooltipText(t("Filtros")).withPosition(Tooltip.TooltipPosition.TOP);
 
-        Div toolbar = new Div(search, filter);
+        Button exportPdf = new Button(t("Exportar PDF"), VaadinIcon.PRINT.create());
+        exportPdf.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        exportPdf.addClassName("gp-scrap-report-export-v117");
+        exportPdf.setTooltipText(t("Abre a impressão para salvar o relatório como PDF"))
+                .withPosition(Tooltip.TooltipPosition.TOP);
+        exportPdf.addClickListener(e -> exportScrapReportPdf());
+
+        Div toolbar = new Div(search, filter, exportPdf);
         toolbar.addClassNames("gp-toolbar", "gp-tab-controls", "gp-search-filter-toolbar-v044", "gp-scrap-report-toolbar-v116");
         Popover filterDropdown = scrapFilterDropdown(filter, this::refreshScrapReport, this::renderScrapReport);
 
         Paragraph explanation = new Paragraph(t("Todos os setores de refugo aparecem no relatório, mesmo quando não possuem lançamentos no período."));
-        explanation.addClassName("gp-muted");
+        explanation.addClassNames("gp-muted", "gp-scrap-report-explanation-v117");
+
+        Image printLogo = new Image("/images/globoplast-logo.png", "Globoplast");
+        printLogo.addClassName("gp-scrap-report-print-logo-v117");
+        Div printHeader = new Div(printLogo);
+        printHeader.addClassName("gp-scrap-report-print-header-v117");
 
         Div kpis = new Div();
         kpis.setId("scrap-report-kpis");
@@ -2520,7 +2533,7 @@ public class MainView extends VerticalLayout {
         reasons.setId("scrap-report-reasons");
         reasons.addClassName("gp-scrap-report-reasons-v116");
 
-        Div page = new Div(titleRow, toolbar, filterDropdown, explanation, kpis, sectors, reasons);
+        Div page = new Div(titleRow, toolbar, filterDropdown, explanation, printHeader, kpis, sectors, reasons);
         page.addClassName("gp-scrap-report-page-v116");
         content.add(page);
 
@@ -2529,6 +2542,25 @@ public class MainView extends VerticalLayout {
             refreshScrapReport();
         });
         refreshScrapReport();
+    }
+
+    private void exportScrapReportPdf() {
+        String fileName = "Relatorio-Refugo-" + scrapStart + "-a-" + scrapEnd;
+        UI.getCurrent().getPage().executeJs(
+                """
+                (() => {
+                    const previousTitle = document.title;
+                    const root = document.documentElement;
+                    document.title = String($0 || 'Relatorio-Refugo');
+                    root.classList.add('gp-print-scrap-report-v117');
+                    const restore = () => {
+                        root.classList.remove('gp-print-scrap-report-v117');
+                        document.title = previousTitle;
+                    };
+                    window.addEventListener('afterprint', restore, {once:true});
+                    window.print();
+                })();
+                """, fileName);
     }
 
     private void refreshScrapReport() {
@@ -2580,7 +2612,7 @@ public class MainView extends VerticalLayout {
             reasons.removeAll();
             H3 sectionTitle = new H3(t("Top 5 Motivos por Setor"));
             sectionTitle.addClassName("gp-subsection-title");
-            Span caption = new Span(t("Ranking independente para os seis setores produtivos definidos no relatório."));
+            Span caption = new Span(t("Ranking independente para os sete setores produtivos definidos no relatório."));
             caption.addClassName("gp-caption");
             Div cards = new Div();
             cards.addClassName("gp-scrap-reason-cards-v116");
@@ -3530,6 +3562,7 @@ public class MainView extends VerticalLayout {
                     };
 
                     trigger.addEventListener('click', schedule, true);
+                    trigger.addEventListener('contextmenu', schedule, true);
 
                     if (!window.__gpContextMenuHoverObserver) {
                         window.__gpContextMenuHoverObserver = new MutationObserver(apply);
@@ -3540,22 +3573,46 @@ public class MainView extends VerticalLayout {
     }
 
     /**
-     * Abre os dropdowns da navegação ao manter o ponteiro sobre a aba, sem
-     * transformar o clique normal em abertura de menu. O clique continua sendo
-     * tratado pelo Tab e leva à página principal do grupo.
+     * Abre o dropdown ao entrar com o mouse e o fecha assim que o ponteiro deixa
+     * tanto o gatilho quanto o overlay. No menu do sistema, o clique também abre;
+     * nas abas, o clique permanece reservado à navegação da página principal.
      */
-    private void installNavigationMenuHover(Component trigger) {
-        if (trigger == null) return;
+    private void installMenuHoverBehavior(Component trigger, ContextMenu dropdown, boolean clickOpensMenu) {
+        if (trigger == null || dropdown == null) return;
+        trigger.getElement().addEventListener("gp-menu-hover-close-v117", e -> dropdown.close());
         trigger.addAttachListener(e -> trigger.getElement().executeJs(
                 """
                 (() => {
                     const trigger = this;
-                    if (trigger.__gpNavigationMenuHoverV116) return;
-                    trigger.__gpNavigationMenuHoverV116 = true;
+                    if (trigger.__gpMenuHoverV117) return;
+                    trigger.__gpMenuHoverV117 = true;
+                    const clickOpensMenu = Boolean($0);
+                    let closeTimer = 0;
 
                     const supportsHover = () => window.matchMedia?.('(hover: hover)').matches !== false;
-                    const openMenu = event => {
-                        if (!supportsHover() || event.pointerType === 'touch') return;
+                    const openedOverlays = () => Array.from(
+                        document.querySelectorAll('vaadin-context-menu-overlay[opened]')
+                    );
+                    const pointerIsInside = () => trigger.matches(':hover') ||
+                        openedOverlays().some(overlay => overlay.matches(':hover'));
+                    const cancelClose = () => {
+                        if (closeTimer) window.clearTimeout(closeTimer);
+                        closeTimer = 0;
+                    };
+                    const requestClose = () => {
+                        cancelClose();
+                        closeTimer = window.setTimeout(() => {
+                            closeTimer = 0;
+                            if (!trigger.isConnected || pointerIsInside()) return;
+                            trigger.dispatchEvent(new CustomEvent('gp-menu-hover-close-v117', {
+                                bubbles: true,
+                                composed: true
+                            }));
+                        }, 90);
+                    };
+                    const dispatchOpen = (event, allowWithoutHover = false) => {
+                        if (!allowWithoutHover && (!supportsHover() || event.pointerType === 'touch')) return;
+                        cancelClose();
                         const box = trigger.getBoundingClientRect();
                         trigger.dispatchEvent(new MouseEvent('contextmenu', {
                             bubbles: true,
@@ -3566,9 +3623,24 @@ public class MainView extends VerticalLayout {
                         }));
                     };
 
-                    trigger.addEventListener('pointerenter', openMenu, {passive:true});
+                    trigger.addEventListener('pointerenter', dispatchOpen, {passive:true});
+                    trigger.addEventListener('pointerleave', requestClose, {passive:true});
+                    if (clickOpensMenu) {
+                        trigger.addEventListener('click', event => dispatchOpen(event, true), {passive:true});
+                    }
+
+                    const monitorPointer = () => {
+                        if (!trigger.isConnected) {
+                            document.removeEventListener('pointermove', monitorPointer);
+                            cancelClose();
+                            return;
+                        }
+                        if (openedOverlays().length > 0 && !pointerIsInside()) requestClose();
+                        else if (pointerIsInside()) cancelClose();
+                    };
+                    document.addEventListener('pointermove', monitorPointer, {passive:true});
                 })();
-                """));
+                """, clickOpensMenu));
     }
 
     private void enforceLoginInputContrast(Component field) {
