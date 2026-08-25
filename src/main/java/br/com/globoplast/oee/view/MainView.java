@@ -3579,15 +3579,26 @@ public class MainView extends VerticalLayout {
      */
     private void installMenuHoverBehavior(Component trigger, ContextMenu dropdown, boolean clickOpensMenu) {
         if (trigger == null || dropdown == null) return;
-        trigger.getElement().addEventListener("gp-menu-hover-close-v117", e -> dropdown.close());
+        trigger.getElement().addEventListener("gp-menu-hover-close-v118", e -> dropdown.close());
+        dropdown.addOpenedChangeListener(e -> trigger.getElement().executeJs(
+                "this.__gpMenuOpenRequestedV118=$0;" +
+                "if(!$0&&window.__gpActiveHoverMenuTriggerV118===this)" +
+                "window.__gpActiveHoverMenuTriggerV118=null;",
+                e.isOpened()));
         trigger.addAttachListener(e -> trigger.getElement().executeJs(
                 """
                 (() => {
                     const trigger = this;
-                    if (trigger.__gpMenuHoverV117) return;
-                    trigger.__gpMenuHoverV117 = true;
+                    if (trigger.__gpMenuHoverV118) return;
+                    trigger.__gpMenuHoverV118 = true;
                     const clickOpensMenu = Boolean($0);
                     let closeTimer = 0;
+                    let openedAt = Number.NEGATIVE_INFINITY;
+                    let overlayEntered = false;
+                    const preparedOverlays = new WeakSet();
+
+                    const CLOSE_DELAY = 180;
+                    const OPENING_BRIDGE = 700;
 
                     const supportsHover = () => window.matchMedia?.('(hover: hover)').matches !== false;
                     const openedOverlays = () => Array.from(
@@ -3600,19 +3611,33 @@ public class MainView extends VerticalLayout {
                         closeTimer = 0;
                     };
                     const requestClose = () => {
-                        cancelClose();
+                        if (closeTimer) return;
+                        const openingRemaining = Math.max(0, OPENING_BRIDGE - (performance.now() - openedAt));
                         closeTimer = window.setTimeout(() => {
                             closeTimer = 0;
                             if (!trigger.isConnected || pointerIsInside()) return;
-                            trigger.dispatchEvent(new CustomEvent('gp-menu-hover-close-v117', {
+                            if (window.__gpActiveHoverMenuTriggerV118 === trigger) {
+                                window.__gpActiveHoverMenuTriggerV118 = null;
+                            }
+                            trigger.__gpMenuOpenRequestedV118 = false;
+                            trigger.dispatchEvent(new CustomEvent('gp-menu-hover-close-v118', {
                                 bubbles: true,
                                 composed: true
                             }));
-                        }, 90);
+                        }, Math.max(CLOSE_DELAY, openingRemaining));
                     };
                     const dispatchOpen = (event, allowWithoutHover = false) => {
                         if (!allowWithoutHover && (!supportsHover() || event.pointerType === 'touch')) return;
+                        if (trigger.__gpMenuOpenRequestedV118) {
+                            cancelClose();
+                            return;
+                        }
+                        if (performance.now() - openedAt < 350) return;
                         cancelClose();
+                        openedAt = performance.now();
+                        overlayEntered = false;
+                        trigger.__gpMenuOpenRequestedV118 = true;
+                        window.__gpActiveHoverMenuTriggerV118 = trigger;
                         const box = trigger.getBoundingClientRect();
                         trigger.dispatchEvent(new MouseEvent('contextmenu', {
                             bubbles: true,
@@ -3623,6 +3648,25 @@ public class MainView extends VerticalLayout {
                         }));
                     };
 
+                    const prepareOverlay = (overlay) => {
+                        if (preparedOverlays.has(overlay)) return;
+                        preparedOverlays.add(overlay);
+                        overlay.addEventListener('pointerenter', () => {
+                            overlayEntered = true;
+                            cancelClose();
+                        }, {passive:true});
+                        overlay.addEventListener('pointerleave', requestClose, {passive:true});
+                    };
+
+                    const prepareOpenedOverlays = () => openedOverlays().forEach(prepareOverlay);
+                    const overlayObserver = new MutationObserver(prepareOpenedOverlays);
+                    overlayObserver.observe(document.body, {
+                        childList: true,
+                        subtree: true,
+                        attributes: true,
+                        attributeFilter: ['opened']
+                    });
+
                     trigger.addEventListener('pointerenter', dispatchOpen, {passive:true});
                     trigger.addEventListener('pointerleave', requestClose, {passive:true});
                     if (clickOpensMenu) {
@@ -3632,11 +3676,13 @@ public class MainView extends VerticalLayout {
                     const monitorPointer = () => {
                         if (!trigger.isConnected) {
                             document.removeEventListener('pointermove', monitorPointer);
+                            overlayObserver.disconnect();
                             cancelClose();
                             return;
                         }
-                        if (openedOverlays().length > 0 && !pointerIsInside()) requestClose();
-                        else if (pointerIsInside()) cancelClose();
+                        prepareOpenedOverlays();
+                        if (pointerIsInside()) cancelClose();
+                        else if (openedOverlays().length > 0) requestClose();
                     };
                     document.addEventListener('pointermove', monitorPointer, {passive:true});
                 })();
