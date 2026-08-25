@@ -5467,3 +5467,40 @@ html body .gp-oee-floating-tooltip-v061{
     overflow-wrap:anywhere!important;
   }
 }
+
+/* 0.0.129 — alinhamento integral e distribuição 4 + 3 no A4. */
+@media print{
+  html.gp-print-scrap-report-v117 .gp-root,
+  html.gp-print-scrap-report-v117 .gp-shell,
+  html.gp-print-scrap-report-v117 .gp-content,
+  html.gp-print-scrap-report-v117 .gp-scrap-report-page-v116{
+    width:100%!important;
+    margin:0!important;
+    padding:0!important;
+    box-sizing:border-box!important;
+  }
+  html.gp-print-scrap-report-v117 .gp-scrap-report-print-header-v117,
+  html.gp-print-scrap-report-v117 .gp-scrap-report-kpis-v116,
+  html.gp-print-scrap-report-v117 .gp-scrap-report-sectors-v116,
+  html.gp-print-scrap-report-v117 .gp-scrap-report-reasons-v116,
+  html.gp-print-scrap-report-v117 .gp-scrap-report-print-sector-table-wrapper-v124,
+  html.gp-print-scrap-report-v117 .gp-scrap-reason-cards-v116{
+    width:100%!important;
+    min-width:0!important;
+    max-width:none!important;
+    box-sizing:border-box!important;
+  }
+  html.gp-print-scrap-report-v117 .gp-scrap-reason-cards-v116{
+    display:grid!important;
+    grid-template-columns:repeat(12,minmax(0,1fr))!important;
+    grid-auto-flow:row!important;
+  }
+  html.gp-print-scrap-report-v117 .gp-scrap-reason-card-v116{
+    grid-column:span 3!important;
+    min-width:0!important;
+    box-sizing:border-box!important;
+  }
+  html.gp-print-scrap-report-v117 .gp-scrap-reason-card-v116:nth-child(n+5){
+    grid-column:span 4!important;
+  }
+}

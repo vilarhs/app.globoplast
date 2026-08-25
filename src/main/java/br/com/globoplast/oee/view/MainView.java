@@ -566,13 +566,14 @@ public class MainView extends VerticalLayout {
                 (() => {
                     const trigger = this;
                     const menu = $0;
-                    if (trigger.__gpContextMenuAutoCloseV128) return;
-                    trigger.__gpContextMenuAutoCloseV128 = true;
+                    if (trigger.__gpContextMenuAutoCloseV129) return;
+                    trigger.__gpContextMenuAutoCloseV129 = true;
                     let closeTimer = 0;
 
                     const pointerInside = () => trigger.matches(':hover')
                         || Array.from(document.querySelectorAll('vaadin-context-menu-overlay'))
                             .some(overlay => overlay.matches(':hover'));
+                    const menuOpened = () => menu.opened === true || menu.hasAttribute('opened');
                     const cancelClose = () => {
                         if (closeTimer) window.clearTimeout(closeTimer);
                         closeTimer = 0;
@@ -581,21 +582,27 @@ public class MainView extends VerticalLayout {
                         cancelClose();
                         closeTimer = window.setTimeout(() => {
                             closeTimer = 0;
-                            if (!pointerInside()) menu.close();
-                        }, 180);
+                            if (!pointerInside() && menuOpened() && typeof menu.close === 'function') {
+                                menu.close();
+                            }
+                        }, 220);
                     };
-                    const trackPointer = () => pointerInside() ? cancelClose() : closeLater();
+                    const trackPointer = () => {
+                        if (pointerInside()) cancelClose();
+                        else if (menuOpened()) closeLater();
+                    };
 
                     trigger.addEventListener('pointerenter', cancelClose, {passive:true});
                     trigger.addEventListener('pointerleave', closeLater, {passive:true});
-                    menu.addEventListener('opened-changed', event => {
-                        if (event.target !== menu) return;
-                        if (event.detail.value) {
-                            document.addEventListener('pointermove', trackPointer, {passive:true});
-                        } else {
-                            cancelClose();
-                            document.removeEventListener('pointermove', trackPointer);
-                        }
+                    document.addEventListener('pointerover', trackPointer, {capture:true, passive:true});
+                    document.addEventListener('pointermove', trackPointer, {capture:true, passive:true});
+
+                    new MutationObserver(() => {
+                        if (menuOpened()) requestAnimationFrame(trackPointer);
+                        else cancelClose();
+                    }).observe(menu, {
+                        attributes:true,
+                        attributeFilter:['opened']
                     });
                 })();
                 """, dropdown.getElement()));
