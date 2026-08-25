@@ -418,9 +418,9 @@ public class MainView extends VerticalLayout {
         return body;
     }
 
-    private Button hoverMenuItem(Popover menu, String label, Runnable action) {
-        Button item = new Button(label);
-        item.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
+    private MenuItem hoverMenuItem(Popover menu, String label, Runnable action) {
+        MenuItem item = new MenuItem(new ContextMenu(), () -> {});
+        item.setText(label);
         item.addClassName("gp-hover-menu-item-v119");
         item.addClickListener(e -> {
             menu.close();
@@ -439,7 +439,8 @@ public class MainView extends VerticalLayout {
         Span text = new Span(label);
         Span arrow = new Span("›");
         arrow.getElement().setAttribute("aria-hidden", "true");
-        Div trigger = new Div(text, arrow);
+        MenuItem trigger = new MenuItem(new ContextMenu(), () -> {});
+        trigger.add(text, arrow);
         trigger.addClassNames("gp-hover-menu-item-v119", "gp-hover-submenu-trigger-v120");
         trigger.getElement().setAttribute("aria-haspopup", "menu");
 
@@ -2663,7 +2664,7 @@ public class MainView extends VerticalLayout {
             grid.addColumn(row -> format1(row.participation()) + "%").setHeader(t("Participação (%)")).setAutoWidth(true).setFlexGrow(0);
             grid.setItems(sectorRows);
             grid.setAllRowsVisible(true);
-            sectors.add(sectionTitle, grid, scrapReportPrintSectorTables(sectorRows));
+            sectors.add(sectionTitle, grid, scrapReportPrintSectorTableWrapper(sectorRows));
         }
 
         Div reasons = (Div) byId("scrap-report-reasons");
@@ -2690,20 +2691,15 @@ public class MainView extends VerticalLayout {
         }
     }
 
-    private Div scrapReportPrintSectorTables(List<ScrapSectorReportRow> rows) {
-        Div tables = new Div();
-        tables.addClassName("gp-scrap-report-print-sector-tables-v123");
-        int middle = (rows.size() + 1) / 2;
-        tables.add(
-                scrapReportPrintSectorTable(rows.subList(0, middle)),
-                scrapReportPrintSectorTable(rows.subList(middle, rows.size()))
-        );
-        return tables;
+    private Div scrapReportPrintSectorTableWrapper(List<ScrapSectorReportRow> rows) {
+        Div wrapper = new Div(scrapReportPrintSectorTable(rows));
+        wrapper.addClassName("gp-scrap-report-print-sector-table-wrapper-v124");
+        return wrapper;
     }
 
     private Div scrapReportPrintSectorTable(List<ScrapSectorReportRow> rows) {
         Div table = new Div();
-        table.addClassName("gp-scrap-report-print-sector-table-v123");
+        table.addClassName("gp-scrap-report-print-sector-table-v124");
 
         Div header = new Div(
                 new Span(t("Setor")),
@@ -2711,7 +2707,7 @@ public class MainView extends VerticalLayout {
                 new Span(t("Lançamentos")),
                 new Span(t("Participação (%)"))
         );
-        header.addClassNames("gp-scrap-report-print-sector-row-v123", "gp-header");
+        header.addClassNames("gp-scrap-report-print-sector-row-v124", "gp-header");
         table.add(header);
 
         for (int index = 0; index < rows.size(); index++) {
@@ -2722,7 +2718,7 @@ public class MainView extends VerticalLayout {
                     new Span(formatInt(row.launches())),
                     new Span(format1(row.participation()) + "%")
             );
-            line.addClassName("gp-scrap-report-print-sector-row-v123");
+            line.addClassName("gp-scrap-report-print-sector-row-v124");
             if (index % 2 == 1) line.addClassName("gp-even");
             table.add(line);
         }

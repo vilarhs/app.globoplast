@@ -5105,23 +5105,12 @@ html body .gp-hover-menu-body-v119{
   overflow:visible!important;
 }
 html body .gp-hover-menu-item-v119{
-  justify-content:flex-start!important;
   width:100%!important;
-  min-height:36px!important;
   margin:0!important;
-  padding:0 1rem!important;
-  border:0!important;
-  border-radius:0!important;
-  outline:0!important;
-  box-shadow:none!important;
-  color:var(--gp-text)!important;
-  background:transparent!important;
+  box-sizing:border-box!important;
   cursor:pointer!important;
-  font-size:var(--lumo-font-size-m)!important;
-  font-weight:400!important;
 }
-html body .gp-hover-menu-item-v119:hover,
-html body .gp-hover-menu-item-v119:focus-visible{
+html body .gp-hover-menu-item-v119:hover{
   background:var(--gp-hover)!important;
   outline:0!important;
   box-shadow:none!important;
@@ -5295,8 +5284,8 @@ html body .gp-hover-submenu-group-v120:focus-within>.gp-hover-submenu-v120{
   pointer-events:none!important;
 }
 
-/* 0.0.123 — PDF com a composição da 0.0.121 e os 14 setores distribuídos em duas colunas. */
-html body .gp-scrap-report-print-sector-tables-v123{
+/* 0.0.124 — os 14 setores permanecem em uma única tabela compacta no PDF. */
+html body .gp-scrap-report-print-sector-table-wrapper-v124{
   display:none;
 }
 
@@ -5304,43 +5293,42 @@ html body .gp-scrap-report-print-sector-tables-v123{
   html.gp-print-scrap-report-v117 .gp-scrap-report-grid-v116{
     display:none!important;
   }
-  html.gp-print-scrap-report-v117 .gp-scrap-report-print-sector-tables-v123{
-    display:grid!important;
-    grid-template-columns:repeat(2,minmax(0,1fr))!important;
-    gap:3mm!important;
+  html.gp-print-scrap-report-v117 .gp-scrap-report-print-sector-table-wrapper-v124{
+    display:block!important;
     margin:0 0 2mm!important;
     color:#1f2430!important;
     break-inside:avoid!important;
     page-break-inside:avoid!important;
   }
-  html.gp-print-scrap-report-v117 .gp-scrap-report-print-sector-table-v123{
+  html.gp-print-scrap-report-v117 .gp-scrap-report-print-sector-table-v124{
+    width:100%!important;
     min-width:0!important;
     border-top:1px solid #d8dde5!important;
   }
-  html.gp-print-scrap-report-v117 .gp-scrap-report-print-sector-row-v123{
+  html.gp-print-scrap-report-v117 .gp-scrap-report-print-sector-row-v124{
     display:grid!important;
-    grid-template-columns:minmax(0,1.45fr) minmax(0,.75fr) minmax(0,.8fr) minmax(0,.9fr)!important;
+    grid-template-columns:minmax(0,1.7fr) minmax(0,.7fr) minmax(0,.8fr) minmax(0,.85fr)!important;
     align-items:center!important;
-    min-height:5mm!important;
+    min-height:3.8mm!important;
     border-bottom:1px solid #e2e6ec!important;
     background:#fff!important;
     font-size:6.8pt!important;
     line-height:1.1!important;
   }
-  html.gp-print-scrap-report-v117 .gp-scrap-report-print-sector-row-v123.gp-even{
+  html.gp-print-scrap-report-v117 .gp-scrap-report-print-sector-row-v124.gp-even{
     background:#f5f7fa!important;
   }
-  html.gp-print-scrap-report-v117 .gp-scrap-report-print-sector-row-v123.gp-header{
-    min-height:6mm!important;
+  html.gp-print-scrap-report-v117 .gp-scrap-report-print-sector-row-v124.gp-header{
+    min-height:5mm!important;
     background:#fff!important;
     font-weight:700!important;
   }
-  html.gp-print-scrap-report-v117 .gp-scrap-report-print-sector-row-v123>span{
+  html.gp-print-scrap-report-v117 .gp-scrap-report-print-sector-row-v124>span{
     min-width:0!important;
-    padding:.7mm 1.2mm!important;
+    padding:.25mm 1.2mm!important;
     overflow-wrap:anywhere!important;
   }
-  html.gp-print-scrap-report-v117 .gp-scrap-report-print-sector-row-v123>span:not(:first-child){
+  html.gp-print-scrap-report-v117 .gp-scrap-report-print-sector-row-v124>span:not(:first-child){
     text-align:right!important;
   }
 }
@@ -5362,7 +5350,7 @@ html body .gp-oee-floating-tooltip-v061{
 }
 
 @media print{
-  /* Mantido como na 0.0.121; na impressão a tabela compacta v123 substitui este grid. */
+  /* Mantido como na 0.0.121; na impressão a tabela compacta v124 substitui este grid. */
   html.gp-print-scrap-report-v117 .gp-scrap-report-grid-v116{
     height:64mm!important;
     min-height:64mm!important;
