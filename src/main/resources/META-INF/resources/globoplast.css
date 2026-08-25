@@ -5244,6 +5244,12 @@ html body vaadin-tooltip-overlay::part(content){
   background-color:var(--gp-surface)!important;
   color:var(--gp-text)!important;
 }
+html body vaadin-context-menu-overlay::part(content),
+html body vaadin-combo-box-overlay::part(content),
+html body vaadin-multi-select-combo-box-overlay::part(content),
+html body vaadin-select-overlay::part(content){
+  padding:4px 0!important;
+}
 
 /* Nenhum foco, seleção interna ou abertura pinta uma opção. */
 html body vaadin-context-menu-item,
@@ -5273,9 +5279,16 @@ html body .gp-hover-menu-item-v119,
 html body .gp-hover-menu-item-v119:focus,
 html body .gp-hover-menu-item-v119:focus-visible,
 html body .gp-hover-menu-item-v119:active{
+  min-height:36px!important;
+  padding:0 1rem!important;
+  border:0!important;
+  border-radius:0!important;
   background:transparent!important;
   background-color:transparent!important;
   color:var(--gp-text)!important;
+  font-family:var(--gp-original-font)!important;
+  font-size:var(--lumo-font-size-m)!important;
+  font-weight:400!important;
   outline:0!important;
   box-shadow:none!important;
 }
@@ -5315,14 +5328,12 @@ html body .gp-oee-floating-tooltip-v061{
 }
 
 @media print{
-  /* Alturas reais e compactas: 14 setores + cabeçalho ocupam 64 mm. */
+  /* Sem altura fixa: todas as linhas são renderizadas antes da escala automática. */
   html.gp-print-scrap-report-v117 .gp-scrap-report-grid-v116{
-    height:64mm!important;
-    min-height:64mm!important;
-    max-height:64mm!important;
     margin-bottom:1mm!important;
     --vaadin-grid-row-height:4.2mm!important;
     --vaadin-grid-header-row-height:5.2mm!important;
+    overflow:visible!important;
   }
   html.gp-print-scrap-report-v117 .gp-scrap-report-grid-v116::part(body-cell){
     height:4.2mm!important;

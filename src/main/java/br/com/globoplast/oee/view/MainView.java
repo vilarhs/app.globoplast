@@ -2610,12 +2610,34 @@ public class MainView extends VerticalLayout {
                 (() => {
                     const previousTitle = document.title;
                     const root = document.documentElement;
+                    const report = document.querySelector('.gp-scrap-report-page-v116');
+                    let prepared = false;
                     document.title = String($0 || 'Relatorio-Refugo');
                     root.classList.add('gp-print-scrap-report-v117');
+
+                    const prepareOnePage = () => {
+                        if (prepared || !report) return;
+                        prepared = true;
+                        report.style.removeProperty('zoom');
+                        report.style.removeProperty('width');
+                        report.getBoundingClientRect();
+                        const fullHeight = Math.max(
+                            report.scrollHeight,
+                            report.getBoundingClientRect().height
+                        );
+                        const printableHeight = 690;
+                        const scale = Math.min(1, printableHeight / Math.max(1, fullHeight));
+                        report.style.setProperty('width', `${100 / scale}%`, 'important');
+                        report.style.setProperty('zoom', String(scale), 'important');
+                    };
                     const restore = () => {
+                        window.removeEventListener('beforeprint', prepareOnePage);
+                        report?.style.removeProperty('zoom');
+                        report?.style.removeProperty('width');
                         root.classList.remove('gp-print-scrap-report-v117');
                         document.title = previousTitle;
                     };
+                    window.addEventListener('beforeprint', prepareOnePage);
                     window.addEventListener('afterprint', restore, {once:true});
                     window.print();
                 })();
