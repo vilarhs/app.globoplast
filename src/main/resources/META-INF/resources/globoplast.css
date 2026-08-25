@@ -5244,13 +5244,6 @@ html body vaadin-tooltip-overlay::part(content){
   background-color:var(--gp-surface)!important;
   color:var(--gp-text)!important;
 }
-html body vaadin-context-menu-overlay::part(content),
-html body vaadin-combo-box-overlay::part(content),
-html body vaadin-multi-select-combo-box-overlay::part(content),
-html body vaadin-select-overlay::part(content){
-  padding:4px 0!important;
-}
-
 /* Nenhum foco, seleção interna ou abertura pinta uma opção. */
 html body vaadin-context-menu-item,
 html body vaadin-context-menu-item[focused],
@@ -5279,36 +5272,77 @@ html body .gp-hover-menu-item-v119,
 html body .gp-hover-menu-item-v119:focus,
 html body .gp-hover-menu-item-v119:focus-visible,
 html body .gp-hover-menu-item-v119:active{
-  min-height:36px!important;
-  padding:0 1rem!important;
-  border:0!important;
-  border-radius:0!important;
   background:transparent!important;
   background-color:transparent!important;
   color:var(--gp-text)!important;
-  font-family:var(--gp-original-font)!important;
-  font-size:var(--lumo-font-size-m)!important;
-  font-weight:400!important;
   outline:0!important;
   box-shadow:none!important;
 }
 
 /* O destaque existe exclusivamente no item que está sob o ponteiro. */
-@media (hover:hover) and (pointer:fine){
-  html body vaadin-context-menu-item:hover:not([disabled]),
-  html body vaadin-combo-box-item:hover:not([disabled]),
-  html body vaadin-select-item:hover:not([disabled]),
-  html body vaadin-multi-select-combo-box-item:hover:not([disabled]),
-  html body .gp-hover-menu-item-v119:hover{
-    background:var(--gp-hover)!important;
-    background-color:var(--gp-hover)!important;
-    color:var(--gp-text)!important;
-  }
+html body vaadin-context-menu-item:hover:not([disabled]),
+html body vaadin-combo-box-item:hover:not([disabled]),
+html body vaadin-select-item:hover:not([disabled]),
+html body vaadin-multi-select-combo-box-item:hover:not([disabled]),
+html body .gp-hover-menu-item-v119:hover{
+  background:var(--gp-hover)!important;
+  background-color:var(--gp-hover)!important;
+  color:var(--gp-text)!important;
 }
 html body .gp-hover-submenu-group-v120:focus-within>.gp-hover-submenu-v120{
   visibility:hidden!important;
   opacity:0!important;
   pointer-events:none!important;
+}
+
+/* 0.0.123 — PDF com a composição da 0.0.121 e os 14 setores distribuídos em duas colunas. */
+html body .gp-scrap-report-print-sector-tables-v123{
+  display:none;
+}
+
+@media print{
+  html.gp-print-scrap-report-v117 .gp-scrap-report-grid-v116{
+    display:none!important;
+  }
+  html.gp-print-scrap-report-v117 .gp-scrap-report-print-sector-tables-v123{
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:3mm!important;
+    margin:0 0 2mm!important;
+    color:#1f2430!important;
+    break-inside:avoid!important;
+    page-break-inside:avoid!important;
+  }
+  html.gp-print-scrap-report-v117 .gp-scrap-report-print-sector-table-v123{
+    min-width:0!important;
+    border-top:1px solid #d8dde5!important;
+  }
+  html.gp-print-scrap-report-v117 .gp-scrap-report-print-sector-row-v123{
+    display:grid!important;
+    grid-template-columns:minmax(0,1.45fr) minmax(0,.75fr) minmax(0,.8fr) minmax(0,.9fr)!important;
+    align-items:center!important;
+    min-height:5mm!important;
+    border-bottom:1px solid #e2e6ec!important;
+    background:#fff!important;
+    font-size:6.8pt!important;
+    line-height:1.1!important;
+  }
+  html.gp-print-scrap-report-v117 .gp-scrap-report-print-sector-row-v123.gp-even{
+    background:#f5f7fa!important;
+  }
+  html.gp-print-scrap-report-v117 .gp-scrap-report-print-sector-row-v123.gp-header{
+    min-height:6mm!important;
+    background:#fff!important;
+    font-weight:700!important;
+  }
+  html.gp-print-scrap-report-v117 .gp-scrap-report-print-sector-row-v123>span{
+    min-width:0!important;
+    padding:.7mm 1.2mm!important;
+    overflow-wrap:anywhere!important;
+  }
+  html.gp-print-scrap-report-v117 .gp-scrap-report-print-sector-row-v123>span:not(:first-child){
+    text-align:right!important;
+  }
 }
 html body .gp-hover-submenu-group-v120:hover>.gp-hover-submenu-v120{
   visibility:visible!important;
@@ -5328,12 +5362,14 @@ html body .gp-oee-floating-tooltip-v061{
 }
 
 @media print{
-  /* Sem altura fixa: todas as linhas são renderizadas antes da escala automática. */
+  /* Mantido como na 0.0.121; na impressão a tabela compacta v123 substitui este grid. */
   html.gp-print-scrap-report-v117 .gp-scrap-report-grid-v116{
+    height:64mm!important;
+    min-height:64mm!important;
+    max-height:64mm!important;
     margin-bottom:1mm!important;
     --vaadin-grid-row-height:4.2mm!important;
     --vaadin-grid-header-row-height:5.2mm!important;
-    overflow:visible!important;
   }
   html.gp-print-scrap-report-v117 .gp-scrap-report-grid-v116::part(body-cell){
     height:4.2mm!important;

@@ -2610,34 +2610,12 @@ public class MainView extends VerticalLayout {
                 (() => {
                     const previousTitle = document.title;
                     const root = document.documentElement;
-                    const report = document.querySelector('.gp-scrap-report-page-v116');
-                    let prepared = false;
                     document.title = String($0 || 'Relatorio-Refugo');
                     root.classList.add('gp-print-scrap-report-v117');
-
-                    const prepareOnePage = () => {
-                        if (prepared || !report) return;
-                        prepared = true;
-                        report.style.removeProperty('zoom');
-                        report.style.removeProperty('width');
-                        report.getBoundingClientRect();
-                        const fullHeight = Math.max(
-                            report.scrollHeight,
-                            report.getBoundingClientRect().height
-                        );
-                        const printableHeight = 690;
-                        const scale = Math.min(1, printableHeight / Math.max(1, fullHeight));
-                        report.style.setProperty('width', `${100 / scale}%`, 'important');
-                        report.style.setProperty('zoom', String(scale), 'important');
-                    };
                     const restore = () => {
-                        window.removeEventListener('beforeprint', prepareOnePage);
-                        report?.style.removeProperty('zoom');
-                        report?.style.removeProperty('width');
                         root.classList.remove('gp-print-scrap-report-v117');
                         document.title = previousTitle;
                     };
-                    window.addEventListener('beforeprint', prepareOnePage);
                     window.addEventListener('afterprint', restore, {once:true});
                     window.print();
                 })();
@@ -2685,7 +2663,7 @@ public class MainView extends VerticalLayout {
             grid.addColumn(row -> format1(row.participation()) + "%").setHeader(t("Participação (%)")).setAutoWidth(true).setFlexGrow(0);
             grid.setItems(sectorRows);
             grid.setAllRowsVisible(true);
-            sectors.add(sectionTitle, grid);
+            sectors.add(sectionTitle, grid, scrapReportPrintSectorTables(sectorRows));
         }
 
         Div reasons = (Div) byId("scrap-report-reasons");
@@ -2710,6 +2688,45 @@ public class MainView extends VerticalLayout {
             }
             reasons.add(sectionTitle, caption, cards);
         }
+    }
+
+    private Div scrapReportPrintSectorTables(List<ScrapSectorReportRow> rows) {
+        Div tables = new Div();
+        tables.addClassName("gp-scrap-report-print-sector-tables-v123");
+        int middle = (rows.size() + 1) / 2;
+        tables.add(
+                scrapReportPrintSectorTable(rows.subList(0, middle)),
+                scrapReportPrintSectorTable(rows.subList(middle, rows.size()))
+        );
+        return tables;
+    }
+
+    private Div scrapReportPrintSectorTable(List<ScrapSectorReportRow> rows) {
+        Div table = new Div();
+        table.addClassName("gp-scrap-report-print-sector-table-v123");
+
+        Div header = new Div(
+                new Span(t("Setor")),
+                new Span(t("Refugo (kg)")),
+                new Span(t("Lançamentos")),
+                new Span(t("Participação (%)"))
+        );
+        header.addClassNames("gp-scrap-report-print-sector-row-v123", "gp-header");
+        table.add(header);
+
+        for (int index = 0; index < rows.size(); index++) {
+            ScrapSectorReportRow row = rows.get(index);
+            Div line = new Div(
+                    new Span(t(row.sector())),
+                    new Span(format(row.scrapKg())),
+                    new Span(formatInt(row.launches())),
+                    new Span(format1(row.participation()) + "%")
+            );
+            line.addClassName("gp-scrap-report-print-sector-row-v123");
+            if (index % 2 == 1) line.addClassName("gp-even");
+            table.add(line);
+        }
+        return table;
     }
 
     private List<RefugoRecord> currentScrapReportRows() {
