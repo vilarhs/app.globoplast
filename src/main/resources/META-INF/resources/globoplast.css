@@ -5530,7 +5530,7 @@ html body .gp-scrap-report-month-bars-v130{
 }
 html body .gp-scrap-report-month-column-v130{
   display:grid;
-  grid-template-rows:auto 9.1rem auto auto;
+  grid-template-rows:auto 11.83rem auto auto;
   gap:.25rem;
   min-width:0;
   text-align:center;
@@ -5548,7 +5548,7 @@ html body .gp-scrap-report-month-track-v130{
   align-items:flex-end;
   justify-content:center;
   width:min(72%,5.5rem);
-  height:9.1rem;
+  height:11.83rem;
   margin:0 auto;
   overflow:hidden;
   border-radius:.35rem .35rem .15rem .15rem;
@@ -5588,11 +5588,11 @@ html body .gp-scrap-report-month-difference-v130.gp-neutral{
     padding:.65rem .45rem;
   }
   html body .gp-scrap-report-month-column-v130{
-    grid-template-rows:auto 7.15rem auto auto;
+    grid-template-rows:auto 9.295rem auto auto;
   }
   html body .gp-scrap-report-month-track-v130{
     width:82%;
-    height:7.15rem;
+    height:9.295rem;
   }
   html body .gp-scrap-report-month-value-v130,
   html body .gp-scrap-report-month-label-v130,
@@ -5620,9 +5620,9 @@ html body .gp-scrap-report-month-difference-v130.gp-neutral{
     grid-template-columns:repeat(5,minmax(0,1fr))!important;
     gap:2mm!important;
     width:100%!important;
-    height:24.7mm!important;
-    min-height:24.7mm!important;
-    padding:1mm 2mm!important;
+    height:32.11mm!important;
+    min-height:32.11mm!important;
+    padding:1.3mm 2mm!important;
     border:1px solid #e2e6ec!important;
     border-radius:2mm!important;
     background:#f8fafc!important;
@@ -5630,12 +5630,12 @@ html body .gp-scrap-report-month-difference-v130.gp-neutral{
   }
   html.gp-print-scrap-report-v117 .gp-scrap-report-month-column-v130{
     display:grid!important;
-    grid-template-rows:3.2mm 11.7mm 3mm 3mm!important;
+    grid-template-rows:4.16mm 15.21mm 3.9mm 3.9mm!important;
     gap:0!important;
   }
   html.gp-print-scrap-report-v117 .gp-scrap-report-month-track-v130{
     width:52%!important;
-    height:11.7mm!important;
+    height:15.21mm!important;
     border-radius:1mm 1mm .4mm .4mm!important;
     background:#e8ebef!important;
   }
