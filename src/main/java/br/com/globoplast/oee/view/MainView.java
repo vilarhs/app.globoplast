@@ -532,85 +532,137 @@ public class MainView extends VerticalLayout {
                 """
                 (() => {
                     const trigger = this;
-                    if (trigger.__gpContextMenuHoverV131) return;
-                    trigger.__gpContextMenuHoverV131 = true;
-                    let closeTimer = 0;
-                    let active = false;
-                    let rootMenu = null;
+                    if (trigger.__gpContextMenuHoverV132) return;
+                    trigger.__gpContextMenuHoverV132 = true;
 
-                    const supportsHover = () => window.matchMedia?.('(hover: hover)').matches !== false;
-                    const cancelClose = () => {
-                        if (closeTimer) window.clearTimeout(closeTimer);
-                        closeTimer = 0;
-                    };
-                    const contextMenusInPath = event => event.composedPath()
-                        .filter(node => node?.tagName === 'VAADIN-CONTEXT-MENU');
-                    const isMenuPath = event => event.composedPath().some(node =>
-                        node?.tagName === 'VAADIN-CONTEXT-MENU'
-                        || node?.tagName === 'VAADIN-CONTEXT-MENU-OVERLAY');
-                    const menuHovered = () => {
-                        const visited = [];
-                        let current = rootMenu;
-                        while (current && !visited.includes(current)) {
-                            visited.push(current);
-                            if (current._overlayElement?.matches(':hover')) return true;
-                            current = current._subMenu;
-                        }
-                        return false;
-                    };
-                    const closeMenu = () => {
-                        if (rootMenu && typeof rootMenu.close === 'function') {
-                            rootMenu.close();
-                        } else {
-                            const escape = options => new KeyboardEvent('keydown', {
-                                key:'Escape', code:'Escape', bubbles:true, composed:true, cancelable:true, ...options
-                            });
-                            document.dispatchEvent(escape({}));
-                            window.dispatchEvent(escape({}));
-                        }
-                        active = false;
-                        rootMenu = null;
-                    };
-                    const closeLater = () => {
-                        cancelClose();
-                        closeTimer = window.setTimeout(() => {
-                            closeTimer = 0;
-                            if (active && !trigger.matches(':hover') && !menuHovered()) closeMenu();
-                        }, 360);
-                    };
-                    const openMenu = event => {
-                        if (!supportsHover() || event.pointerType === 'touch') return;
-                        cancelClose();
-                        if (active) return;
-                        const box = trigger.getBoundingClientRect();
-                        trigger.dispatchEvent(new MouseEvent('contextmenu', {
-                            bubbles: true,
-                            composed: true,
-                            cancelable: true,
-                            clientX: box.left + box.width / 2,
-                            clientY: box.bottom
-                        }));
-                        active = true;
-                    };
-                    const trackPointer = event => {
-                        if (!trigger.isConnected) {
-                            document.removeEventListener('pointerover', trackPointer, true);
-                            active = false;
-                            return;
-                        }
-                        if (!active) return;
-                        if (event.composedPath().includes(trigger) || isMenuPath(event)) {
-                            const menus = contextMenusInPath(event);
-                            if (menus.length) rootMenu = menus[menus.length - 1];
-                            cancelClose();
-                        } else {
-                            closeLater();
-                        }
-                    };
+                    if (!window.__gpContextMenuHoverControllerV132) {
+                        const controller = {
+                            trigger:null,
+                            menu:null,
+                            closeTimer:0,
+                            supportsHover(){
+                                return window.matchMedia?.('(hover: hover)').matches !== false;
+                            },
+                            cancelClose(){
+                                if (this.closeTimer) window.clearTimeout(this.closeTimer);
+                                this.closeTimer = 0;
+                            },
+                            clearNavigationFocus(){
+                                document.querySelectorAll(
+                                    '.gp-navigation vaadin-tabs, .gp-navigation vaadin-tab, .gp-navigation vaadin-button'
+                                ).forEach(element => {
+                                    element.removeAttribute('focus-ring');
+                                    element.removeAttribute('focused');
+                                    if (element.matches(':focus')) element.blur?.();
+                                });
+                            },
+                            bindMenu(nextMenu){
+                                if (!nextMenu || this.menu === nextMenu) return;
+                                this.menu = nextMenu;
+                                if (nextMenu.__gpHoverControllerV132Bound) return;
+                                nextMenu.__gpHoverControllerV132Bound = true;
+                                nextMenu.addEventListener('opened-changed', event => {
+                                    if (event.detail?.value !== false || this.menu !== nextMenu) return;
+                                    this.cancelClose();
+                                    this.menu = null;
+                                    this.trigger = null;
+                                    requestAnimationFrame(() => this.clearNavigationFocus());
+                                });
+                            },
+                            captureOpenedMenu(){
+                                const opened = [...document.querySelectorAll('vaadin-context-menu')]
+                                    .filter(candidate => {
+                                        const overlay = candidate._overlayElement;
+                                        return overlay && (overlay.opened || overlay.hasAttribute('opened'));
+                                    });
+                                if (opened.length) this.bindMenu(opened[opened.length - 1]);
+                            },
+                            menuHovered(){
+                                const visited = [];
+                                let current = this.menu;
+                                while (current && !visited.includes(current)) {
+                                    visited.push(current);
+                                    if (current._overlayElement?.matches(':hover')) return true;
+                                    current = current._subMenu;
+                                }
+                                return false;
+                            },
+                            closeCurrent(){
+                                this.cancelClose();
+                                const currentMenu = this.menu;
+                                this.trigger = null;
+                                this.menu = null;
+                                if (currentMenu && typeof currentMenu.close === 'function') {
+                                    currentMenu.close();
+                                } else {
+                                    const escape = new KeyboardEvent('keydown', {
+                                        key:'Escape', code:'Escape', bubbles:true, composed:true, cancelable:true
+                                    });
+                                    document.dispatchEvent(escape);
+                                    window.dispatchEvent(new KeyboardEvent('keydown', {
+                                        key:'Escape', code:'Escape', bubbles:true, composed:true, cancelable:true
+                                    }));
+                                }
+                                requestAnimationFrame(() => this.clearNavigationFocus());
+                            },
+                            scheduleClose(expectedTrigger){
+                                if (!this.trigger || (expectedTrigger && this.trigger !== expectedTrigger)) return;
+                                this.cancelClose();
+                                this.closeTimer = window.setTimeout(() => {
+                                    this.closeTimer = 0;
+                                    if (!this.trigger) return;
+                                    if (this.trigger.matches(':hover') || this.menuHovered()) return;
+                                    this.closeCurrent();
+                                }, 240);
+                            },
+                            open(nextTrigger, event){
+                                if (!this.supportsHover() || event.pointerType === 'touch') return;
+                                this.cancelClose();
+                                if (this.trigger === nextTrigger) return;
+                                if (this.trigger) this.closeCurrent();
+                                this.trigger = nextTrigger;
+                                this.menu = null;
+                                const box = nextTrigger.getBoundingClientRect();
+                                nextTrigger.dispatchEvent(new MouseEvent('contextmenu', {
+                                    bubbles:true,
+                                    composed:true,
+                                    cancelable:true,
+                                    clientX:box.left + box.width / 2,
+                                    clientY:box.bottom
+                                }));
+                                requestAnimationFrame(() => {
+                                    this.captureOpenedMenu();
+                                    this.clearNavigationFocus();
+                                });
+                            },
+                            trackPointer(event){
+                                if (!this.trigger) return;
+                                const path = event.composedPath();
+                                const overTrigger = path.includes(this.trigger);
+                                const overMenu = path.some(node =>
+                                    node?.tagName === 'VAADIN-CONTEXT-MENU'
+                                    || node?.tagName === 'VAADIN-CONTEXT-MENU-OVERLAY');
+                                if (overMenu) {
+                                    const menus = path.filter(node => node?.tagName === 'VAADIN-CONTEXT-MENU');
+                                    if (menus.length) this.bindMenu(menus[menus.length - 1]);
+                                }
+                                if (overTrigger || overMenu) this.cancelClose();
+                                else this.scheduleClose(this.trigger);
+                            }
+                        };
+                        document.addEventListener(
+                            'pointerover', event => controller.trackPointer(event), {capture:true, passive:true}
+                        );
+                        window.__gpContextMenuHoverControllerV132 = controller;
+                    }
 
-                    trigger.addEventListener('pointerenter', openMenu, {passive:true});
-                    trigger.addEventListener('pointerleave', closeLater, {passive:true});
-                    document.addEventListener('pointerover', trackPointer, {capture:true, passive:true});
+                    const controller = window.__gpContextMenuHoverControllerV132;
+                    trigger.addEventListener(
+                        'pointerenter', event => controller.open(trigger, event), {passive:true}
+                    );
+                    trigger.addEventListener(
+                        'pointerleave', () => controller.scheduleClose(trigger), {passive:true}
+                    );
                 })();
                 """));
     }
