@@ -141,7 +141,7 @@ public class MainView extends VerticalLayout {
     private long scrapBoundsRevision = -1;
     private LocalDate[] scrapBoundsCache;
     private boolean syncRefreshRunning = false;
-    private MenuItem menuSyncItem = null;
+    private Span menuSyncItem = null;
 
     public MainView(AuthService auth, CatalogService catalog, LaunchService launches, RefugoService scraps, SyncService sync) {
         this.auth = auth;
@@ -322,12 +322,13 @@ public class MainView extends VerticalLayout {
     private Div navigation() {
         tabKeys.clear();
         List<Tab> tabs = new ArrayList<>();
+        List<Popover> dropdowns = new ArrayList<>();
         Tab productionTab = tab("🏭 " + t("Produção") + " ▾", "lancamentos");
-        installProductionMenu(productionTab);
+        dropdowns.add(installProductionMenu(productionTab));
         tabs.add(productionTab);
         tabs.add(tab("📦 " + t("Estoque"), "estoque"));
         Tab reportsTab = tab("📊 " + t("Relatórios") + " ▾", SCRAP_REPORT_KEY);
-        installReportsMenu(reportsTab);
+        dropdowns.add(installReportsMenu(reportsTab));
         tabs.add(reportsTab);
         mainTabs = new Tabs(tabs.toArray(Tab[]::new));
         mainTabs.addClassName("gp-main-tabs");
@@ -347,7 +348,9 @@ public class MainView extends VerticalLayout {
               if(index>=0 && this.selected!==index)this.selected=index;
             },{passive:true});
         """));
-        Div nav = new Div(mainTabs, menu());
+        Div nav = new Div(mainTabs);
+        dropdowns.forEach(nav::add);
+        nav.add(menu());
         nav.addClassName("gp-navigation");
         return nav;
     }
@@ -358,38 +361,78 @@ public class MainView extends VerticalLayout {
         return tab;
     }
 
-    private void installProductionMenu(Tab productionTab) {
-        ContextMenu dropdown = new ContextMenu();
-        dropdown.setTarget(productionTab);
-        dropdown.setOpenOnClick(false);
-        dropdown.addItem(t("Lançamentos"), e -> openProductionSubPage("lancamentos"));
+    private Popover installProductionMenu(Tab productionTab) {
+        Popover dropdown = hoverMenu(productionTab, PopoverPosition.BOTTOM_START);
+        Div items = hoverMenuBody();
+        items.add(hoverMenuItem(dropdown, t("Lançamentos"), () -> openProductionSubPage("lancamentos")));
         if (user.canSeeSummaries()) {
-            dropdown.addItem(t("Resumo do Dia"), e -> openProductionSubPage("dia"));
-            dropdown.addItem(t("Resumo do Mês"), e -> openProductionSubPage("mes"));
+            items.add(hoverMenuItem(dropdown, t("Resumo do Dia"), () -> openProductionSubPage("dia")));
+            items.add(hoverMenuItem(dropdown, t("Resumo do Mês"), () -> openProductionSubPage("mes")));
         }
-        dropdown.addItem(t("Refugo"), e -> openProductionSubPage("refugo"));
+        items.add(hoverMenuItem(dropdown, t("Refugo"), () -> openProductionSubPage("refugo")));
         if (user != null && user.canModifyLaunches()) {
-            dropdown.addItem(t("Lixeira"), e -> showLaunchTrash());
+            items.add(hoverMenuItem(dropdown, t("Lixeira"), this::showLaunchTrash));
         }
+        dropdown.add(items);
         productionTab.getElement().addEventListener("click", e -> {
             dropdown.close();
             if (!Objects.equals(renderedTabKey, "lancamentos")) openProductionSubPage("lancamentos");
         });
-        installMenuHoverBehavior(productionTab, dropdown, false);
-        installContextMenuHoverOnly(productionTab);
+        return dropdown;
     }
 
-    private void installReportsMenu(Tab reportsTab) {
-        ContextMenu dropdown = new ContextMenu();
-        dropdown.setTarget(reportsTab);
-        dropdown.setOpenOnClick(false);
-        dropdown.addItem(t("Refugo"), e -> openProductionSubPage(SCRAP_REPORT_KEY));
+    private Popover installReportsMenu(Tab reportsTab) {
+        Popover dropdown = hoverMenu(reportsTab, PopoverPosition.BOTTOM_START);
+        Div items = hoverMenuBody();
+        items.add(hoverMenuItem(dropdown, t("Refugo"), () -> openProductionSubPage(SCRAP_REPORT_KEY)));
+        dropdown.add(items);
         reportsTab.getElement().addEventListener("click", e -> {
             dropdown.close();
             if (!Objects.equals(renderedTabKey, SCRAP_REPORT_KEY)) openProductionSubPage(SCRAP_REPORT_KEY);
         });
-        installMenuHoverBehavior(reportsTab, dropdown, false);
-        installContextMenuHoverOnly(reportsTab);
+        return dropdown;
+    }
+
+    private Popover hoverMenu(Component target, PopoverPosition position) {
+        Popover menu = new Popover();
+        menu.setTarget(target);
+        menu.setPosition(position);
+        menu.setModal(false);
+        menu.setBackdropVisible(false);
+        menu.setAutofocus(false);
+        menu.setTabFocusEnabled(false);
+        menu.setCloseOnOutsideClick(true);
+        menu.setCloseOnEsc(true);
+        menu.setOpenOnClick(false);
+        menu.setOpenOnFocus(false);
+        menu.setOpenOnHover(true);
+        menu.setHoverDelay(0);
+        menu.setHideDelay(120);
+        menu.addClassName("gp-hover-menu-v119");
+        return menu;
+    }
+
+    private Div hoverMenuBody() {
+        Div body = new Div();
+        body.addClassName("gp-hover-menu-body-v119");
+        return body;
+    }
+
+    private Button hoverMenuItem(Popover menu, String label, Runnable action) {
+        Button item = new Button(label);
+        item.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
+        item.addClassName("gp-hover-menu-item-v119");
+        item.addClickListener(e -> {
+            menu.close();
+            action.run();
+        });
+        return item;
+    }
+
+    private Span hoverMenuCaption(String label) {
+        Span caption = new Span(label);
+        caption.addClassName("gp-hover-menu-caption-v119");
+        return caption;
     }
 
     private void openProductionSubPage(String key) {
@@ -429,38 +472,36 @@ public class MainView extends VerticalLayout {
         trigger.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
         trigger.addClassNames("gp-menu-button", "gp-system-menu-trigger-v065", "gp-system-menu-trigger-v066");
         trigger.setAriaLabel(t("Menu"));
-        ContextMenu dropdown = new ContextMenu();
-        dropdown.setTarget(trigger);
-        dropdown.setOpenOnClick(false);
-        MenuItem me = dropdown.addItem(user.username());
-        me.addClassName("gp-menu-caption");
-        me.setEnabled(false);
+        Popover dropdown = hoverMenu(trigger, PopoverPosition.BOTTOM_END);
+        Div items = hoverMenuBody();
+        items.add(hoverMenuCaption(user.username()));
         if (user.isAdmin()) {
-            dropdown.addItem(t("Cadastro"), e -> showRegistry());
-            dropdown.addItem(t("Usuários"), e -> showUsers());
+            items.add(hoverMenuItem(dropdown, t("Cadastro"), this::showRegistry));
+            items.add(hoverMenuItem(dropdown, t("Usuários"), this::showUsers));
         } else {
-            dropdown.addItem(t("Alterar Senha"), e -> showOwnPassword());
+            items.add(hoverMenuItem(dropdown, t("Alterar Senha"), this::showOwnPassword));
         }
-        MenuItem languageMenu = dropdown.addItem("pt-BR / en-US");
-        languageMenu.getSubMenu().addItem("pt-BR", e -> changeLanguage("pt-BR"));
-        languageMenu.getSubMenu().addItem("en-US", e -> changeLanguage("en-US"));
-        MenuItem theme = dropdown.addItem(t("Tema"));
-        theme.getSubMenu().addItem(t("Sistema"), e -> setThemeMode("system"));
-        theme.getSubMenu().addItem(t("Claro"), e -> setThemeMode("light"));
-        theme.getSubMenu().addItem(t("Escuro"), e -> setThemeMode("dark"));
-        dropdown.addItem(t("Sair"), e -> {
+        items.add(hoverMenuCaption(t("Idioma")));
+        items.add(hoverMenuItem(dropdown, "pt-BR", () -> changeLanguage("pt-BR")));
+        items.add(hoverMenuItem(dropdown, "en-US", () -> changeLanguage("en-US")));
+        items.add(hoverMenuCaption(t("Tema")));
+        items.add(hoverMenuItem(dropdown, t("Sistema"), () -> setThemeMode("system")));
+        items.add(hoverMenuItem(dropdown, t("Claro"), () -> setThemeMode("light")));
+        items.add(hoverMenuItem(dropdown, t("Escuro"), () -> setThemeMode("dark")));
+        items.add(hoverMenuItem(dropdown, t("Sair"), () -> {
             clearTabAuthentication();
             auth.logout();
             user = null;
             buildLogin();
-        });
-        menuSyncItem = dropdown.addItem("");
-        menuSyncItem.setEnabled(false);
+        }));
+        menuSyncItem = new Span();
         menuSyncItem.addClassName("gp-menu-sync-info-v045");
+        items.add(menuSyncItem);
+        dropdown.add(items);
         refreshMenuSyncStatus();
-        installMenuHoverBehavior(trigger, dropdown, true);
-        installContextMenuHoverOnly(trigger);
-        return trigger;
+        Div host = new Div(trigger, dropdown);
+        host.addClassName("gp-menu-host");
+        return host;
     }
 
     private void changeLanguage(String lang) {
@@ -3512,181 +3553,6 @@ public class MainView extends VerticalLayout {
                     requestAnimationFrame(install);
                 })();
                 """));
-    }
-
-    private void installContextMenuHoverOnly(Component trigger) {
-        if (trigger == null) return;
-        trigger.addAttachListener(e -> trigger.getElement().executeJs(
-                """
-                (() => {
-                    const trigger = this;
-                    if (trigger.__gpContextMenuHoverOnlyInstalled) return;
-                    trigger.__gpContextMenuHoverOnlyInstalled = true;
-
-                    const neutral = (item) => {
-                        item.style.setProperty('background', 'transparent', 'important');
-                        item.style.setProperty('background-color', 'transparent', 'important');
-                        item.style.setProperty('box-shadow', 'none', 'important');
-                        item.style.setProperty('outline', '0', 'important');
-                        item.removeAttribute('focused');
-                        item.removeAttribute('focus-ring');
-                        item.removeAttribute('highlighted');
-                        item.removeAttribute('selected');
-                    };
-
-                    const prepareItem = (item) => {
-                        neutral(item);
-                        if (item.__gpHoverOnlyInstalled) return;
-                        item.__gpHoverOnlyInstalled = true;
-                        item.addEventListener('mouseenter', () => {
-                            if (item.hasAttribute('disabled')) return;
-                            item.style.setProperty('background', 'var(--gp-hover)', 'important');
-                            item.style.setProperty('background-color', 'var(--gp-hover)', 'important');
-                        });
-                        item.addEventListener('mouseleave', () => neutral(item));
-                        item.addEventListener('focus', () => {
-                            if (!item.matches(':hover')) neutral(item);
-                        });
-                    };
-
-                    const apply = () => {
-                        document.querySelectorAll('vaadin-context-menu-overlay vaadin-context-menu-item')
-                            .forEach(prepareItem);
-                    };
-
-                    const schedule = () => {
-                        requestAnimationFrame(apply);
-                        setTimeout(apply, 0);
-                        setTimeout(apply, 40);
-                        setTimeout(apply, 120);
-                    };
-
-                    trigger.addEventListener('click', schedule, true);
-                    trigger.addEventListener('contextmenu', schedule, true);
-
-                    if (!window.__gpContextMenuHoverObserver) {
-                        window.__gpContextMenuHoverObserver = new MutationObserver(apply);
-                        window.__gpContextMenuHoverObserver.observe(document.body, {childList:true, subtree:true});
-                    }
-                })();
-                """));
-    }
-
-    /**
-     * Abre o dropdown ao entrar com o mouse e o fecha assim que o ponteiro deixa
-     * tanto o gatilho quanto o overlay. No menu do sistema, o clique também abre;
-     * nas abas, o clique permanece reservado à navegação da página principal.
-     */
-    private void installMenuHoverBehavior(Component trigger, ContextMenu dropdown, boolean clickOpensMenu) {
-        if (trigger == null || dropdown == null) return;
-        trigger.getElement().addEventListener("gp-menu-hover-close-v118", e -> dropdown.close());
-        dropdown.addOpenedChangeListener(e -> trigger.getElement().executeJs(
-                "this.__gpMenuOpenRequestedV118=$0;" +
-                "if(!$0&&window.__gpActiveHoverMenuTriggerV118===this)" +
-                "window.__gpActiveHoverMenuTriggerV118=null;",
-                e.isOpened()));
-        trigger.addAttachListener(e -> trigger.getElement().executeJs(
-                """
-                (() => {
-                    const trigger = this;
-                    if (trigger.__gpMenuHoverV118) return;
-                    trigger.__gpMenuHoverV118 = true;
-                    const clickOpensMenu = Boolean($0);
-                    let closeTimer = 0;
-                    let openedAt = Number.NEGATIVE_INFINITY;
-                    let overlayEntered = false;
-                    const preparedOverlays = new WeakSet();
-
-                    const CLOSE_DELAY = 180;
-                    const OPENING_BRIDGE = 700;
-
-                    const supportsHover = () => window.matchMedia?.('(hover: hover)').matches !== false;
-                    const openedOverlays = () => Array.from(
-                        document.querySelectorAll('vaadin-context-menu-overlay[opened]')
-                    );
-                    const pointerIsInside = () => trigger.matches(':hover') ||
-                        openedOverlays().some(overlay => overlay.matches(':hover'));
-                    const cancelClose = () => {
-                        if (closeTimer) window.clearTimeout(closeTimer);
-                        closeTimer = 0;
-                    };
-                    const requestClose = () => {
-                        if (closeTimer) return;
-                        const openingRemaining = Math.max(0, OPENING_BRIDGE - (performance.now() - openedAt));
-                        closeTimer = window.setTimeout(() => {
-                            closeTimer = 0;
-                            if (!trigger.isConnected || pointerIsInside()) return;
-                            if (window.__gpActiveHoverMenuTriggerV118 === trigger) {
-                                window.__gpActiveHoverMenuTriggerV118 = null;
-                            }
-                            trigger.__gpMenuOpenRequestedV118 = false;
-                            trigger.dispatchEvent(new CustomEvent('gp-menu-hover-close-v118', {
-                                bubbles: true,
-                                composed: true
-                            }));
-                        }, Math.max(CLOSE_DELAY, openingRemaining));
-                    };
-                    const dispatchOpen = (event, allowWithoutHover = false) => {
-                        if (!allowWithoutHover && (!supportsHover() || event.pointerType === 'touch')) return;
-                        if (trigger.__gpMenuOpenRequestedV118) {
-                            cancelClose();
-                            return;
-                        }
-                        if (performance.now() - openedAt < 350) return;
-                        cancelClose();
-                        openedAt = performance.now();
-                        overlayEntered = false;
-                        trigger.__gpMenuOpenRequestedV118 = true;
-                        window.__gpActiveHoverMenuTriggerV118 = trigger;
-                        const box = trigger.getBoundingClientRect();
-                        trigger.dispatchEvent(new MouseEvent('contextmenu', {
-                            bubbles: true,
-                            composed: true,
-                            cancelable: true,
-                            clientX: box.left + box.width / 2,
-                            clientY: box.bottom
-                        }));
-                    };
-
-                    const prepareOverlay = (overlay) => {
-                        if (preparedOverlays.has(overlay)) return;
-                        preparedOverlays.add(overlay);
-                        overlay.addEventListener('pointerenter', () => {
-                            overlayEntered = true;
-                            cancelClose();
-                        }, {passive:true});
-                        overlay.addEventListener('pointerleave', requestClose, {passive:true});
-                    };
-
-                    const prepareOpenedOverlays = () => openedOverlays().forEach(prepareOverlay);
-                    const overlayObserver = new MutationObserver(prepareOpenedOverlays);
-                    overlayObserver.observe(document.body, {
-                        childList: true,
-                        subtree: true,
-                        attributes: true,
-                        attributeFilter: ['opened']
-                    });
-
-                    trigger.addEventListener('pointerenter', dispatchOpen, {passive:true});
-                    trigger.addEventListener('pointerleave', requestClose, {passive:true});
-                    if (clickOpensMenu) {
-                        trigger.addEventListener('click', event => dispatchOpen(event, true), {passive:true});
-                    }
-
-                    const monitorPointer = () => {
-                        if (!trigger.isConnected) {
-                            document.removeEventListener('pointermove', monitorPointer);
-                            overlayObserver.disconnect();
-                            cancelClose();
-                            return;
-                        }
-                        prepareOpenedOverlays();
-                        if (pointerIsInside()) cancelClose();
-                        else if (openedOverlays().length > 0) requestClose();
-                    };
-                    document.addEventListener('pointermove', monitorPointer, {passive:true});
-                })();
-                """, clickOpensMenu));
     }
 
     private void enforceLoginInputContrast(Component field) {
