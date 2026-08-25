@@ -330,7 +330,7 @@ public final class I18n {
             Map.entry("Setores com Refugo", "Departments with Scrap"),
             Map.entry("Setores sem Refugo", "Departments without Scrap"),
             Map.entry("Todos os setores de refugo aparecem no relatório, mesmo quando não possuem lançamentos no período.", "All scrap departments appear in the report, even when they have no entries in the period."),
-            Map.entry("Top 5 Motivos por Setor", "Top 5 Reasons by Department"),
+            Map.entry("Top 5 Motivos por Setor (Causadores)", "Top 5 Reasons by Department (Causes)"),
             Map.entry("Restaurar excluídos", "Restore excluded"),
             Map.entry("Restaurar excluídos ({quantidade})", "Restore excluded ({quantidade})"),
             Map.entry("Resumo Diário da Produção", "Daily Production Summary"),

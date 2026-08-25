@@ -376,7 +376,7 @@ public class MainView extends VerticalLayout {
             dropdown.close();
             if (!Objects.equals(renderedTabKey, "lancamentos")) openProductionSubPage("lancamentos");
         });
-        installNavigationMenuHover(productionTab);
+        installNavigationMenuHover(productionTab, dropdown);
         installContextMenuHoverOnly(productionTab);
     }
 
@@ -389,7 +389,7 @@ public class MainView extends VerticalLayout {
             dropdown.close();
             if (!Objects.equals(renderedTabKey, SCRAP_REPORT_KEY)) openProductionSubPage(SCRAP_REPORT_KEY);
         });
-        installNavigationMenuHover(reportsTab);
+        installNavigationMenuHover(reportsTab, dropdown);
         installContextMenuHoverOnly(reportsTab);
     }
 
@@ -459,6 +459,7 @@ public class MainView extends VerticalLayout {
         menuSyncItem.setEnabled(false);
         menuSyncItem.addClassName("gp-menu-sync-info-v045");
         refreshMenuSyncStatus();
+        installContextMenuAutoClose(trigger, dropdown);
         installContextMenuHoverOnly(trigger);
         return trigger;
     }
@@ -525,7 +526,7 @@ public class MainView extends VerticalLayout {
      * transformar o clique normal em abertura de menu. O clique continua sendo
      * tratado pelo Tab e leva à página principal do grupo.
      */
-    private void installNavigationMenuHover(Component trigger) {
+    private void installNavigationMenuHover(Component trigger, ContextMenu dropdown) {
         if (trigger == null) return;
         trigger.addAttachListener(e -> trigger.getElement().executeJs(
                 """
@@ -550,6 +551,54 @@ public class MainView extends VerticalLayout {
                     trigger.addEventListener('pointerenter', openMenu, {passive:true});
                 })();
                 """));
+        installContextMenuAutoClose(trigger, dropdown);
+    }
+
+    /**
+     * Fecha somente depois que o ponteiro deixa tanto o acionador quanto o
+     * overlay do menu. A pequena tolerância permite atravessar o espaço entre
+     * os dois sem provocar o abre-e-fecha que tornava o dropdown instável.
+     */
+    private void installContextMenuAutoClose(Component trigger, ContextMenu dropdown) {
+        if (trigger == null || dropdown == null) return;
+        trigger.addAttachListener(e -> trigger.getElement().executeJs(
+                """
+                (() => {
+                    const trigger = this;
+                    const menu = $0;
+                    if (trigger.__gpContextMenuAutoCloseV128) return;
+                    trigger.__gpContextMenuAutoCloseV128 = true;
+                    let closeTimer = 0;
+
+                    const pointerInside = () => trigger.matches(':hover')
+                        || Array.from(document.querySelectorAll('vaadin-context-menu-overlay'))
+                            .some(overlay => overlay.matches(':hover'));
+                    const cancelClose = () => {
+                        if (closeTimer) window.clearTimeout(closeTimer);
+                        closeTimer = 0;
+                    };
+                    const closeLater = () => {
+                        cancelClose();
+                        closeTimer = window.setTimeout(() => {
+                            closeTimer = 0;
+                            if (!pointerInside()) menu.close();
+                        }, 180);
+                    };
+                    const trackPointer = () => pointerInside() ? cancelClose() : closeLater();
+
+                    trigger.addEventListener('pointerenter', cancelClose, {passive:true});
+                    trigger.addEventListener('pointerleave', closeLater, {passive:true});
+                    menu.addEventListener('opened-changed', event => {
+                        if (event.target !== menu) return;
+                        if (event.detail.value) {
+                            document.addEventListener('pointermove', trackPointer, {passive:true});
+                        } else {
+                            cancelClose();
+                            document.removeEventListener('pointermove', trackPointer);
+                        }
+                    });
+                })();
+                """, dropdown.getElement()));
     }
 
     private void changeLanguage(String lang) {
@@ -2699,7 +2748,7 @@ public class MainView extends VerticalLayout {
         Div reasons = (Div) byId("scrap-report-reasons");
         if (reasons != null) {
             reasons.removeAll();
-            H3 sectionTitle = new H3(t("Top 5 Motivos por Setor"));
+            H3 sectionTitle = new H3(t("Top 5 Motivos por Setor (Causadores)"));
             sectionTitle.addClassName("gp-subsection-title");
             Span caption = new Span(t("Ranking independente para os sete setores produtivos definidos no relatório."));
             caption.addClassName("gp-caption");
