@@ -532,8 +532,8 @@ public class MainView extends VerticalLayout {
                 """
                 (() => {
                     const trigger = this;
-                    if (trigger.__gpContextMenuHoverV130Fixed) return;
-                    trigger.__gpContextMenuHoverV130Fixed = true;
+                    if (trigger.__gpContextMenuHoverV131) return;
+                    trigger.__gpContextMenuHoverV131 = true;
                     let closeTimer = 0;
                     let active = false;
                     let rootMenu = null;
@@ -548,6 +548,16 @@ public class MainView extends VerticalLayout {
                     const isMenuPath = event => event.composedPath().some(node =>
                         node?.tagName === 'VAADIN-CONTEXT-MENU'
                         || node?.tagName === 'VAADIN-CONTEXT-MENU-OVERLAY');
+                    const menuHovered = () => {
+                        const visited = [];
+                        let current = rootMenu;
+                        while (current && !visited.includes(current)) {
+                            visited.push(current);
+                            if (current._overlayElement?.matches(':hover')) return true;
+                            current = current._subMenu;
+                        }
+                        return false;
+                    };
                     const closeMenu = () => {
                         if (rootMenu && typeof rootMenu.close === 'function') {
                             rootMenu.close();
@@ -565,8 +575,8 @@ public class MainView extends VerticalLayout {
                         cancelClose();
                         closeTimer = window.setTimeout(() => {
                             closeTimer = 0;
-                            if (active && !trigger.matches(':hover')) closeMenu();
-                        }, 160);
+                            if (active && !trigger.matches(':hover') && !menuHovered()) closeMenu();
+                        }, 360);
                     };
                     const openMenu = event => {
                         if (!supportsHover() || event.pointerType === 'touch') return;
@@ -2679,7 +2689,7 @@ public class MainView extends VerticalLayout {
         reasons.setId("scrap-report-reasons");
         reasons.addClassName("gp-scrap-report-reasons-v116");
 
-        Div page = new Div(titleRow, toolbar, filterDropdown, explanation, printHeader, kpis, comparison, sectors, reasons);
+        Div page = new Div(titleRow, toolbar, filterDropdown, explanation, printHeader, kpis, sectors, reasons, comparison);
         page.addClassName("gp-scrap-report-page-v116");
         content.add(page);
 
@@ -2753,9 +2763,6 @@ public class MainView extends VerticalLayout {
             sectors.add(sectionTitle, grid, scrapReportPrintSectorTableWrapper(sectorRows));
         }
 
-        Div comparison = (Div) byId("scrap-report-five-month-comparison");
-        if (comparison != null) renderScrapReportFiveMonthComparison(comparison);
-
         Div reasons = (Div) byId("scrap-report-reasons");
         if (reasons != null) {
             reasons.removeAll();
@@ -2778,6 +2785,9 @@ public class MainView extends VerticalLayout {
             }
             reasons.add(sectionTitle, caption, cards);
         }
+
+        Div comparison = (Div) byId("scrap-report-five-month-comparison");
+        if (comparison != null) renderScrapReportFiveMonthComparison(comparison);
     }
 
     private void renderScrapReportFiveMonthComparison(Div host) {

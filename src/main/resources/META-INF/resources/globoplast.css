@@ -5658,3 +5658,47 @@ html body .gp-scrap-report-month-difference-v130.gp-neutral{
     color:#16853f!important;
   }
 }
+
+/* 0.0.131 — cinco KPIs com a mesma largura no relatório. */
+html body .gp-scrap-report-kpis-v116{
+  display:grid!important;
+  grid-template-columns:repeat(5,minmax(0,1fr))!important;
+  grid-auto-flow:row!important;
+  align-items:stretch!important;
+  gap:clamp(.5rem,1.2vw,1rem)!important;
+  width:100%!important;
+}
+html body .gp-scrap-report-kpis-v116>.gp-kpi,
+html body .gp-scrap-report-kpis-v116>.gp-kpi:last-child{
+  grid-column:auto!important;
+  width:100%!important;
+  min-width:0!important;
+  box-sizing:border-box!important;
+}
+html body .gp-scrap-report-kpis-v116>.gp-kpi>h3{
+  overflow-wrap:anywhere!important;
+}
+
+@media (max-width:900px){
+  html body .gp-scrap-report-kpis-v116{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  }
+}
+@media (max-width:480px){
+  html body .gp-scrap-report-kpis-v116{
+    grid-template-columns:minmax(0,1fr)!important;
+  }
+}
+
+@media print{
+  html.gp-print-scrap-report-v117 .gp-scrap-report-kpis-v116{
+    grid-template-columns:repeat(5,minmax(0,1fr))!important;
+    gap:2mm!important;
+  }
+  html.gp-print-scrap-report-v117 .gp-scrap-report-kpis-v116>.gp-kpi,
+  html.gp-print-scrap-report-v117 .gp-scrap-report-kpis-v116>.gp-kpi:last-child{
+    grid-column:auto!important;
+    width:100%!important;
+    min-width:0!important;
+  }
+}
