@@ -5214,3 +5214,161 @@ html body .gp-hover-menu-body-v119>.gp-menu-sync-info-v045[data-gp-sync-state="o
 html body .gp-hover-menu-body-v119>.gp-menu-sync-info-v045[data-gp-sync-state="offline"]::after{
   color:#c62828!important;
 }
+
+/* ==========================================================================
+   0.0.121 — PADRAO UNICO PARA MENUS, DROPDOWNS, TOOLTIPS E PDF EM UMA FOLHA
+   ========================================================================== */
+
+/* Todos os overlays informativos usam a mesma superfície do menu original. */
+html body vaadin-context-menu-overlay::part(overlay),
+html body vaadin-combo-box-overlay::part(overlay),
+html body vaadin-multi-select-combo-box-overlay::part(overlay),
+html body vaadin-select-overlay::part(overlay),
+html body vaadin-date-picker-overlay::part(overlay),
+html body vaadin-popover-overlay::part(overlay),
+html body vaadin-tooltip-overlay::part(overlay){
+  border:0!important;
+  border-radius:.55rem!important;
+  background:var(--gp-surface)!important;
+  background-color:var(--gp-surface)!important;
+  color:var(--gp-text)!important;
+  box-shadow:0 8px 24px rgba(0,0,0,.20)!important;
+}
+html body vaadin-context-menu-overlay::part(content),
+html body vaadin-combo-box-overlay::part(content),
+html body vaadin-multi-select-combo-box-overlay::part(content),
+html body vaadin-select-overlay::part(content),
+html body vaadin-date-picker-overlay::part(content),
+html body vaadin-popover-overlay::part(content),
+html body vaadin-tooltip-overlay::part(content){
+  background-color:var(--gp-surface)!important;
+  color:var(--gp-text)!important;
+}
+
+/* Nenhum foco, seleção interna ou abertura pinta uma opção. */
+html body vaadin-context-menu-item,
+html body vaadin-context-menu-item[focused],
+html body vaadin-context-menu-item[focus-ring],
+html body vaadin-context-menu-item[highlighted],
+html body vaadin-context-menu-item[selected],
+html body vaadin-context-menu-item:focus,
+html body vaadin-context-menu-item:focus-visible,
+html body vaadin-context-menu-item:active,
+html body vaadin-combo-box-item,
+html body vaadin-combo-box-item[focused],
+html body vaadin-combo-box-item[selected],
+html body vaadin-combo-box-item:focus,
+html body vaadin-combo-box-item:focus-visible,
+html body vaadin-select-item,
+html body vaadin-select-item[focused],
+html body vaadin-select-item[selected],
+html body vaadin-select-item:focus,
+html body vaadin-select-item:focus-visible,
+html body vaadin-multi-select-combo-box-item,
+html body vaadin-multi-select-combo-box-item[focused],
+html body vaadin-multi-select-combo-box-item[selected],
+html body vaadin-multi-select-combo-box-item:focus,
+html body vaadin-multi-select-combo-box-item:focus-visible,
+html body .gp-hover-menu-item-v119,
+html body .gp-hover-menu-item-v119:focus,
+html body .gp-hover-menu-item-v119:focus-visible,
+html body .gp-hover-menu-item-v119:active{
+  background:transparent!important;
+  background-color:transparent!important;
+  color:var(--gp-text)!important;
+  outline:0!important;
+  box-shadow:none!important;
+}
+
+/* O destaque existe exclusivamente no item que está sob o ponteiro. */
+@media (hover:hover) and (pointer:fine){
+  html body vaadin-context-menu-item:hover:not([disabled]),
+  html body vaadin-combo-box-item:hover:not([disabled]),
+  html body vaadin-select-item:hover:not([disabled]),
+  html body vaadin-multi-select-combo-box-item:hover:not([disabled]),
+  html body .gp-hover-menu-item-v119:hover{
+    background:var(--gp-hover)!important;
+    background-color:var(--gp-hover)!important;
+    color:var(--gp-text)!important;
+  }
+}
+html body .gp-hover-submenu-group-v120:focus-within>.gp-hover-submenu-v120{
+  visibility:hidden!important;
+  opacity:0!important;
+  pointer-events:none!important;
+}
+html body .gp-hover-submenu-group-v120:hover>.gp-hover-submenu-v120{
+  visibility:visible!important;
+  opacity:1!important;
+  pointer-events:auto!important;
+}
+
+/* Balões informativos próprios seguem exatamente a mesma linguagem do menu. */
+html body .gp-oee-info::after,
+html body .gp-oee-floating-tooltip-v061{
+  border:0!important;
+  border-radius:.55rem!important;
+  background:var(--gp-surface)!important;
+  background-color:var(--gp-surface)!important;
+  color:var(--gp-text)!important;
+  box-shadow:0 8px 24px rgba(0,0,0,.20)!important;
+}
+
+@media print{
+  /* Alturas reais e compactas: 14 setores + cabeçalho ocupam 64 mm. */
+  html.gp-print-scrap-report-v117 .gp-scrap-report-grid-v116{
+    height:64mm!important;
+    min-height:64mm!important;
+    max-height:64mm!important;
+    margin-bottom:1mm!important;
+    --vaadin-grid-row-height:4.2mm!important;
+    --vaadin-grid-header-row-height:5.2mm!important;
+  }
+  html.gp-print-scrap-report-v117 .gp-scrap-report-grid-v116::part(body-cell){
+    height:4.2mm!important;
+    min-height:4.2mm!important;
+    padding:0 2mm!important;
+    line-height:4.2mm!important;
+  }
+  html.gp-print-scrap-report-v117 .gp-scrap-report-grid-v116::part(header-cell){
+    height:5.2mm!important;
+    min-height:5.2mm!important;
+    padding:0 2mm!important;
+    line-height:5.2mm!important;
+  }
+  html.gp-print-scrap-report-v117 .gp-scrap-report-print-header-v117{
+    min-height:9mm!important;
+    margin-bottom:1mm!important;
+  }
+  html.gp-print-scrap-report-v117 .gp-scrap-report-print-logo-v117{
+    width:30mm!important;
+  }
+  html.gp-print-scrap-report-v117 .gp-scrap-report-kpis-v116{
+    margin-bottom:1mm!important;
+  }
+  html.gp-print-scrap-report-v117 .gp-subsection-title{
+    margin:1mm 0 .6mm!important;
+  }
+  html.gp-print-scrap-report-v117 .gp-scrap-reason-cards-v116{
+    gap:1.5mm!important;
+    margin-top:.5mm!important;
+  }
+  html.gp-print-scrap-report-v117 .gp-scrap-reason-card-v116{
+    padding:1.2mm 1.5mm .4mm!important;
+  }
+  html.gp-print-scrap-report-v117 .gp-scrap-reason-title-v116{
+    margin-bottom:.2mm!important;
+    font-size:7.5pt!important;
+  }
+  html.gp-print-scrap-report-v117 .gp-scrap-reason-card-v116 .gp-ranking-row{
+    padding:.25mm .6mm!important;
+    font-size:6.4pt!important;
+    line-height:1.05!important;
+  }
+  html.gp-print-scrap-report-v117 .gp-scrap-report-page-v116,
+  html.gp-print-scrap-report-v117 .gp-scrap-report-sectors-v116,
+  html.gp-print-scrap-report-v117 .gp-scrap-report-reasons-v116{
+    break-inside:avoid-page!important;
+    page-break-inside:avoid!important;
+  }
+}
