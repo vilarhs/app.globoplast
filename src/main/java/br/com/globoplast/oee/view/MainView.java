@@ -21,9 +21,7 @@ import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.contextmenu.ContextMenu;
-import com.vaadin.flow.component.contextmenu.ContextMenuPosition;
 import com.vaadin.flow.component.contextmenu.MenuItem;
-import com.vaadin.flow.component.dependency.JsModule;
 import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.combobox.MultiSelectComboBox;
 import com.vaadin.flow.component.dialog.Dialog;
@@ -76,9 +74,6 @@ import java.util.stream.Collectors;
 
 @Route("")
 @PageTitle("GLOBOPLAST APP")
-@JsModule("@vaadin/context-menu/src/vaadin-context-menu.js")
-@JsModule("./contextMenuConnector.js")
-@JsModule("./contextMenuTargetConnector.js")
 public class MainView extends VerticalLayout {
     private static final String TAB_AUTH_STORAGE_KEY = "globoplast_tab_auth_v078";
     private static final String SCRAP_REPORT_KEY = "relatorios_refugo";
@@ -364,132 +359,38 @@ public class MainView extends VerticalLayout {
         return tab;
     }
 
-    private ContextMenu installProductionMenu(Tab productionTab) {
-        ContextMenu dropdown = hoverContextMenu(productionTab, ContextMenuPosition.BOTTOM_START);
-        hoverContextMenuItem(dropdown, t("Lançamentos"), () -> openProductionSubPage("lancamentos"));
+    private void installProductionMenu(Tab productionTab) {
+        ContextMenu dropdown = new ContextMenu();
+        dropdown.setTarget(productionTab);
+        dropdown.setOpenOnClick(false);
+        dropdown.addItem(t("Lançamentos"), e -> openProductionSubPage("lancamentos"));
         if (user.canSeeSummaries()) {
-            hoverContextMenuItem(dropdown, t("Resumo do Dia"), () -> openProductionSubPage("dia"));
-            hoverContextMenuItem(dropdown, t("Resumo do Mês"), () -> openProductionSubPage("mes"));
+            dropdown.addItem(t("Resumo do Dia"), e -> openProductionSubPage("dia"));
+            dropdown.addItem(t("Resumo do Mês"), e -> openProductionSubPage("mes"));
         }
-        hoverContextMenuItem(dropdown, t("Refugo"), () -> openProductionSubPage("refugo"));
+        dropdown.addItem(t("Refugo"), e -> openProductionSubPage("refugo"));
         if (user != null && user.canModifyLaunches()) {
-            hoverContextMenuItem(dropdown, t("Lixeira"), this::showLaunchTrash);
+            dropdown.addItem(t("Lixeira"), e -> showLaunchTrash());
         }
         productionTab.getElement().addEventListener("click", e -> {
             dropdown.close();
             if (!Objects.equals(renderedTabKey, "lancamentos")) openProductionSubPage("lancamentos");
         });
-        return dropdown;
+        installNavigationMenuHover(productionTab);
+        installContextMenuHoverOnly(productionTab);
     }
 
-    private ContextMenu installReportsMenu(Tab reportsTab) {
-        ContextMenu dropdown = hoverContextMenu(reportsTab, ContextMenuPosition.BOTTOM_START);
-        hoverContextMenuItem(dropdown, t("Refugo"), () -> openProductionSubPage(SCRAP_REPORT_KEY));
+    private void installReportsMenu(Tab reportsTab) {
+        ContextMenu dropdown = new ContextMenu();
+        dropdown.setTarget(reportsTab);
+        dropdown.setOpenOnClick(false);
+        dropdown.addItem(t("Refugo"), e -> openProductionSubPage(SCRAP_REPORT_KEY));
         reportsTab.getElement().addEventListener("click", e -> {
             dropdown.close();
             if (!Objects.equals(renderedTabKey, SCRAP_REPORT_KEY)) openProductionSubPage(SCRAP_REPORT_KEY);
         });
-        return dropdown;
-    }
-
-    private ContextMenu hoverContextMenu(Component target, ContextMenuPosition position) {
-        ContextMenu menu = new ContextMenu(target);
-        menu.setOpenOnClick(false);
-        menu.setPosition(position);
-        add(menu);
-        installContextMenuHover(target, menu, position == ContextMenuPosition.BOTTOM_END);
-        return menu;
-    }
-
-    private MenuItem hoverContextMenuItem(ContextMenu menu, String label, Runnable action) {
-        return menu.addItem(label, e -> {
-            menu.close();
-            action.run();
-        });
-    }
-
-    private void installContextMenuHover(Component target, ContextMenu menu, boolean alignEnd) {
-        target.addAttachListener(e -> target.getElement().executeJs(
-                """
-                (() => {
-                    if (this.__gpNativeContextHoverV126) return;
-                    this.__gpNativeContextHoverV126 = true;
-                    const target = this;
-                    const menu = $0;
-                    const alignEnd = Boolean($1);
-                    let closeTimer = 0;
-                    let openPending = false;
-                    let pendingTimeout = 0;
-
-                    const openedMenuParts = () => Array.from(document.querySelectorAll(
-                        'vaadin-context-menu-list-box, vaadin-context-menu-item'
-                    ));
-                    const pointerInside = () => target.matches(':hover')
-                        || openedMenuParts().some(part => part.matches(':hover'));
-                    const cancelClose = () => {
-                        if (closeTimer) window.clearTimeout(closeTimer);
-                        closeTimer = 0;
-                    };
-                    const cancelPendingTimeout = () => {
-                        if (pendingTimeout) window.clearTimeout(pendingTimeout);
-                        pendingTimeout = 0;
-                    };
-                    const closeLater = () => {
-                        cancelClose();
-                        if (openPending && !menu.opened) return;
-                        closeTimer = window.setTimeout(() => {
-                            if (!pointerInside()) menu.close();
-                        }, 240);
-                    };
-                    const trackPointer = () => pointerInside() ? cancelClose() : closeLater();
-                    const open = () => {
-                        cancelClose();
-                        if (menu.opened || openPending) return;
-                        const previous = window.__gpActiveNativeContextMenuV126;
-                        if (previous && previous !== menu) previous.close();
-                        window.__gpActiveNativeContextMenuV126 = menu;
-                        openPending = true;
-                        cancelPendingTimeout();
-                        const rect = target.getBoundingClientRect();
-                        target.dispatchEvent(new MouseEvent('contextmenu', {
-                            bubbles: true,
-                            cancelable: true,
-                            composed: true,
-                            clientX: alignEnd ? rect.right - 1 : rect.left + 1,
-                            clientY: rect.bottom - 1
-                        }));
-                        pendingTimeout = window.setTimeout(() => {
-                            openPending = false;
-                            pendingTimeout = 0;
-                            if (!menu.opened && window.__gpActiveNativeContextMenuV126 === menu) {
-                                window.__gpActiveNativeContextMenuV126 = null;
-                            }
-                        }, 5000);
-                    };
-
-                    target.addEventListener('pointerenter', open);
-                    target.addEventListener('pointerleave', closeLater);
-                    menu.addEventListener('opened-changed', event => {
-                        if (event.target !== menu) return;
-                        openPending = false;
-                        cancelPendingTimeout();
-                        if (event.detail.value) {
-                            if (window.__gpActiveNativeContextMenuV126 !== menu) {
-                                menu.close();
-                                return;
-                            }
-                            document.addEventListener('pointermove', trackPointer, {passive: true});
-                            trackPointer();
-                        } else {
-                            cancelClose();
-                            document.removeEventListener('pointermove', trackPointer);
-                            if (window.__gpActiveNativeContextMenuV126 === menu) {
-                                window.__gpActiveNativeContextMenuV126 = null;
-                            }
-                        }
-                    });
-                })();
-                """, menu.getElement(), alignEnd));
+        installNavigationMenuHover(reportsTab);
+        installContextMenuHoverOnly(reportsTab);
     }
 
     private void openProductionSubPage(String key) {
@@ -529,27 +430,26 @@ public class MainView extends VerticalLayout {
         trigger.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
         trigger.addClassNames("gp-menu-button", "gp-system-menu-trigger-v065", "gp-system-menu-trigger-v066");
         trigger.setAriaLabel(t("Menu"));
-        ContextMenu dropdown = hoverContextMenu(trigger, ContextMenuPosition.BOTTOM_END);
-        MenuItem caption = dropdown.addItem(user.username());
-        caption.setEnabled(false);
-        caption.addClassName("gp-menu-caption");
+        ContextMenu dropdown = new ContextMenu();
+        dropdown.setTarget(trigger);
+        dropdown.setOpenOnClick(true);
+        MenuItem me = dropdown.addItem(user.username());
+        me.addClassName("gp-menu-caption");
+        me.setEnabled(false);
         if (user.isAdmin()) {
-            hoverContextMenuItem(dropdown, t("Cadastro"), this::showRegistry);
-            hoverContextMenuItem(dropdown, t("Usuários"), this::showUsers);
+            dropdown.addItem(t("Cadastro"), e -> showRegistry());
+            dropdown.addItem(t("Usuários"), e -> showUsers());
         } else {
-            hoverContextMenuItem(dropdown, t("Alterar Senha"), this::showOwnPassword);
+            dropdown.addItem(t("Alterar Senha"), e -> showOwnPassword());
         }
-
-        MenuItem languages = dropdown.addItem("pt-BR / en-US");
-        languages.getSubMenu().addItem("pt-BR", e -> changeLanguage("pt-BR"));
-        languages.getSubMenu().addItem("en-US", e -> changeLanguage("en-US"));
-
+        MenuItem languageMenu = dropdown.addItem("pt-BR / en-US");
+        languageMenu.getSubMenu().addItem("pt-BR", e -> changeLanguage("pt-BR"));
+        languageMenu.getSubMenu().addItem("en-US", e -> changeLanguage("en-US"));
         MenuItem theme = dropdown.addItem(t("Tema"));
         theme.getSubMenu().addItem(t("Sistema"), e -> setThemeMode("system"));
         theme.getSubMenu().addItem(t("Claro"), e -> setThemeMode("light"));
         theme.getSubMenu().addItem(t("Escuro"), e -> setThemeMode("dark"));
-
-        hoverContextMenuItem(dropdown, t("Sair"), () -> {
+        dropdown.addItem(t("Sair"), e -> {
             clearTabAuthentication();
             auth.logout();
             user = null;
@@ -559,9 +459,97 @@ public class MainView extends VerticalLayout {
         menuSyncItem.setEnabled(false);
         menuSyncItem.addClassName("gp-menu-sync-info-v045");
         refreshMenuSyncStatus();
-        Div host = new Div(trigger);
-        host.addClassName("gp-menu-host");
-        return host;
+        installContextMenuHoverOnly(trigger);
+        return trigger;
+    }
+
+    private void installContextMenuHoverOnly(Component trigger) {
+        if (trigger == null) return;
+        trigger.addAttachListener(e -> trigger.getElement().executeJs(
+                """
+                (() => {
+                    const trigger = this;
+                    if (trigger.__gpContextMenuHoverOnlyInstalled) return;
+                    trigger.__gpContextMenuHoverOnlyInstalled = true;
+
+                    const neutral = (item) => {
+                        item.style.setProperty('background', 'transparent', 'important');
+                        item.style.setProperty('background-color', 'transparent', 'important');
+                        item.style.setProperty('box-shadow', 'none', 'important');
+                        item.style.setProperty('outline', '0', 'important');
+                        item.removeAttribute('focused');
+                        item.removeAttribute('focus-ring');
+                        item.removeAttribute('highlighted');
+                        item.removeAttribute('selected');
+                    };
+
+                    const prepareItem = (item) => {
+                        neutral(item);
+                        if (item.__gpHoverOnlyInstalled) return;
+                        item.__gpHoverOnlyInstalled = true;
+                        item.addEventListener('mouseenter', () => {
+                            if (item.hasAttribute('disabled')) return;
+                            item.style.setProperty('background', 'var(--gp-hover)', 'important');
+                            item.style.setProperty('background-color', 'var(--gp-hover)', 'important');
+                        });
+                        item.addEventListener('mouseleave', () => neutral(item));
+                        item.addEventListener('focus', () => {
+                            if (!item.matches(':hover')) neutral(item);
+                        });
+                    };
+
+                    const apply = () => {
+                        document.querySelectorAll('vaadin-context-menu-overlay vaadin-context-menu-item')
+                            .forEach(prepareItem);
+                    };
+
+                    const schedule = () => {
+                        requestAnimationFrame(apply);
+                        setTimeout(apply, 0);
+                        setTimeout(apply, 40);
+                        setTimeout(apply, 120);
+                    };
+
+                    trigger.addEventListener('click', schedule, true);
+
+                    if (!window.__gpContextMenuHoverObserver) {
+                        window.__gpContextMenuHoverObserver = new MutationObserver(apply);
+                        window.__gpContextMenuHoverObserver.observe(document.body, {childList:true, subtree:true});
+                    }
+                })();
+                """));
+    }
+
+    /**
+     * Abre os dropdowns da navegação ao manter o ponteiro sobre a aba, sem
+     * transformar o clique normal em abertura de menu. O clique continua sendo
+     * tratado pelo Tab e leva à página principal do grupo.
+     */
+    private void installNavigationMenuHover(Component trigger) {
+        if (trigger == null) return;
+        trigger.addAttachListener(e -> trigger.getElement().executeJs(
+                """
+                (() => {
+                    const trigger = this;
+                    if (trigger.__gpNavigationMenuHoverV116) return;
+                    trigger.__gpNavigationMenuHoverV116 = true;
+
+                    const supportsHover = () => window.matchMedia?.('(hover: hover)').matches !== false;
+                    const openMenu = event => {
+                        if (!supportsHover() || event.pointerType === 'touch') return;
+                        const box = trigger.getBoundingClientRect();
+                        trigger.dispatchEvent(new MouseEvent('contextmenu', {
+                            bubbles: true,
+                            composed: true,
+                            cancelable: true,
+                            clientX: box.left + box.width / 2,
+                            clientY: box.bottom
+                        }));
+                    };
+
+                    trigger.addEventListener('pointerenter', openMenu, {passive:true});
+                })();
+                """));
     }
 
     private void changeLanguage(String lang) {
