@@ -412,12 +412,14 @@ public class MainView extends VerticalLayout {
         target.addAttachListener(e -> target.getElement().executeJs(
                 """
                 (() => {
-                    if (this.__gpNativeContextHoverV125) return;
-                    this.__gpNativeContextHoverV125 = true;
+                    if (this.__gpNativeContextHoverV126) return;
+                    this.__gpNativeContextHoverV126 = true;
                     const target = this;
                     const menu = $0;
                     const alignEnd = Boolean($1);
                     let closeTimer = 0;
+                    let openPending = false;
+                    let pendingTimeout = 0;
 
                     const openedMenuParts = () => Array.from(document.querySelectorAll(
                         'vaadin-context-menu-list-box, vaadin-context-menu-item'
@@ -428,16 +430,26 @@ public class MainView extends VerticalLayout {
                         if (closeTimer) window.clearTimeout(closeTimer);
                         closeTimer = 0;
                     };
+                    const cancelPendingTimeout = () => {
+                        if (pendingTimeout) window.clearTimeout(pendingTimeout);
+                        pendingTimeout = 0;
+                    };
                     const closeLater = () => {
                         cancelClose();
+                        if (openPending && !menu.opened) return;
                         closeTimer = window.setTimeout(() => {
                             if (!pointerInside()) menu.close();
-                        }, 180);
+                        }, 240);
                     };
                     const trackPointer = () => pointerInside() ? cancelClose() : closeLater();
                     const open = () => {
                         cancelClose();
-                        if (menu.opened) return;
+                        if (menu.opened || openPending) return;
+                        const previous = window.__gpActiveNativeContextMenuV126;
+                        if (previous && previous !== menu) previous.close();
+                        window.__gpActiveNativeContextMenuV126 = menu;
+                        openPending = true;
+                        cancelPendingTimeout();
                         const rect = target.getBoundingClientRect();
                         target.dispatchEvent(new MouseEvent('contextmenu', {
                             bubbles: true,
@@ -446,16 +458,34 @@ public class MainView extends VerticalLayout {
                             clientX: alignEnd ? rect.right - 1 : rect.left + 1,
                             clientY: rect.bottom - 1
                         }));
+                        pendingTimeout = window.setTimeout(() => {
+                            openPending = false;
+                            pendingTimeout = 0;
+                            if (!menu.opened && window.__gpActiveNativeContextMenuV126 === menu) {
+                                window.__gpActiveNativeContextMenuV126 = null;
+                            }
+                        }, 5000);
                     };
 
                     target.addEventListener('pointerenter', open);
                     target.addEventListener('pointerleave', closeLater);
                     menu.addEventListener('opened-changed', event => {
+                        if (event.target !== menu) return;
+                        openPending = false;
+                        cancelPendingTimeout();
                         if (event.detail.value) {
+                            if (window.__gpActiveNativeContextMenuV126 !== menu) {
+                                menu.close();
+                                return;
+                            }
                             document.addEventListener('pointermove', trackPointer, {passive: true});
+                            trackPointer();
                         } else {
                             cancelClose();
                             document.removeEventListener('pointermove', trackPointer);
+                            if (window.__gpActiveNativeContextMenuV126 === menu) {
+                                window.__gpActiveNativeContextMenuV126 = null;
+                            }
                         }
                     });
                 })();
