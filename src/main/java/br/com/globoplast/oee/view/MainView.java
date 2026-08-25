@@ -376,7 +376,7 @@ public class MainView extends VerticalLayout {
             dropdown.close();
             if (!Objects.equals(renderedTabKey, "lancamentos")) openProductionSubPage("lancamentos");
         });
-        installNavigationMenuHover(productionTab, dropdown);
+        installContextMenuHover(productionTab, dropdown);
         installContextMenuHoverOnly(productionTab);
     }
 
@@ -389,7 +389,7 @@ public class MainView extends VerticalLayout {
             dropdown.close();
             if (!Objects.equals(renderedTabKey, SCRAP_REPORT_KEY)) openProductionSubPage(SCRAP_REPORT_KEY);
         });
-        installNavigationMenuHover(reportsTab, dropdown);
+        installContextMenuHover(reportsTab, dropdown);
         installContextMenuHoverOnly(reportsTab);
     }
 
@@ -432,7 +432,7 @@ public class MainView extends VerticalLayout {
         trigger.setAriaLabel(t("Menu"));
         ContextMenu dropdown = new ContextMenu();
         dropdown.setTarget(trigger);
-        dropdown.setOpenOnClick(true);
+        dropdown.setOpenOnClick(false);
         MenuItem me = dropdown.addItem(user.username());
         me.addClassName("gp-menu-caption");
         me.setEnabled(false);
@@ -459,7 +459,7 @@ public class MainView extends VerticalLayout {
         menuSyncItem.setEnabled(false);
         menuSyncItem.addClassName("gp-menu-sync-info-v045");
         refreshMenuSyncStatus();
-        installContextMenuAutoClose(trigger, dropdown);
+        installContextMenuHover(trigger, dropdown);
         installContextMenuHoverOnly(trigger);
         return trigger;
     }
@@ -526,18 +526,52 @@ public class MainView extends VerticalLayout {
      * transformar o clique normal em abertura de menu. O clique continua sendo
      * tratado pelo Tab e leva à página principal do grupo.
      */
-    private void installNavigationMenuHover(Component trigger, ContextMenu dropdown) {
-        if (trigger == null) return;
+    private void installContextMenuHover(Component trigger, ContextMenu dropdown) {
+        if (trigger == null || dropdown == null) return;
         trigger.addAttachListener(e -> trigger.getElement().executeJs(
                 """
                 (() => {
                     const trigger = this;
-                    if (trigger.__gpNavigationMenuHoverV116) return;
-                    trigger.__gpNavigationMenuHoverV116 = true;
+                    if (trigger.__gpContextMenuHoverV130Fixed) return;
+                    trigger.__gpContextMenuHoverV130Fixed = true;
+                    let closeTimer = 0;
+                    let active = false;
+                    let rootMenu = null;
 
                     const supportsHover = () => window.matchMedia?.('(hover: hover)').matches !== false;
+                    const cancelClose = () => {
+                        if (closeTimer) window.clearTimeout(closeTimer);
+                        closeTimer = 0;
+                    };
+                    const contextMenusInPath = event => event.composedPath()
+                        .filter(node => node?.tagName === 'VAADIN-CONTEXT-MENU');
+                    const isMenuPath = event => event.composedPath().some(node =>
+                        node?.tagName === 'VAADIN-CONTEXT-MENU'
+                        || node?.tagName === 'VAADIN-CONTEXT-MENU-OVERLAY');
+                    const closeMenu = () => {
+                        if (rootMenu && typeof rootMenu.close === 'function') {
+                            rootMenu.close();
+                        } else {
+                            const escape = options => new KeyboardEvent('keydown', {
+                                key:'Escape', code:'Escape', bubbles:true, composed:true, cancelable:true, ...options
+                            });
+                            document.dispatchEvent(escape({}));
+                            window.dispatchEvent(escape({}));
+                        }
+                        active = false;
+                        rootMenu = null;
+                    };
+                    const closeLater = () => {
+                        cancelClose();
+                        closeTimer = window.setTimeout(() => {
+                            closeTimer = 0;
+                            if (active && !trigger.matches(':hover')) closeMenu();
+                        }, 160);
+                    };
                     const openMenu = event => {
                         if (!supportsHover() || event.pointerType === 'touch') return;
+                        cancelClose();
+                        if (active) return;
                         const box = trigger.getBoundingClientRect();
                         trigger.dispatchEvent(new MouseEvent('contextmenu', {
                             bubbles: true,
@@ -546,66 +580,29 @@ public class MainView extends VerticalLayout {
                             clientX: box.left + box.width / 2,
                             clientY: box.bottom
                         }));
+                        active = true;
+                    };
+                    const trackPointer = event => {
+                        if (!trigger.isConnected) {
+                            document.removeEventListener('pointerover', trackPointer, true);
+                            active = false;
+                            return;
+                        }
+                        if (!active) return;
+                        if (event.composedPath().includes(trigger) || isMenuPath(event)) {
+                            const menus = contextMenusInPath(event);
+                            if (menus.length) rootMenu = menus[menus.length - 1];
+                            cancelClose();
+                        } else {
+                            closeLater();
+                        }
                     };
 
                     trigger.addEventListener('pointerenter', openMenu, {passive:true});
-                })();
-                """));
-        installContextMenuAutoClose(trigger, dropdown);
-    }
-
-    /**
-     * Fecha somente depois que o ponteiro deixa tanto o acionador quanto o
-     * overlay do menu. A pequena tolerância permite atravessar o espaço entre
-     * os dois sem provocar o abre-e-fecha que tornava o dropdown instável.
-     */
-    private void installContextMenuAutoClose(Component trigger, ContextMenu dropdown) {
-        if (trigger == null || dropdown == null) return;
-        trigger.addAttachListener(e -> trigger.getElement().executeJs(
-                """
-                (() => {
-                    const trigger = this;
-                    const menu = $0;
-                    if (trigger.__gpContextMenuAutoCloseV129) return;
-                    trigger.__gpContextMenuAutoCloseV129 = true;
-                    let closeTimer = 0;
-
-                    const pointerInside = () => trigger.matches(':hover')
-                        || Array.from(document.querySelectorAll('vaadin-context-menu-overlay'))
-                            .some(overlay => overlay.matches(':hover'));
-                    const menuOpened = () => menu.opened === true || menu.hasAttribute('opened');
-                    const cancelClose = () => {
-                        if (closeTimer) window.clearTimeout(closeTimer);
-                        closeTimer = 0;
-                    };
-                    const closeLater = () => {
-                        cancelClose();
-                        closeTimer = window.setTimeout(() => {
-                            closeTimer = 0;
-                            if (!pointerInside() && menuOpened() && typeof menu.close === 'function') {
-                                menu.close();
-                            }
-                        }, 220);
-                    };
-                    const trackPointer = () => {
-                        if (pointerInside()) cancelClose();
-                        else if (menuOpened()) closeLater();
-                    };
-
-                    trigger.addEventListener('pointerenter', cancelClose, {passive:true});
                     trigger.addEventListener('pointerleave', closeLater, {passive:true});
                     document.addEventListener('pointerover', trackPointer, {capture:true, passive:true});
-                    document.addEventListener('pointermove', trackPointer, {capture:true, passive:true});
-
-                    new MutationObserver(() => {
-                        if (menuOpened()) requestAnimationFrame(trackPointer);
-                        else cancelClose();
-                    }).observe(menu, {
-                        attributes:true,
-                        attributeFilter:['opened']
-                    });
                 })();
-                """, dropdown.getElement()));
+                """));
     }
 
     private void changeLanguage(String lang) {
@@ -2670,6 +2667,10 @@ public class MainView extends VerticalLayout {
         kpis.setId("scrap-report-kpis");
         kpis.addClassNames("gp-kpis", "gp-scrap-report-kpis-v116");
 
+        Div comparison = new Div();
+        comparison.setId("scrap-report-five-month-comparison");
+        comparison.addClassName("gp-scrap-report-five-month-comparison-v130");
+
         Div sectors = new Div();
         sectors.setId("scrap-report-sectors");
         sectors.addClassName("gp-scrap-report-sectors-v116");
@@ -2678,7 +2679,7 @@ public class MainView extends VerticalLayout {
         reasons.setId("scrap-report-reasons");
         reasons.addClassName("gp-scrap-report-reasons-v116");
 
-        Div page = new Div(titleRow, toolbar, filterDropdown, explanation, printHeader, kpis, sectors, reasons);
+        Div page = new Div(titleRow, toolbar, filterDropdown, explanation, printHeader, kpis, comparison, sectors, reasons);
         page.addClassName("gp-scrap-report-page-v116");
         content.add(page);
 
@@ -2752,6 +2753,9 @@ public class MainView extends VerticalLayout {
             sectors.add(sectionTitle, grid, scrapReportPrintSectorTableWrapper(sectorRows));
         }
 
+        Div comparison = (Div) byId("scrap-report-five-month-comparison");
+        if (comparison != null) renderScrapReportFiveMonthComparison(comparison);
+
         Div reasons = (Div) byId("scrap-report-reasons");
         if (reasons != null) {
             reasons.removeAll();
@@ -2774,6 +2778,75 @@ public class MainView extends VerticalLayout {
             }
             reasons.add(sectionTitle, caption, cards);
         }
+    }
+
+    private void renderScrapReportFiveMonthComparison(Div host) {
+        host.removeAll();
+        YearMonth endMonth = YearMonth.from(scrapEnd);
+        YearMonth firstVisibleMonth = endMonth.minusMonths(4);
+        YearMonth comparisonBaseMonth = firstVisibleMonth.minusMonths(1);
+        List<RefugoRecord> comparisonRows = scraps.filter(
+                cachedScrapData(comparisonBaseMonth.atDay(1), scrapEnd),
+                scrapSearch, scrapSectors, scrapOrders, scrapMachines, scrapProducts,
+                scrapDescriptions, scrapClients, scrapShifts, scrapOperators, scrapMotives);
+
+        Map<YearMonth, Double> totals = new LinkedHashMap<>();
+        for (int index = 0; index < 6; index++) {
+            totals.put(comparisonBaseMonth.plusMonths(index), 0.0);
+        }
+        for (RefugoRecord row : comparisonRows) {
+            YearMonth month = YearMonth.from(row.productiveDate());
+            if (totals.containsKey(month)) totals.merge(month, row.scrapKg(), Double::sum);
+        }
+
+        H3 title = new H3(t("Comparativo dos Últimos 5 Meses"));
+        title.addClassName("gp-subsection-title");
+        Span caption = new Span(t("Variação em relação ao mês anterior."));
+        caption.addClassName("gp-caption");
+        Div chart = new Div();
+        chart.addClassName("gp-scrap-report-month-bars-v130");
+
+        double maximum = totals.entrySet().stream()
+                .filter(entry -> !entry.getKey().equals(comparisonBaseMonth))
+                .mapToDouble(Map.Entry::getValue)
+                .max()
+                .orElse(0.0);
+        DateTimeFormatter monthFormatter = DateTimeFormatter.ofPattern("MMM/yy", locale());
+
+        for (int index = 1; index < 6; index++) {
+            YearMonth month = comparisonBaseMonth.plusMonths(index);
+            double current = totals.getOrDefault(month, 0.0);
+            double previous = totals.getOrDefault(month.minusMonths(1), 0.0);
+            double height = maximum > 0 ? Math.max(current > 0 ? 5.0 : 0.0, current * 100.0 / maximum) : 0.0;
+
+            Span value = new Span(format(current) + " kg");
+            value.addClassName("gp-scrap-report-month-value-v130");
+            Div fill = new Div();
+            fill.addClassName("gp-scrap-report-month-fill-v130");
+            fill.getStyle().set("height", String.format(Locale.ROOT, "%.2f%%", height));
+            Div track = new Div(fill);
+            track.addClassName("gp-scrap-report-month-track-v130");
+            Span monthLabel = new Span(month.format(monthFormatter).replace(".", ""));
+            monthLabel.addClassName("gp-scrap-report-month-label-v130");
+
+            Span difference = new Span();
+            difference.addClassName("gp-scrap-report-month-difference-v130");
+            if (previous == 0.0 && current > 0.0) {
+                difference.setText(t("Novo"));
+                difference.addClassName("gp-new");
+            } else {
+                double variation = previous == 0.0 ? 0.0 : (current - previous) * 100.0 / previous;
+                String indicator = variation > 0.004 ? "▲ " : variation < -0.004 ? "▼ " : "• ";
+                difference.setText(indicator + signed1(variation) + "%");
+                difference.addClassName(variation > 0.004 ? "gp-up" : variation < -0.004 ? "gp-down" : "gp-neutral");
+            }
+
+            Div column = new Div(value, track, monthLabel, difference);
+            column.addClassName("gp-scrap-report-month-column-v130");
+            chart.add(column);
+        }
+
+        host.add(title, caption, chart);
     }
 
     private Div scrapReportPrintSectorTableWrapper(List<ScrapSectorReportRow> rows) {
