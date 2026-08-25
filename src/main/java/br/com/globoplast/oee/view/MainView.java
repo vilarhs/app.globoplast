@@ -435,6 +435,23 @@ public class MainView extends VerticalLayout {
         return caption;
     }
 
+    private Div hoverSubMenu(String label, Component... options) {
+        Span text = new Span(label);
+        Span arrow = new Span("›");
+        arrow.getElement().setAttribute("aria-hidden", "true");
+        Div trigger = new Div(text, arrow);
+        trigger.addClassNames("gp-hover-menu-item-v119", "gp-hover-submenu-trigger-v120");
+        trigger.getElement().setAttribute("aria-haspopup", "menu");
+
+        Div submenu = hoverMenuBody();
+        submenu.addClassName("gp-hover-submenu-v120");
+        submenu.add(options);
+
+        Div group = new Div(trigger, submenu);
+        group.addClassName("gp-hover-submenu-group-v120");
+        return group;
+    }
+
     private void openProductionSubPage(String key) {
         renderedTabKey = "";
         activateTab(key);
@@ -474,6 +491,7 @@ public class MainView extends VerticalLayout {
         trigger.setAriaLabel(t("Menu"));
         Popover dropdown = hoverMenu(trigger, PopoverPosition.BOTTOM_END);
         Div items = hoverMenuBody();
+        items.addClassName("gp-system-hover-menu-v120");
         items.add(hoverMenuCaption(user.username()));
         if (user.isAdmin()) {
             items.add(hoverMenuItem(dropdown, t("Cadastro"), this::showRegistry));
@@ -481,13 +499,13 @@ public class MainView extends VerticalLayout {
         } else {
             items.add(hoverMenuItem(dropdown, t("Alterar Senha"), this::showOwnPassword));
         }
-        items.add(hoverMenuCaption(t("Idioma")));
-        items.add(hoverMenuItem(dropdown, "pt-BR", () -> changeLanguage("pt-BR")));
-        items.add(hoverMenuItem(dropdown, "en-US", () -> changeLanguage("en-US")));
-        items.add(hoverMenuCaption(t("Tema")));
-        items.add(hoverMenuItem(dropdown, t("Sistema"), () -> setThemeMode("system")));
-        items.add(hoverMenuItem(dropdown, t("Claro"), () -> setThemeMode("light")));
-        items.add(hoverMenuItem(dropdown, t("Escuro"), () -> setThemeMode("dark")));
+        items.add(hoverSubMenu("pt-BR / en-US",
+                hoverMenuItem(dropdown, "pt-BR", () -> changeLanguage("pt-BR")),
+                hoverMenuItem(dropdown, "en-US", () -> changeLanguage("en-US"))));
+        items.add(hoverSubMenu(t("Tema"),
+                hoverMenuItem(dropdown, t("Sistema"), () -> setThemeMode("system")),
+                hoverMenuItem(dropdown, t("Claro"), () -> setThemeMode("light")),
+                hoverMenuItem(dropdown, t("Escuro"), () -> setThemeMode("dark"))));
         items.add(hoverMenuItem(dropdown, t("Sair"), () -> {
             clearTabAuthentication();
             auth.logout();
