@@ -5407,3 +5407,25 @@ html body .gp-oee-floating-tooltip-v061{
     page-break-inside:avoid!important;
   }
 }
+
+/* 0.0.125 — somente a moldura externa da folha é removida na impressão. */
+@media print{
+  html.gp-print-scrap-report-v117,
+  html.gp-print-scrap-report-v117 body,
+  html.gp-print-scrap-report-v117 .gp-root,
+  html.gp-print-scrap-report-v117 .gp-shell,
+  html.gp-print-scrap-report-v117 .gp-content,
+  html.gp-print-scrap-report-v117 .gp-scrap-report-page-v116{
+    border:0!important;
+    outline:0!important;
+    box-shadow:none!important;
+  }
+  html.gp-print-scrap-report-v117 body::before,
+  html.gp-print-scrap-report-v117 body::after,
+  html.gp-print-scrap-report-v117 .gp-scrap-report-page-v116::before,
+  html.gp-print-scrap-report-v117 .gp-scrap-report-page-v116::after{
+    border:0!important;
+    outline:0!important;
+    box-shadow:none!important;
+  }
+}
