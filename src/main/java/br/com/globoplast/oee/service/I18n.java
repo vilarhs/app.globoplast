@@ -60,7 +60,7 @@ public final class I18n {
             Map.entry("Comparativo Anual de Refugo", "Annual Scrap Comparison"),
             Map.entry("Comparativo Mensal", "Monthly Comparison"),
             Map.entry("Comparativo Mensal de Refugo", "Monthly Scrap Comparison"),
-            Map.entry("Comparativo dos Últimos 5 Meses", "Last 5-Month Comparison"),
+            Map.entry("Comparativo dos Últimos 6 Meses", "Last 6-Month Comparison"),
             Map.entry("Mensal", "Monthly"),
             Map.entry("Anual", "Annual"),
             Map.entry("Análise mensal", "Monthly analysis"),

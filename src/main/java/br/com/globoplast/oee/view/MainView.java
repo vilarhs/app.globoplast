@@ -2839,13 +2839,13 @@ public class MainView extends VerticalLayout {
         }
 
         Div comparison = (Div) byId("scrap-report-five-month-comparison");
-        if (comparison != null) renderScrapReportFiveMonthComparison(comparison);
+        if (comparison != null) renderScrapReportSixMonthComparison(comparison);
     }
 
-    private void renderScrapReportFiveMonthComparison(Div host) {
+    private void renderScrapReportSixMonthComparison(Div host) {
         host.removeAll();
         YearMonth endMonth = YearMonth.from(scrapEnd);
-        YearMonth firstVisibleMonth = endMonth.minusMonths(4);
+        YearMonth firstVisibleMonth = endMonth.minusMonths(5);
         YearMonth comparisonBaseMonth = firstVisibleMonth.minusMonths(1);
         List<RefugoRecord> comparisonRows = scraps.filter(
                 cachedScrapData(comparisonBaseMonth.atDay(1), scrapEnd),
@@ -2853,7 +2853,7 @@ public class MainView extends VerticalLayout {
                 scrapDescriptions, scrapClients, scrapShifts, scrapOperators, scrapMotives);
 
         Map<YearMonth, Double> totals = new LinkedHashMap<>();
-        for (int index = 0; index < 6; index++) {
+        for (int index = 0; index < 7; index++) {
             totals.put(comparisonBaseMonth.plusMonths(index), 0.0);
         }
         for (RefugoRecord row : comparisonRows) {
@@ -2861,7 +2861,7 @@ public class MainView extends VerticalLayout {
             if (totals.containsKey(month)) totals.merge(month, row.scrapKg(), Double::sum);
         }
 
-        H3 title = new H3(t("Comparativo dos Últimos 5 Meses"));
+        H3 title = new H3(t("Comparativo dos Últimos 6 Meses"));
         title.addClassName("gp-subsection-title");
         Span caption = new Span(t("Variação em relação ao mês anterior."));
         caption.addClassName("gp-caption");
@@ -2875,7 +2875,7 @@ public class MainView extends VerticalLayout {
                 .orElse(0.0);
         DateTimeFormatter monthFormatter = DateTimeFormatter.ofPattern("MMM/yy", locale());
 
-        for (int index = 1; index < 6; index++) {
+        for (int index = 1; index < 7; index++) {
             YearMonth month = comparisonBaseMonth.plusMonths(index);
             double current = totals.getOrDefault(month, 0.0);
             double previous = totals.getOrDefault(month.minusMonths(1), 0.0);

@@ -5233,6 +5233,15 @@ html body vaadin-tooltip-overlay::part(content){
   background-color:var(--gp-surface)!important;
   color:var(--gp-text)!important;
 }
+
+/* 0.0.134 — abertura instantânea dos menus de navegação.
+   Remove somente o fade nativo do overlay, preservando posição, layout e hover. */
+html body vaadin-context-menu-overlay,
+html body vaadin-context-menu-overlay::part(overlay),
+html body vaadin-context-menu-overlay::part(content){
+  animation:none!important;
+  transition:none!important;
+}
 /* Nenhum foco, seleção interna ou abertura pinta uma opção. */
 html body vaadin-context-menu-item,
 html body vaadin-context-menu-item[focused],
@@ -5518,7 +5527,7 @@ html body .gp-scrap-report-five-month-comparison-v130>.gp-caption{
 }
 html body .gp-scrap-report-month-bars-v130{
   display:grid;
-  grid-template-columns:repeat(5,minmax(0,1fr));
+  grid-template-columns:repeat(6,minmax(0,1fr));
   gap:clamp(.4rem,1.2vw,.9rem);
   width:100%;
   min-width:0;
@@ -5617,7 +5626,7 @@ html body .gp-scrap-report-month-difference-v130.gp-neutral{
   }
   html.gp-print-scrap-report-v117 .gp-scrap-report-month-bars-v130{
     display:grid!important;
-    grid-template-columns:repeat(5,minmax(0,1fr))!important;
+    grid-template-columns:repeat(6,minmax(0,1fr))!important;
     gap:2mm!important;
     width:100%!important;
     height:32.11mm!important;
