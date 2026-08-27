@@ -225,5 +225,17 @@ public class AuthService {
     private static String emptyToNull(String s){return s==null||s.isBlank()?null:s.trim();}
     private static String sha256(String s){try{return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(s.getBytes(StandardCharsets.UTF_8)));}catch(Exception e){throw new IllegalStateException(e);}}
     private static String readCookie(){Cookie[] cs=VaadinService.getCurrentRequest()==null?null:VaadinService.getCurrentRequest().getCookies();if(cs!=null)for(Cookie c:cs)if(COOKIE.equals(c.getName()))return c.getValue()==null?"":c.getValue();return "";}
-    private static void writeCookie(String value,int age){if(VaadinService.getCurrentResponse()==null)return;Cookie c=new Cookie(COOKIE,value);c.setHttpOnly(true);c.setPath("/");c.setMaxAge(age);VaadinService.getCurrentResponse().addCookie(c);}
+    private static void writeCookie(String value,int age){
+        if(VaadinService.getCurrentResponse()==null)return;
+        Cookie c=new Cookie(COOKIE,value);
+        c.setHttpOnly(true);
+        c.setPath("/");
+        c.setMaxAge(age);
+        var request=VaadinService.getCurrentRequest();
+        boolean https=request!=null
+                && "https".equalsIgnoreCase(request.getHeader("X-Forwarded-Proto"));
+        c.setSecure(https);
+        c.setAttribute("SameSite","Lax");
+        VaadinService.getCurrentResponse().addCookie(c);
+    }
 }

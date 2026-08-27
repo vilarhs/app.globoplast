@@ -9,7 +9,7 @@
 - Ambiente: `/etc/globoplast.env`
 - Backups: `/var/backups/globoplast`
 - Backup diário: `globoplast-backup.timer`, às 03:15 (America/Sao_Paulo)
-- Segunda cópia: `globoplast-backup-drive.timer`, instalada e desativada até decisão explícita de habilitá-la
+- Segunda cópia: `globoplast-backup-drive.timer`, ativada automaticamente quando o rclone estiver configurado
 
 ## Deploy normal
 
@@ -65,6 +65,6 @@ Nunca versionar banco, arquivos `.env`, tokens, chaves SSH ou configuração do 
 
 - Manter o repositório GitHub privado.
 - Proteger a branch `main` e exigir revisão/preflight antes do merge.
-- Habilitar o timer do Google Drive somente após um teste manual bem-sucedido.
+- O deploy ativa o timer do Google Drive somente quando a configuração do rclone existir; faça um teste manual antes do primeiro deploy com essa configuração.
 - Fazer um teste de restauração do banco periodicamente; backup sem teste de restauração não é garantia de recuperação.
 - Para automação futura via GitHub Actions, guardar a chave SSH e o host em GitHub Environments/Secrets, nunca no repositório.

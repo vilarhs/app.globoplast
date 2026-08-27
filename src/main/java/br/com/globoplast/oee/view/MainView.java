@@ -86,6 +86,8 @@ public class MainView extends VerticalLayout {
 
     private User user;
     private String language = "pt-BR";
+    /** Impede que a leitura assíncrona inicial sobrescreva um login já iniciado. */
+    private boolean loginInteractionStarted;
     private final Div shell = new Div();
     private final Div content = new Div();
     private Tabs mainTabs;
@@ -120,6 +122,8 @@ public class MainView extends VerticalLayout {
     private String scrapActiveDimension = "Setor";
     private String scrapSearch = "";
     private int monthLimit = AppConfig.PAGE_SIZE;
+    private H2 scrapReportTitle;
+    private H2 scrapReportPrintTitle;
     private LocalDate summaryDayDate = Norm.productiveToday();
     private final Set<String> summaryDaySectors = new LinkedHashSet<>();
     private final Set<String> summaryDayMachines = new LinkedHashSet<>();
@@ -142,6 +146,7 @@ public class MainView extends VerticalLayout {
     private LocalDate[] scrapBoundsCache;
     private boolean syncRefreshRunning = false;
     private MenuItem menuSyncItem = null;
+    private final List<ContextMenu> navigationMenus = new ArrayList<>();
 
     public MainView(AuthService auth, CatalogService catalog, LaunchService launches, RefugoService scraps, SyncService sync) {
         this.auth = auth;
@@ -172,6 +177,10 @@ public class MainView extends VerticalLayout {
         UI.getCurrent().getPage()
                 .executeJs("return sessionStorage.getItem($0) || '';", TAB_AUTH_STORAGE_KEY)
                 .then(String.class, tabUserId -> {
+                    // Em uma aba nova, o usuário pode enviar o formulário antes
+                    // de a leitura do sessionStorage terminar. Não reconstruir a
+                    // tela de login por cima dessa tentativa.
+                    if (loginInteractionStarted || user != null) return;
                     boolean sameAuthenticatedTab = candidate != null
                             && String.valueOf(candidate.id()).equals(tabUserId);
                     if (sameAuthenticatedTab) {
@@ -218,6 +227,10 @@ public class MainView extends VerticalLayout {
         Div logos = logoPair("gp-login-logo");
         TextField username = new TextField(t("Usuário"));
         PasswordField password = new PasswordField(t("Senha"));
+        // Mantém os valores sincronizados antes do clique ou do Enter,
+        // inclusive em navegadores que não disparam blur de forma igual.
+        username.setValueChangeMode(ValueChangeMode.EAGER);
+        password.setValueChangeMode(ValueChangeMode.EAGER);
         username.setWidthFull();
         password.setWidthFull();
         username.addClassNames("gp-login-field", "gp-login-username");
@@ -231,6 +244,7 @@ public class MainView extends VerticalLayout {
         Span error = new Span();
         error.addClassName("gp-login-error");
         Runnable act = () -> {
+            loginInteractionStarted = true;
             User authenticated = auth.authenticate(username.getValue(), password.getValue());
             if (authenticated == null) {
                 error.setText(t("Usuário ou senha inválidos."));
@@ -321,32 +335,22 @@ public class MainView extends VerticalLayout {
 
     private Div navigation() {
         tabKeys.clear();
+        navigationMenus.clear();
         List<Tab> tabs = new ArrayList<>();
         Tab productionTab = tab("🏭 " + t("Produção") + " ▾", "lancamentos");
-        installProductionMenu(productionTab);
+        productionMenu(productionTab);
         tabs.add(productionTab);
-        tabs.add(tab("📦 " + t("Estoque"), "estoque"));
+        Tab stockTab = tab("📦 " + t("Estoque"), "estoque");
+        stockTab.getElement().addEventListener("click", e -> selectTab("estoque"));
+        tabs.add(stockTab);
         Tab reportsTab = tab("📊 " + t("Relatórios") + " ▾", SCRAP_REPORT_KEY);
-        installReportsMenu(reportsTab);
+        reportsMenu(reportsTab);
         tabs.add(reportsTab);
         mainTabs = new Tabs(tabs.toArray(Tab[]::new));
         mainTabs.addClassName("gp-main-tabs");
         mainTabs.setWidthFull();
-        mainTabs.addSelectedChangeListener(e -> {
-            String key = tabKeys.get(e.getSelectedTab());
-            if (key != null) activateTab(key);
-        });
-        mainTabs.addAttachListener(e -> mainTabs.getElement().executeJs("""
-            if(this.__gpInstantTabsV061)return;
-            this.__gpInstantTabsV061=true;
-            this.addEventListener('pointerdown',event=>{
-              const tab=event.composedPath().find(node=>node?.tagName==='VAADIN-TAB');
-              if(!tab)return;
-              const tabs=Array.from(this.querySelectorAll('vaadin-tab'));
-              const index=tabs.indexOf(tab);
-              if(index>=0 && this.selected!==index)this.selected=index;
-            },{passive:true});
-        """));
+        mainTabs.setAutoselect(false);
+
         Div nav = new Div(mainTabs);
         nav.add(menu());
         nav.addClassName("gp-navigation");
@@ -359,43 +363,36 @@ public class MainView extends VerticalLayout {
         return tab;
     }
 
-    private void installProductionMenu(Tab productionTab) {
-        ContextMenu dropdown = new ContextMenu();
-        dropdown.setTarget(productionTab);
-        dropdown.setOpenOnClick(false);
-        dropdown.addItem(t("Lançamentos"), e -> openProductionSubPage("lancamentos"));
+    private void productionMenu(Tab productionTab) {
+        ContextMenu dropdown = navigationContextMenu(productionTab);
+        addTabMenuItem(dropdown, t("Lançamentos"), () -> openProductionSubPage("lancamentos"));
         if (user.canSeeSummaries()) {
-            dropdown.addItem(t("Resumo do Dia"), e -> openProductionSubPage("dia"));
-            dropdown.addItem(t("Resumo do Mês"), e -> openProductionSubPage("mes"));
+            addTabMenuItem(dropdown, t("Resumo do Dia"), () -> openProductionSubPage("dia"));
+            addTabMenuItem(dropdown, t("Resumo do Mês"), () -> openProductionSubPage("mes"));
         }
-        dropdown.addItem(t("Refugo"), e -> openProductionSubPage("refugo"));
+        addTabMenuItem(dropdown, t("Refugo"), () -> openProductionSubPage("refugo"));
         if (user != null && user.canModifyLaunches()) {
-            dropdown.addItem(t("Lixeira"), e -> showLaunchTrash());
+            addTabMenuItem(dropdown, t("Lixeira"), () -> {
+                selectTab("lancamentos");
+                showLaunchTrash();
+            });
         }
-        productionTab.getElement().addEventListener("click", e -> {
-            dropdown.close();
-            if (!Objects.equals(renderedTabKey, "lancamentos")) openProductionSubPage("lancamentos");
-        });
-        installContextMenuHover(productionTab, dropdown);
-        installContextMenuHoverOnly(productionTab);
     }
 
-    private void installReportsMenu(Tab reportsTab) {
-        ContextMenu dropdown = new ContextMenu();
-        dropdown.setTarget(reportsTab);
-        dropdown.setOpenOnClick(false);
-        dropdown.addItem(t("Refugo"), e -> openProductionSubPage(SCRAP_REPORT_KEY));
-        reportsTab.getElement().addEventListener("click", e -> {
-            dropdown.close();
-            if (!Objects.equals(renderedTabKey, SCRAP_REPORT_KEY)) openProductionSubPage(SCRAP_REPORT_KEY);
-        });
-        installContextMenuHover(reportsTab, dropdown);
-        installContextMenuHoverOnly(reportsTab);
+    private void reportsMenu(Tab reportsTab) {
+        ContextMenu dropdown = navigationContextMenu(reportsTab);
+        addTabMenuItem(dropdown, t("Refugo"), () -> openProductionSubPage(SCRAP_REPORT_KEY));
+    }
+
+    private void addTabMenuItem(ContextMenu menu, String label, Runnable action) {
+        Span text = new Span(label);
+        text.addClassName("gp-tab-navigation-label");
+        MenuItem item = menu.addItem(text, event -> action.run());
+        item.addClassName("gp-tab-navigation-item");
     }
 
     private void openProductionSubPage(String key) {
-        renderedTabKey = "";
-        activateTab(key);
+        selectTab(key);
     }
 
     private void selectTab(String key) {
@@ -406,13 +403,22 @@ public class MainView extends VerticalLayout {
         for (var e : tabKeys.entrySet()) {
             if (e.getValue().equals(selectedKey)) {
                 mainTabs.setSelectedTab(e.getKey());
+                updateNavigationIndicator(e.getKey());
                 renderedTabKey = "";
                 activateTab(normalizedKey);
                 return;
             }
         }
         mainTabs.setSelectedIndex(0);
+        updateNavigationIndicator(mainTabs.getSelectedTab());
         activateTab(tabKeys.get(mainTabs.getSelectedTab()));
+    }
+
+    private void updateNavigationIndicator(Tab activeTab) {
+        tabKeys.keySet().forEach(tab -> {
+            if (tab == activeTab) tab.addClassName("gp-navigation-active");
+            else tab.removeClassName("gp-navigation-active");
+        });
     }
 
     private void activateTab(String key) {
@@ -430,241 +436,73 @@ public class MainView extends VerticalLayout {
         trigger.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
         trigger.addClassNames("gp-menu-button", "gp-system-menu-trigger-v065", "gp-system-menu-trigger-v066");
         trigger.setAriaLabel(t("Menu"));
-        ContextMenu dropdown = new ContextMenu();
-        dropdown.setTarget(trigger);
-        dropdown.setOpenOnClick(false);
+        ContextMenu dropdown = navigationContextMenu(trigger);
+
         MenuItem me = dropdown.addItem(user.username());
         me.addClassName("gp-menu-caption");
         me.setEnabled(false);
         if (user.isAdmin()) {
-            dropdown.addItem(t("Cadastro"), e -> showRegistry());
-            dropdown.addItem(t("Usuários"), e -> showUsers());
+            dropdown.addItem(t("Cadastro"), event -> showRegistry());
+            dropdown.addItem(t("Usuários"), event -> showUsers());
         } else {
-            dropdown.addItem(t("Alterar Senha"), e -> showOwnPassword());
+            dropdown.addItem(t("Alterar Senha"), event -> showOwnPassword());
         }
+
         MenuItem languageMenu = dropdown.addItem("pt-BR / en-US");
-        languageMenu.getSubMenu().addItem("pt-BR", e -> changeLanguage("pt-BR"));
-        languageMenu.getSubMenu().addItem("en-US", e -> changeLanguage("en-US"));
-        MenuItem theme = dropdown.addItem(t("Tema"));
-        theme.getSubMenu().addItem(t("Sistema"), e -> setThemeMode("system"));
-        theme.getSubMenu().addItem(t("Claro"), e -> setThemeMode("light"));
-        theme.getSubMenu().addItem(t("Escuro"), e -> setThemeMode("dark"));
-        dropdown.addItem(t("Sair"), e -> {
+        languageMenu.getSubMenu().addItem(leftSystemMenuLabel("pt-BR"), event -> changeLanguage("pt-BR"));
+        languageMenu.getSubMenu().addItem(leftSystemMenuLabel("en-US"), event -> changeLanguage("en-US"));
+
+        MenuItem themeMenu = dropdown.addItem(t("Tema"));
+        themeMenu.getSubMenu().addItem(leftSystemMenuLabel(t("Sistema")), event -> setThemeMode("system"));
+        themeMenu.getSubMenu().addItem(leftSystemMenuLabel(t("Claro")), event -> setThemeMode("light"));
+        themeMenu.getSubMenu().addItem(leftSystemMenuLabel(t("Escuro")), event -> setThemeMode("dark"));
+
+        dropdown.addItem(t("Sair"), event -> {
             clearTabAuthentication();
             auth.logout();
             user = null;
             buildLogin();
         });
+
         menuSyncItem = dropdown.addItem("");
         menuSyncItem.setEnabled(false);
         menuSyncItem.addClassName("gp-menu-sync-info-v045");
         refreshMenuSyncStatus();
-        installContextMenuHover(trigger, dropdown);
-        installContextMenuHoverOnly(trigger);
         return trigger;
     }
 
-    private void installContextMenuHoverOnly(Component trigger) {
-        if (trigger == null) return;
-        trigger.addAttachListener(e -> trigger.getElement().executeJs(
-                """
-                (() => {
-                    const trigger = this;
-                    if (trigger.__gpContextMenuHoverOnlyInstalled) return;
-                    trigger.__gpContextMenuHoverOnlyInstalled = true;
-
-                    const neutral = (item) => {
-                        item.style.setProperty('background', 'transparent', 'important');
-                        item.style.setProperty('background-color', 'transparent', 'important');
-                        item.style.setProperty('box-shadow', 'none', 'important');
-                        item.style.setProperty('outline', '0', 'important');
-                        item.removeAttribute('focused');
-                        item.removeAttribute('focus-ring');
-                        item.removeAttribute('highlighted');
-                        item.removeAttribute('selected');
-                    };
-
-                    const prepareItem = (item) => {
-                        neutral(item);
-                        if (item.__gpHoverOnlyInstalled) return;
-                        item.__gpHoverOnlyInstalled = true;
-                        item.addEventListener('mouseenter', () => {
-                            if (item.hasAttribute('disabled')) return;
-                            item.style.setProperty('background', 'var(--gp-hover)', 'important');
-                            item.style.setProperty('background-color', 'var(--gp-hover)', 'important');
-                        });
-                        item.addEventListener('mouseleave', () => neutral(item));
-                        item.addEventListener('focus', () => {
-                            if (!item.matches(':hover')) neutral(item);
-                        });
-                    };
-
-                    const apply = () => {
-                        document.querySelectorAll('vaadin-context-menu-overlay vaadin-context-menu-item')
-                            .forEach(prepareItem);
-                    };
-
-                    const schedule = () => {
-                        requestAnimationFrame(apply);
-                        setTimeout(apply, 0);
-                        setTimeout(apply, 40);
-                        setTimeout(apply, 120);
-                    };
-
-                    trigger.addEventListener('click', schedule, true);
-
-                    if (!window.__gpContextMenuHoverObserver) {
-                        window.__gpContextMenuHoverObserver = new MutationObserver(apply);
-                        window.__gpContextMenuHoverObserver.observe(document.body, {childList:true, subtree:true});
-                    }
-                })();
-                """));
+    private Span leftSystemMenuLabel(String label) {
+        Span text = new Span(label);
+        text.addClassName("gp-system-menu-left-label");
+        return text;
     }
 
-    /**
-     * Abre os dropdowns da navegação ao manter o ponteiro sobre a aba, sem
-     * transformar o clique normal em abertura de menu. O clique continua sendo
-     * tratado pelo Tab e leva à página principal do grupo.
-     */
-    private void installContextMenuHover(Component trigger, ContextMenu dropdown) {
-        if (trigger == null || dropdown == null) return;
-        trigger.addAttachListener(e -> trigger.getElement().executeJs(
+    private ContextMenu navigationContextMenu(Component target) {
+        ContextMenu menu = new ContextMenu();
+        menu.setTarget(target);
+        menu.setOpenOnClick(true);
+        target.addAttachListener(event -> target.getElement().executeJs(
                 """
                 (() => {
                     const trigger = this;
-                    if (trigger.__gpContextMenuHoverV132) return;
-                    trigger.__gpContextMenuHoverV132 = true;
-
-                    if (!window.__gpContextMenuHoverControllerV132) {
-                        const controller = {
-                            trigger:null,
-                            menu:null,
-                            closeTimer:0,
-                            supportsHover(){
-                                return window.matchMedia?.('(hover: hover)').matches !== false;
-                            },
-                            cancelClose(){
-                                if (this.closeTimer) window.clearTimeout(this.closeTimer);
-                                this.closeTimer = 0;
-                            },
-                            clearNavigationFocus(){
-                                document.querySelectorAll(
-                                    '.gp-navigation vaadin-tabs, .gp-navigation vaadin-tab, .gp-navigation vaadin-button'
-                                ).forEach(element => {
-                                    element.removeAttribute('focus-ring');
-                                    element.removeAttribute('focused');
-                                    if (element.matches(':focus')) element.blur?.();
-                                });
-                            },
-                            bindMenu(nextMenu){
-                                if (!nextMenu || this.menu === nextMenu) return;
-                                this.menu = nextMenu;
-                                if (nextMenu.__gpHoverControllerV132Bound) return;
-                                nextMenu.__gpHoverControllerV132Bound = true;
-                                nextMenu.addEventListener('opened-changed', event => {
-                                    if (event.detail?.value !== false || this.menu !== nextMenu) return;
-                                    this.cancelClose();
-                                    this.menu = null;
-                                    this.trigger = null;
-                                    requestAnimationFrame(() => this.clearNavigationFocus());
-                                });
-                            },
-                            captureOpenedMenu(){
-                                const opened = [...document.querySelectorAll('vaadin-context-menu')]
-                                    .filter(candidate => {
-                                        const overlay = candidate._overlayElement;
-                                        return overlay && (overlay.opened || overlay.hasAttribute('opened'));
-                                    });
-                                if (opened.length) this.bindMenu(opened[opened.length - 1]);
-                            },
-                            menuHovered(){
-                                const visited = [];
-                                let current = this.menu;
-                                while (current && !visited.includes(current)) {
-                                    visited.push(current);
-                                    if (current._overlayElement?.matches(':hover')) return true;
-                                    current = current._subMenu;
-                                }
-                                return false;
-                            },
-                            closeCurrent(){
-                                this.cancelClose();
-                                const currentMenu = this.menu;
-                                this.trigger = null;
-                                this.menu = null;
-                                if (currentMenu && typeof currentMenu.close === 'function') {
-                                    currentMenu.close();
-                                } else {
-                                    const escape = new KeyboardEvent('keydown', {
-                                        key:'Escape', code:'Escape', bubbles:true, composed:true, cancelable:true
-                                    });
-                                    document.dispatchEvent(escape);
-                                    window.dispatchEvent(new KeyboardEvent('keydown', {
-                                        key:'Escape', code:'Escape', bubbles:true, composed:true, cancelable:true
-                                    }));
-                                }
-                                requestAnimationFrame(() => this.clearNavigationFocus());
-                            },
-                            scheduleClose(expectedTrigger){
-                                if (!this.trigger || (expectedTrigger && this.trigger !== expectedTrigger)) return;
-                                this.cancelClose();
-                                this.closeTimer = window.setTimeout(() => {
-                                    this.closeTimer = 0;
-                                    if (!this.trigger) return;
-                                    if (this.trigger.matches(':hover') || this.menuHovered()) return;
-                                    this.closeCurrent();
-                                }, 240);
-                            },
-                            open(nextTrigger, event){
-                                if (!this.supportsHover() || event.pointerType === 'touch') return;
-                                this.cancelClose();
-                                if (this.trigger === nextTrigger) return;
-                                if (this.trigger) this.closeCurrent();
-                                this.trigger = nextTrigger;
-                                this.menu = null;
-                                const box = nextTrigger.getBoundingClientRect();
-                                nextTrigger.dispatchEvent(new MouseEvent('contextmenu', {
-                                    bubbles:true,
-                                    composed:true,
-                                    cancelable:true,
-                                    clientX:box.left + box.width / 2,
-                                    clientY:box.bottom
-                                }));
-                                requestAnimationFrame(() => {
-                                    this.captureOpenedMenu();
-                                    this.clearNavigationFocus();
-                                });
-                            },
-                            trackPointer(event){
-                                if (!this.trigger) return;
-                                const path = event.composedPath();
-                                const overTrigger = path.includes(this.trigger);
-                                const overMenu = path.some(node =>
-                                    node?.tagName === 'VAADIN-CONTEXT-MENU'
-                                    || node?.tagName === 'VAADIN-CONTEXT-MENU-OVERLAY');
-                                if (overMenu) {
-                                    const menus = path.filter(node => node?.tagName === 'VAADIN-CONTEXT-MENU');
-                                    if (menus.length) this.bindMenu(menus[menus.length - 1]);
-                                }
-                                if (overTrigger || overMenu) this.cancelClose();
-                                else this.scheduleClose(this.trigger);
-                            }
-                        };
-                        document.addEventListener(
-                            'pointerover', event => controller.trackPointer(event), {capture:true, passive:true}
-                        );
-                        window.__gpContextMenuHoverControllerV132 = controller;
-                    }
-
-                    const controller = window.__gpContextMenuHoverControllerV132;
-                    trigger.addEventListener(
-                        'pointerenter', event => controller.open(trigger, event), {passive:true}
-                    );
-                    trigger.addEventListener(
-                        'pointerleave', () => controller.scheduleClose(trigger), {passive:true}
-                    );
+                    const ownMenu = $0;
+                    if (trigger.__gpMenuSwitchInstalled) return;
+                    trigger.__gpMenuSwitchInstalled = true;
+                    trigger.addEventListener('pointerdown', () => {
+                        document.querySelectorAll('vaadin-context-menu').forEach(other => {
+                            if (other !== ownMenu && other.opened) other.close();
+                        });
+                    }, true);
                 })();
-                """));
+                """, menu.getElement()));
+        menu.addOpenedChangeListener(event -> {
+            if (!event.isOpened()) return;
+            navigationMenus.stream()
+                    .filter(other -> other != menu && other.isOpened())
+                    .forEach(ContextMenu::close);
+        });
+        navigationMenus.add(menu);
+        return menu;
     }
 
     private void changeLanguage(String lang) {
@@ -2688,9 +2526,10 @@ public class MainView extends VerticalLayout {
     private void renderScrapReport() {
         content.removeAll();
 
-        H2 title = new H2(t("Relatório de Refugo"));
-        title.addClassName("gp-section-title");
-        Div titleRow = new Div(title);
+        scrapReportTitle = new H2();
+        scrapReportTitle.addClassName("gp-section-title");
+        updateScrapReportTitle();
+        Div titleRow = new Div(scrapReportTitle);
         titleRow.addClassNames("gp-title-row", "gp-title-row-static");
 
         TextField search = new TextField(t("Pesquisar refugo"));
@@ -2722,7 +2561,10 @@ public class MainView extends VerticalLayout {
 
         Image printLogo = new Image("/images/globoplast-logo.png", "Globoplast");
         printLogo.addClassName("gp-scrap-report-print-logo-v117");
-        Div printHeader = new Div(printLogo);
+        scrapReportPrintTitle = new H2();
+        scrapReportPrintTitle.addClassName("gp-scrap-report-print-title-v139");
+        updateScrapReportTitle();
+        Div printHeader = new Div(scrapReportPrintTitle, printLogo);
         printHeader.addClassName("gp-scrap-report-print-header-v117");
 
         Div kpis = new Div();
@@ -2772,6 +2614,7 @@ public class MainView extends VerticalLayout {
     }
 
     private void refreshScrapReport() {
+        updateScrapReportTitle();
         List<RefugoRecord> rows = currentScrapReportRows();
         double totalKg = rows.stream().mapToDouble(RefugoRecord::scrapKg).sum();
 
@@ -2954,6 +2797,27 @@ public class MainView extends VerticalLayout {
     private String reportPeriodLabel() {
         if (Objects.equals(scrapStart, scrapEnd)) return Norm.br(scrapStart);
         return Norm.br(scrapStart) + " – " + Norm.br(scrapEnd);
+    }
+
+    private void updateScrapReportTitle() {
+        String value = t("Relatório de Refugo") + " — " + reportTitlePeriodLabel();
+        if (scrapReportTitle != null) scrapReportTitle.setText(value);
+        if (scrapReportPrintTitle != null) scrapReportPrintTitle.setText(value);
+    }
+
+    private String reportTitlePeriodLabel() {
+        if (scrapStart == null || scrapEnd == null) return "";
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MMMM yyyy", locale());
+        String start = capitalizeMonth(YearMonth.from(scrapStart).format(formatter));
+        String end = capitalizeMonth(YearMonth.from(scrapEnd).format(formatter));
+        return Objects.equals(YearMonth.from(scrapStart), YearMonth.from(scrapEnd))
+                ? start
+                : start + " " + t("a") + " " + end;
+    }
+
+    private static String capitalizeMonth(String value) {
+        if (value == null || value.isBlank()) return "";
+        return Character.toUpperCase(value.charAt(0)) + value.substring(1);
     }
 
     private Tab dimensionTab(Map<Tab, String> dimensions, String canonical) {
@@ -3202,20 +3066,29 @@ public class MainView extends VerticalLayout {
         menu.setOpenOnClick(false);
         menu.getElement().setProperty("selector", ".gp-refugo-bar-column");
 
-        if (user != null && user.isAdmin()) {
-            MenuItem transfer = menu.addItem(t("Enviar para outro setor"));
-            List<String> sectors = catalog.sectors().stream()
-                    .filter(Objects::nonNull)
-                    .map(MainView::uppercaseSector)
-                    .filter(v -> !v.isBlank())
-                    .distinct()
-                    .sorted(String.CASE_INSENSITIVE_ORDER)
-                    .toList();
-            for (String sector : sectors) {
-                transfer.getSubMenu().addItem(sector, e -> transferSelectedScrapToSector(dimension, sector));
-            }
-            transfer.setEnabled(!sectors.isEmpty());
+        // O item permanece visível em todos os perfis para que o menu do
+        // gráfico não mude de estrutura. A permissão continua sendo aplicada
+        // na ação e o item fica desabilitado para quem não é administrador.
+        MenuItem transfer = menu.addItem(t("Enviar para outro setor"));
+        Set<String> sectorSet = new LinkedHashSet<>();
+        catalog.sectors().stream()
+                .filter(Objects::nonNull)
+                .map(MainView::uppercaseSector)
+                .filter(v -> !v.isBlank())
+                .forEach(sectorSet::add);
+        // Mesmo durante uma sincronização incompleta, o menu continua útil:
+        // os setores presentes nos próprios lançamentos formam um fallback.
+        rows.stream()
+                .map(RefugoRecord::sector)
+                .filter(Objects::nonNull)
+                .map(MainView::uppercaseSector)
+                .filter(v -> !v.isBlank())
+                .forEach(sectorSet::add);
+        List<String> sectors = sectorSet.stream().sorted(String.CASE_INSENSITIVE_ORDER).toList();
+        for (String sector : sectors) {
+            transfer.getSubMenu().addItem(sector, e -> transferSelectedScrapToSector(dimension, sector));
         }
+        transfer.setEnabled(!sectors.isEmpty());
 
         MenuItem exclude = menu.addItem(t("Excluir item"), e -> {
             if (!Objects.equals(scrapSelectedDimension, dimension) || scrapSelectedKey.isBlank()) {

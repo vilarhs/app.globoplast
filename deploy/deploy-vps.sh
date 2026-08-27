@@ -94,6 +94,12 @@ sudo install -o root -g root -m 0644 "$STAGE/globoplast-backup.timer" /etc/syste
 sudo install -o root -g root -m 0644 "$STAGE/globoplast-backup-drive.service" /etc/systemd/system/globoplast-backup-drive.service
 sudo install -o root -g root -m 0644 "$STAGE/globoplast-backup-drive.timer" /etc/systemd/system/globoplast-backup-drive.timer
 sudo systemctl daemon-reload
+sudo systemctl enable --now globoplast-backup.timer
+if [[ -r /home/ubuntu/.config/rclone/rclone.conf ]]; then
+  sudo systemctl enable --now globoplast-backup-drive.timer
+else
+  sudo systemctl disable --now globoplast-backup-drive.timer >/dev/null 2>&1 || true
+fi
 
 ACTUAL="$(unzip -p "$UPLOAD" META-INF/maven/br.com.globoplast/globoplast/pom.properties 2>/dev/null | grep '^version=' || true)"
 [[ "$ACTUAL" == "$EXPECTED" ]] || {

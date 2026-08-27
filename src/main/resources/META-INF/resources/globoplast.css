@@ -4977,7 +4977,14 @@ html body .gp-scrap-report-print-header-v117{
   html.gp-print-scrap-report-v117 .gp-scrap-report-explanation-v117,
   html.gp-print-scrap-report-v117 vaadin-tooltip-overlay,
   html.gp-print-scrap-report-v117 vaadin-popover-overlay,
-  html.gp-print-scrap-report-v117 vaadin-context-menu-overlay{
+  html.gp-print-scrap-report-v117 vaadin-context-menu-overlay,
+  /* O indicador de conexão do Vaadin é uma barra fixa no topo e pode ser
+     capturado pelo navegador quando o relatório é impresso durante uma
+     sincronização. Ele não deve fazer parte do PDF. */
+  html.gp-print-scrap-report-v117 vaadin-connection-indicator,
+  html.gp-print-scrap-report-v117 #vaadin-connection-indicator,
+  html.gp-print-scrap-report-v117 vaadin-loading-indicator,
+  html.gp-print-scrap-report-v117 #vaadin-loading-indicator{
     display:none!important;
   }
   html.gp-print-scrap-report-v117 .gp-root,
@@ -5000,7 +5007,7 @@ html body .gp-scrap-report-print-header-v117{
   html.gp-print-scrap-report-v117 .gp-scrap-report-print-header-v117{
     display:flex!important;
     align-items:flex-start!important;
-    justify-content:flex-end!important;
+    justify-content:space-between!important;
     width:100%!important;
     min-height:11mm!important;
     margin:0 0 2mm!important;
@@ -5012,6 +5019,16 @@ html body .gp-scrap-report-print-header-v117{
     max-width:130px!important;
     height:auto!important;
     object-fit:contain!important;
+  }
+  html.gp-print-scrap-report-v117 .gp-scrap-report-print-title-v139{
+    display:block!important;
+    margin:0!important;
+    padding:0!important;
+    max-width:75%!important;
+    color:#1f2430!important;
+    font-size:15pt!important;
+    line-height:1.15!important;
+    text-align:left!important;
   }
   html.gp-print-scrap-report-v117 .gp-scrap-report-kpis-v116{
     grid-template-columns:repeat(5,minmax(0,1fr))!important;
@@ -5710,4 +5727,77 @@ html body .gp-scrap-report-kpis-v116>.gp-kpi>h3{
     width:100%!important;
     min-width:0!important;
   }
+}
+
+/* O indicador pertence à página escolhida, não ao clique que apenas abre menu. */
+html body .gp-main-tabs vaadin-tab::after{
+  display:none!important;
+}
+html body .gp-main-tabs vaadin-tab.gp-navigation-active::after{
+  content:""!important;
+  display:block!important;
+  position:absolute!important;
+  left:50%!important;
+  bottom:0!important;
+  width:28px!important;
+  height:2px!important;
+  border:0!important;
+  border-radius:2px 2px 0 0!important;
+  background:var(--gp-red)!important;
+  transform:translateX(-50%)!important;
+  box-shadow:none!important;
+}
+
+/* ContextMenu do gráfico e dropdowns principais compartilham a mesma base. */
+html body vaadin-context-menu-overlay::part(overlay){
+  border:0!important;
+  border-radius:.55rem!important;
+  background:var(--gp-surface)!important;
+  color:var(--gp-text)!important;
+  box-shadow:0 8px 24px rgba(0,0,0,.20)!important;
+  overflow:hidden!important;
+}
+html body vaadin-context-menu-overlay::part(content){
+  padding:4px 0!important;
+  border:0!important;
+  background:var(--gp-surface)!important;
+  color:var(--gp-text)!important;
+}
+html body vaadin-context-menu-item{
+  min-height:38px!important;
+  margin:0!important;
+  padding:0 1rem!important;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  color:var(--gp-text)!important;
+  box-shadow:none!important;
+  box-sizing:border-box!important;
+}
+html body vaadin-context-menu-item:hover,
+html body vaadin-context-menu-item:focus-visible,
+html body vaadin-context-menu-item[focused]{
+  border:0!important;
+  outline:0!important;
+  background:var(--gp-hover)!important;
+  color:var(--gp-text)!important;
+  box-shadow:none!important;
+}
+html body vaadin-context-menu-item.gp-tab-navigation-item{
+  padding-left:.65rem!important;
+}
+html body vaadin-context-menu-item.gp-tab-navigation-item .gp-tab-navigation-label{
+  display:block!important;
+  margin-left:-1rem!important;
+}
+html body vaadin-context-menu-item .gp-system-menu-left-label{
+  display:block!important;
+  margin-left:-1rem!important;
+}
+
+/* O contêiner externo dos filtros segue o mesmo acabamento sem borda. */
+html body .gp-filter-popover::part(overlay){
+  border:0!important;
+  border-radius:.55rem!important;
+  box-shadow:0 8px 24px rgba(0,0,0,.20)!important;
 }
