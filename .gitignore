@@ -4,7 +4,10 @@ target/
 
 # Vaadin frontend gerado
 node_modules/
-/src/main/frontend/
+/src/main/frontend/*
+!/src/main/frontend/styles/
+!/src/main/frontend/styles/*.css
+/src/main/bundles/
 frontend/generated/
 frontend/index.html
 frontend/generated

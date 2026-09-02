@@ -1,0 +1,655 @@
+/*
+ * Camada responsiva canônica.
+ * Todas as regras deste arquivo são exclusivas para telas pequenas para que
+ * ajustes mobile não alterem a geometria consolidada do desktop.
+ */
+@media screen and (max-width: 767px) {
+  :root {
+    --gp-mobile-edge: 12px;
+    --gp-mobile-gap: 10px;
+    --gp-mobile-control: 44px;
+  }
+
+  html {
+    overflow-x: hidden;
+    scrollbar-gutter: auto;
+  }
+
+  body,
+  .gp-root,
+  .gp-shell {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: hidden;
+  }
+
+  .gp-shell {
+    min-height: 100svh;
+    padding: 0 var(--gp-mobile-edge) 12px !important;
+  }
+
+  /* Cabeçalho e navegação */
+  .gp-main-header {
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    min-height: 58px !important;
+    padding-top: 10px !important;
+    column-gap: 10px !important;
+  }
+
+  .gp-main-title {
+    max-width: 15ch;
+    font-size: clamp(1.18rem, 5.4vw, 1.5rem) !important;
+    line-height: 1.12 !important;
+  }
+
+  .gp-logo {
+    width: clamp(98px, 30vw, 126px) !important;
+  }
+
+  .gp-navigation {
+    margin-top: 12px !important;
+  }
+
+  .gp-main-tabs {
+    display: flex !important;
+    width: 100% !important;
+    min-height: 46px !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    scrollbar-width: none;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .gp-main-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .gp-main-tabs > vaadin-menu-bar-button.gp-main-navigation-root {
+    flex: 1 0 auto !important;
+    min-width: max-content !important;
+    min-height: 46px !important;
+    padding-inline: 9px !important;
+    font-size: .84rem !important;
+    white-space: nowrap !important;
+  }
+
+  .gp-main-tabs > vaadin-menu-bar-button.gp-system-menu-root {
+    flex: 0 0 38px !important;
+    width: 38px !important;
+    min-width: 38px !important;
+    max-width: 38px !important;
+    min-height: 46px !important;
+  }
+
+  .gp-main-tabs vaadin-menu-bar-button.gp-navigation-active::after {
+    width: 22px !important;
+  }
+
+  /* Estrutura das páginas */
+  .gp-content {
+    padding-top: 10px !important;
+  }
+
+  .gp-title-row,
+  .gp-title-row-static,
+  .gp-summary-title-row-v047 {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    gap: 8px !important;
+    min-height: 42px !important;
+    margin: 0 !important;
+  }
+
+  .gp-section-title {
+    min-width: 0;
+    font-size: clamp(1.15rem, 5vw, 1.42rem) !important;
+    line-height: 1.15 !important;
+    white-space: normal !important;
+  }
+
+  .gp-tab-controls {
+    min-height: 0 !important;
+    margin: 6px 0 12px !important;
+  }
+
+  .gp-search-filter-toolbar-v044,
+  .gp-launch-toolbar-v045,
+  .gp-refugo-search-toolbar-v074,
+  .gp-scrap-report-toolbar-v116 {
+    display: flex !important;
+    flex-flow: row wrap !important;
+    align-items: flex-end !important;
+    gap: 8px !important;
+    width: 100% !important;
+    transform: none !important;
+  }
+
+  .gp-search-filter-toolbar-v044 > vaadin-text-field,
+  .gp-launch-toolbar-v045 > vaadin-text-field,
+  .gp-scrap-report-toolbar-v116 > vaadin-text-field {
+    flex: 1 1 210px !important;
+    width: auto !important;
+    min-width: 0 !important;
+  }
+
+  .gp-content vaadin-text-field::part(input-field),
+  .gp-content vaadin-password-field::part(input-field),
+  .gp-content vaadin-integer-field::part(input-field),
+  .gp-content vaadin-number-field::part(input-field),
+  .gp-content vaadin-date-picker::part(input-field),
+  .gp-content vaadin-select::part(input-field),
+  .gp-content vaadin-combo-box::part(input-field),
+  .gp-content vaadin-multi-select-combo-box::part(input-field),
+  .gp-period-field {
+    min-height: var(--gp-mobile-control) !important;
+    height: var(--gp-mobile-control) !important;
+    max-height: var(--gp-mobile-control) !important;
+    box-sizing: border-box !important;
+    border-radius: 8px !important;
+  }
+
+  .gp-filter-button,
+  .gp-search-filter-button-v044,
+  .gp-launch-new-inline-v045 {
+    flex: 0 0 var(--gp-mobile-control) !important;
+    width: var(--gp-mobile-control) !important;
+    min-width: var(--gp-mobile-control) !important;
+    max-width: var(--gp-mobile-control) !important;
+    height: var(--gp-mobile-control) !important;
+    min-height: var(--gp-mobile-control) !important;
+    max-height: var(--gp-mobile-control) !important;
+    margin: 0 !important;
+    top: auto !important;
+    transform: none !important;
+  }
+
+  .gp-content vaadin-button:not(.gp-action-icon):not(.gp-chart-menu-button):not(.gp-filter-button):not(.gp-dialog-close) {
+    min-height: var(--gp-mobile-control);
+    border-radius: 8px;
+  }
+
+  /* Alvos de toque compactos, porém confortáveis para os botões só de ícone. */
+  .gp-action-icon,
+  .gp-dialog-close {
+    width: 40px !important;
+    min-width: 40px !important;
+    max-width: 40px !important;
+    height: 40px !important;
+    min-height: 40px !important;
+    max-height: 40px !important;
+  }
+
+  .gp-action-icon vaadin-icon,
+  .gp-dialog-close vaadin-icon {
+    width: 18px !important;
+    height: 18px !important;
+  }
+
+  .gp-show-more {
+    width: 100% !important;
+    min-height: var(--gp-mobile-control) !important;
+    margin-top: 10px !important;
+  }
+
+  .gp-content vaadin-button:focus-visible,
+  .gp-content vaadin-tab:focus-visible,
+  .gp-content vaadin-context-menu-item:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--gp-red) 75%, white) !important;
+    outline-offset: 2px !important;
+  }
+
+  .gp-filter-popover::part(overlay) {
+    width: min(94vw, 390px) !important;
+    max-width: calc(100vw - 16px) !important;
+    max-height: min(82svh, 650px) !important;
+    border-radius: 10px !important;
+  }
+
+  .gp-filter-popover::part(content) {
+    max-height: min(82svh, 650px) !important;
+  }
+
+  .gp-filter-dropdown,
+  .gp-filter-dropdown-refugo {
+    max-height: min(78svh, 610px) !important;
+    padding: 12px !important;
+  }
+
+  .gp-filter-dropdown-grid {
+    gap: 8px !important;
+  }
+
+  vaadin-context-menu-overlay::part(overlay),
+  vaadin-combo-box-overlay::part(overlay),
+  vaadin-select-overlay::part(overlay) {
+    max-width: calc(100vw - 16px) !important;
+    border-radius: 10px !important;
+  }
+
+  vaadin-context-menu-item,
+  vaadin-combo-box-item,
+  vaadin-select-item {
+    min-height: 44px !important;
+  }
+
+  /* Formulários e diálogos */
+  .gp-launch-row,
+  .gp-launch-row-2,
+  .gp-launch-row-3,
+  .gp-launch-row-4,
+  .gp-admin-form,
+  .gp-admin-toolbar {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 10px !important;
+  }
+
+  vaadin-dialog.gp-modal-v053::part(overlay) {
+    width: calc(100vw - 16px) !important;
+    max-width: calc(100vw - 16px) !important;
+    max-height: calc(100svh - 16px) !important;
+    border-radius: 12px !important;
+  }
+
+  vaadin-dialog.gp-modal-v053::part(header),
+  vaadin-dialog.gp-modal-v053::part(content),
+  vaadin-dialog.gp-modal-v053::part(footer) {
+    padding-inline: 14px !important;
+  }
+
+  .gp-launch-dialog-actions {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    justify-content: flex-end !important;
+    gap: 8px !important;
+  }
+
+  .gp-launch-dialog-actions > vaadin-button {
+    flex: 1 1 140px !important;
+    min-height: var(--gp-mobile-control) !important;
+  }
+
+  /* O botão novo continua compacto na barra, mas mantém o sinal de adição visível. */
+  .gp-launch-toolbar-v045 > .gp-launch-new-inline-v045 {
+    flex: 0 0 var(--gp-mobile-control) !important;
+    width: var(--gp-mobile-control) !important;
+    min-width: var(--gp-mobile-control) !important;
+    max-width: var(--gp-mobile-control) !important;
+    height: var(--gp-mobile-control) !important;
+    min-height: var(--gp-mobile-control) !important;
+    max-height: var(--gp-mobile-control) !important;
+    padding: 0 !important;
+    font-size: 0 !important;
+  }
+
+  .gp-launch-toolbar-v045 > .gp-launch-new-inline-v045 vaadin-icon {
+    display: inline-flex !important;
+    width: 20px !important;
+    height: 20px !important;
+    min-width: 20px !important;
+    min-height: 20px !important;
+    color: #fff !important;
+    fill: currentColor !important;
+    margin: 0 !important;
+  }
+
+  /* KPIs e áreas de resumo */
+  .gp-kpis,
+  .gp-original-metrics,
+  .gp-original-metrics-5,
+  .gp-detail-kpis {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+
+  .gp-kpi {
+    min-width: 0 !important;
+    padding: 10px !important;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--gp-text) 3.5%, transparent);
+    box-sizing: border-box !important;
+  }
+
+  .gp-kpi > span {
+    font-size: .78rem !important;
+    line-height: 1.15 !important;
+  }
+
+  .gp-kpi > h3 {
+    margin-top: 4px !important;
+    font-size: clamp(1.08rem, 5vw, 1.35rem) !important;
+    line-height: 1.1 !important;
+    overflow-wrap: anywhere !important;
+    white-space: normal !important;
+  }
+
+  .gp-kpis > .gp-kpi:last-child,
+  .gp-refugo-kpis-v056 > .gp-kpi:last-child,
+  .gp-scrap-report-kpis-v116 > .gp-kpi:last-child {
+    grid-column: 1 / -1 !important;
+  }
+
+  /* Abas internas roláveis e tocáveis */
+  .gp-inner-tabs {
+    width: 100% !important;
+    margin: 4px 0 10px !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .gp-inner-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .gp-inner-tabs vaadin-tab {
+    flex: 0 0 auto !important;
+    min-height: 42px !important;
+    padding-inline: 12px !important;
+    font-size: .88rem !important;
+    white-space: nowrap !important;
+  }
+
+  /* Refugo: gráfico legível e rolável, sem comprimir quinze categorias. */
+  .gp-refugo-page {
+    width: 100% !important;
+    min-width: 0 !important;
+    padding-bottom: 16px !important;
+  }
+
+  .gp-refugo-page > .gp-refugo-kpis-v056 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    margin: 4px 0 12px !important;
+  }
+
+  .gp-refugo-page > .gp-refugo-kpis-v056 > .gp-kpi {
+    min-height: 78px !important;
+    padding: 10px 8px !important;
+  }
+
+  .gp-refugo-analysis,
+  .gp-refugo-details,
+  .gp-refugo-recent {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .gp-refugo-page .gp-refugo-chart-line {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) var(--gp-mobile-control) !important;
+    column-gap: 4px !important;
+    width: 100% !important;
+    margin: 0 !important;
+    overflow: visible !important;
+  }
+
+  .gp-refugo-chart-line > .gp-chart-menu-button {
+    width: var(--gp-mobile-control) !important;
+    min-width: var(--gp-mobile-control) !important;
+    max-width: var(--gp-mobile-control) !important;
+    height: var(--gp-mobile-control) !important;
+    min-height: var(--gp-mobile-control) !important;
+    max-height: var(--gp-mobile-control) !important;
+    margin-top: 0 !important;
+  }
+
+  .gp-refugo-chart {
+    width: 100% !important;
+    min-width: 0 !important;
+    padding: 0 !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--gp-text) 24%, transparent) transparent;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .gp-refugo-chart-frame {
+    width: max-content !important;
+    min-width: 100% !important;
+    min-height: 390px !important;
+    height: 390px !important;
+    padding: 4px 8px 0 42px !important;
+    box-sizing: border-box !important;
+  }
+
+  .gp-refugo-chart-title,
+  .gp-refugo-page.gp-refugo-page-v070 .gp-refugo-chart-title-aligned-v070 .gp-refugo-chart-title,
+  .gp-refugo-page .gp-refugo-sector-chart-v064 .gp-refugo-chart-title {
+    position: relative !important;
+    left: 0 !important;
+    right: auto !important;
+    top: 0 !important;
+    width: min(100%, calc(100vw - 96px)) !important;
+    height: auto !important;
+    min-height: 34px !important;
+    margin: 0 0 8px 4px !important;
+    justify-content: flex-start !important;
+    text-align: left !important;
+    font-size: .98rem !important;
+    white-space: normal !important;
+  }
+
+  .gp-refugo-y-title {
+    left: 8px !important;
+    top: 205px !important;
+    font-size: .72rem !important;
+  }
+
+  .gp-refugo-chart-canvas {
+    position: relative !important;
+    left: 0 !important;
+    right: auto !important;
+    top: 0 !important;
+    bottom: auto !important;
+    display: grid !important;
+    grid-template-columns: 42px max-content !important;
+    width: max-content !important;
+    min-width: calc(100vw - 88px) !important;
+    height: 340px !important;
+    min-height: 340px !important;
+  }
+
+  .gp-refugo-y-axis {
+    width: 42px !important;
+    height: 266px !important;
+    min-height: 266px !important;
+    font-size: .66rem !important;
+  }
+
+  .gp-refugo-y-tick {
+    right: 5px !important;
+    width: 34px !important;
+  }
+
+  .gp-refugo-chart-plot {
+    grid-auto-columns: 62px !important;
+    column-gap: 5px !important;
+    width: max-content !important;
+    min-width: calc(100vw - 130px) !important;
+    height: 340px !important;
+    min-height: 340px !important;
+    padding: 0 8px 0 4px !important;
+  }
+
+  .gp-refugo-grid-area,
+  .gp-refugo-bar-area {
+    height: 266px !important;
+    min-height: 266px !important;
+  }
+
+  .gp-refugo-bar-column {
+    grid-template-rows: 266px 74px !important;
+    width: 62px !important;
+    min-width: 62px !important;
+    height: 340px !important;
+    min-height: 340px !important;
+  }
+
+  .gp-refugo-vbar,
+  .gp-refugo-bar-column:hover .gp-refugo-vbar,
+  .gp-refugo-bar-column:focus .gp-refugo-vbar,
+  .gp-refugo-bar-column:focus-visible .gp-refugo-vbar,
+  .gp-refugo-bar-column:active .gp-refugo-vbar {
+    width: min(var(--gp-refugo-bar-ratio, 68%), 42px) !important;
+    min-width: 8px !important;
+    max-width: 42px !important;
+  }
+
+  .gp-refugo-bar-amount {
+    max-width: 60px;
+    font-size: 10px !important;
+  }
+
+  .gp-refugo-bar-label {
+    width: 68px !important;
+    max-width: 68px !important;
+    height: 70px !important;
+    margin-top: 6px !important;
+    font-size: 10px !important;
+    transform: rotate(-42deg) !important;
+    transform-origin: top center !important;
+  }
+
+  .gp-refugo-pagination {
+    justify-content: space-between !important;
+    gap: 6px !important;
+    padding: 8px 0 12px !important;
+  }
+
+  .gp-refugo-pagination vaadin-button {
+    min-height: var(--gp-mobile-control) !important;
+    padding-inline: 8px !important;
+    font-size: .78rem !important;
+  }
+
+  .gp-refugo-pagination span {
+    font-size: .76rem !important;
+  }
+
+  .gp-ranking-row,
+  .gp-period-ranking-row {
+    grid-template-columns: 32px minmax(0, 1fr) !important;
+    gap: 7px !important;
+    padding: 9px 6px !important;
+    font-size: .78rem !important;
+    line-height: 1.25 !important;
+  }
+
+  .gp-refugo-page .gp-comparison-kpis {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 8px !important;
+  }
+
+  .gp-refugo-recent-grid,
+  .gp-admin-grid,
+  .gp-summary-grid,
+  .gp-month-entries-grid,
+  .gp-launch-grid-wrapper-v115,
+  .gp-order-production-grid-v110 {
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Relatório de refugo na tela mobile; impressão permanece no CSS desktop. */
+  html body .gp-scrap-report-toolbar-v116 {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) var(--gp-mobile-control) !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+
+  html body .gp-scrap-report-toolbar-v116 > vaadin-text-field {
+    grid-column: 1 !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  html body .gp-scrap-report-toolbar-v116 > .gp-filter-button {
+    grid-column: 2 !important;
+    align-self: end !important;
+  }
+
+  html body .gp-scrap-report-toolbar-v116 > .gp-scrap-report-export-v117 {
+    grid-column: 1 / -1 !important;
+    width: 100% !important;
+    margin-top: 2px !important;
+  }
+
+  html body .gp-scrap-report-kpis-v116 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+
+  html body .gp-scrap-report-kpis-v116 > .gp-kpi:last-child {
+    grid-column: 1 / -1 !important;
+  }
+
+  html body .gp-scrap-reason-cards-v116 {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 10px !important;
+  }
+
+  .gp-scrap-reason-card-v116 {
+    padding: 10px !important;
+  }
+
+  html body .gp-scrap-report-month-bars-v130 {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 12px 8px !important;
+    height: auto !important;
+    min-height: 0 !important;
+    padding: 12px 8px !important;
+  }
+
+  html body .gp-scrap-report-month-column-v130 {
+    grid-template-rows: 36px 128px 28px 28px !important;
+    min-width: 0 !important;
+  }
+
+  html body .gp-scrap-report-month-track-v130 {
+    width: min(64%, 52px) !important;
+    height: 128px !important;
+  }
+
+  html body .gp-scrap-report-month-value-v130,
+  html body .gp-scrap-report-month-label-v130,
+  html body .gp-scrap-report-month-difference-v130 {
+    font-size: .68rem !important;
+  }
+
+  .gp-footer {
+    padding: 20px 0 8px !important;
+    font-size: .76rem !important;
+  }
+
+  .gp-footer-signature {
+    position: static !important;
+    display: block !important;
+    margin-top: 4px !important;
+    transform: none !important;
+  }
+}
+
+@media screen and (max-width: 420px) {
+  .gp-main-tabs > vaadin-menu-bar-button.gp-main-navigation-root {
+    padding-inline: 7px !important;
+    font-size: .79rem !important;
+  }
+
+  html body .gp-scrap-report-month-bars-v130 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .gp-kpi > h3 {
+    font-size: 1.05rem !important;
+  }
+}

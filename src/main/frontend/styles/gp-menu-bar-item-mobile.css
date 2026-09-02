@@ -1,0 +1,13 @@
+/* Alvos de toque dos itens dos dropdowns, sem mudar o desktop. */
+@media screen and (max-width: 767px) {
+  :host(:not(.gp-main-navigation-root):not(.gp-system-menu-root)) {
+    min-height: 44px !important;
+    font-size: .92rem !important;
+  }
+
+  :host(:not(.gp-main-navigation-root):not(.gp-system-menu-root)) [part="content"] {
+    min-height: 44px !important;
+    padding-inline: 14px !important;
+    box-sizing: border-box !important;
+  }
+}

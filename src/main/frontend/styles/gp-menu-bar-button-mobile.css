@@ -1,0 +1,36 @@
+/* Somente a geometria mobile dos gatilhos da navegação principal. */
+@media screen and (max-width: 767px) {
+  :host(.gp-main-navigation-root) {
+    min-height: 46px !important;
+    padding-inline: 9px !important;
+    font-size: .84rem !important;
+    white-space: nowrap !important;
+  }
+
+  :host(.gp-system-menu-root),
+  :host(.gp-system-menu-root) [part="button"],
+  :host(.gp-system-menu-root) .vaadin-button-container {
+    width: 38px !important;
+    min-width: 38px !important;
+    max-width: 38px !important;
+    min-height: 46px !important;
+  }
+
+  :host(.gp-main-navigation-root) [part="button"],
+  :host(.gp-main-navigation-root) .vaadin-button-container {
+    min-height: 46px !important;
+    padding-inline: 0 !important;
+  }
+
+  :host(.gp-main-navigation-root) [part="content"],
+  :host(.gp-system-menu-root) [part="content"] {
+    transform: translateY(2px) !important;
+  }
+}
+
+@media screen and (max-width: 420px) {
+  :host(.gp-main-navigation-root) {
+    padding-inline: 7px !important;
+    font-size: .79rem !important;
+  }
+}

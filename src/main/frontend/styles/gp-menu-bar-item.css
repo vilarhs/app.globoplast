@@ -1,0 +1,75 @@
+:host {
+  cursor: pointer !important;
+}
+
+:host(.gp-main-navigation-root),
+:host(.gp-system-menu-root),
+:host(.gp-main-navigation-root:hover),
+:host(.gp-system-menu-root:hover),
+:host(.gp-main-navigation-root[focused]),
+:host(.gp-system-menu-root[focused]),
+:host(.gp-main-navigation-root[focus-ring]),
+:host(.gp-system-menu-root[focus-ring]) {
+  border: 0 !important;
+  border-radius: 0 !important;
+  outline: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+:host(.gp-system-menu-root) {
+  width: 40px !important;
+  min-width: 40px !important;
+  max-width: 40px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: visible !important;
+}
+
+:host(.gp-system-menu-root) [part="checkmark"] {
+  display: none !important;
+}
+
+:host(.gp-system-menu-root) [part="content"] {
+  width: 100% !important;
+  padding: 0 !important;
+  overflow: visible !important;
+  justify-content: center !important;
+  transform: translateY(4px) !important;
+}
+
+:host(.gp-main-navigation-root) [part="content"] {
+  transform: translateY(4px) !important;
+}
+
+:host(:not(.gp-main-navigation-root):not(.gp-system-menu-root)) {
+  border-radius: 0 !important;
+}
+
+:host(:not(.gp-main-navigation-root):not(.gp-system-menu-root)[focused]),
+:host(:not(.gp-main-navigation-root):not(.gp-system-menu-root)[focus-ring]),
+:host(:not(.gp-main-navigation-root):not(.gp-system-menu-root):focus-visible) {
+  outline: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+:host(:not(.gp-main-navigation-root):not(.gp-system-menu-root):not([disabled]):hover) {
+  border-radius: 0 !important;
+  outline: 0 !important;
+  background: var(--gp-hover) !important;
+  color: var(--gp-text) !important;
+  box-shadow: none !important;
+}
+
+:host([disabled]) {
+  cursor: default !important;
+}
+
+[part="content"] {
+  cursor: pointer !important;
+}
+
+::slotted(*) {
+  cursor: pointer !important;
+}

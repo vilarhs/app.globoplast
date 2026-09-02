@@ -1,0 +1,80 @@
+:host {
+  border: 0 !important;
+  border-radius: 0 !important;
+  outline: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  cursor: pointer !important;
+  --vaadin-button-background: transparent;
+  --vaadin-button-hover-background: transparent;
+  --vaadin-button-border-width: 0px;
+  --vaadin-button-border-radius: 0px;
+  --vaadin-focus-ring-width: 0px;
+  --vaadin-button-box-shadow: none;
+}
+
+:host(:hover),
+:host(:focus),
+:host(:focus-visible),
+:host([focused]),
+:host([focus-ring]),
+:host([active]),
+:host([expanded]) {
+  border: 0 !important;
+  border-radius: 0 !important;
+  outline: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+:host::before,
+:host::after {
+  border: 0 !important;
+  outline: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  opacity: 0 !important;
+}
+
+[part="button"],
+.vaadin-button-container {
+  border: 0 !important;
+  border-radius: 0 !important;
+  outline: 0 !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  cursor: pointer !important;
+}
+
+:host(.gp-system-menu-root) {
+  width: 40px !important;
+  min-width: 40px !important;
+  max-width: 40px !important;
+  overflow: visible !important;
+}
+
+:host(.gp-system-menu-root) [part="button"],
+:host(.gp-system-menu-root) .vaadin-button-container {
+  width: 40px !important;
+  min-width: 40px !important;
+  max-width: 40px !important;
+  padding-inline: 0 !important;
+  overflow: visible !important;
+}
+
+:host(.gp-main-navigation-root),
+:host(.gp-system-menu-root) {
+  opacity: 1 !important;
+  transition: opacity 120ms ease !important;
+}
+
+:host(.gp-main-navigation-root[expanded]),
+:host(.gp-system-menu-root[expanded]) {
+  opacity: 1 !important;
+}
+
+:host(.gp-main-navigation-root:hover),
+:host(.gp-system-menu-root:hover) {
+  opacity: .80 !important;
+}

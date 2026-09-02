@@ -21,6 +21,7 @@ import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.contextmenu.ContextMenu;
+import com.vaadin.flow.component.contextmenu.HasMenuItems;
 import com.vaadin.flow.component.contextmenu.MenuItem;
 import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.combobox.MultiSelectComboBox;
@@ -38,6 +39,7 @@ import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
+import com.vaadin.flow.component.menubar.MenuBar;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.popover.Popover;
@@ -90,8 +92,8 @@ public class MainView extends VerticalLayout {
     private boolean loginInteractionStarted;
     private final Div shell = new Div();
     private final Div content = new Div();
-    private Tabs mainTabs;
-    private final Map<Tab, String> tabKeys = new LinkedHashMap<>();
+    private MenuBar mainTabs;
+    private final Map<MenuItem, String> tabKeys = new LinkedHashMap<>();
     private String renderedTabKey = "";
 
     private LocalDate launchStart = Norm.productiveToday();
@@ -146,7 +148,6 @@ public class MainView extends VerticalLayout {
     private LocalDate[] scrapBoundsCache;
     private boolean syncRefreshRunning = false;
     private MenuItem menuSyncItem = null;
-    private final List<ContextMenu> navigationMenus = new ArrayList<>();
 
     public MainView(AuthService auth, CatalogService catalog, LaunchService launches, RefugoService scraps, SyncService sync) {
         this.auth = auth;
@@ -335,60 +336,46 @@ public class MainView extends VerticalLayout {
 
     private Div navigation() {
         tabKeys.clear();
-        navigationMenus.clear();
-        List<Tab> tabs = new ArrayList<>();
-        Tab productionTab = tab("🏭 " + t("Produção") + " ▾", "lancamentos");
-        productionMenu(productionTab);
-        tabs.add(productionTab);
-        Tab stockTab = tab("📦 " + t("Estoque"), "estoque");
-        stockTab.getElement().addEventListener("click", e -> selectTab("estoque"));
-        tabs.add(stockTab);
-        Tab reportsTab = tab("📊 " + t("Relatórios") + " ▾", SCRAP_REPORT_KEY);
-        reportsMenu(reportsTab);
-        tabs.add(reportsTab);
-        mainTabs = new Tabs(tabs.toArray(Tab[]::new));
+        mainTabs = new MenuBar();
         mainTabs.addClassName("gp-main-tabs");
         mainTabs.setWidthFull();
-        mainTabs.setAutoselect(false);
+        mainTabs.setOpenOnHover(false);
 
-        Div nav = new Div(mainTabs);
-        nav.add(menu());
-        nav.addClassName("gp-navigation");
-        return nav;
-    }
-
-    private Tab tab(String label, String key) {
-        Tab tab = new Tab(label);
-        tabKeys.put(tab, key);
-        return tab;
-    }
-
-    private void productionMenu(Tab productionTab) {
-        ContextMenu dropdown = navigationContextMenu(productionTab);
-        addTabMenuItem(dropdown, t("Lançamentos"), () -> openProductionSubPage("lancamentos"));
+        MenuItem productionTab = mainTabs.addItem("🏭 " + t("Produção"));
+        productionTab.addClassName("gp-main-navigation-root");
+        tabKeys.put(productionTab, "lancamentos");
+        addTabMenuItem(productionTab.getSubMenu(), t("Lançamentos"), () -> openProductionSubPage("lancamentos"));
         if (user.canSeeSummaries()) {
-            addTabMenuItem(dropdown, t("Resumo do Dia"), () -> openProductionSubPage("dia"));
-            addTabMenuItem(dropdown, t("Resumo do Mês"), () -> openProductionSubPage("mes"));
+            addTabMenuItem(productionTab.getSubMenu(), t("Resumo do Dia"), () -> openProductionSubPage("dia"));
+            addTabMenuItem(productionTab.getSubMenu(), t("Resumo do Mês"), () -> openProductionSubPage("mes"));
         }
-        addTabMenuItem(dropdown, t("Refugo"), () -> openProductionSubPage("refugo"));
+        addTabMenuItem(productionTab.getSubMenu(), t("Refugo"), () -> openProductionSubPage("refugo"));
         if (user != null && user.canModifyLaunches()) {
-            addTabMenuItem(dropdown, t("Lixeira"), () -> {
+            addTabMenuItem(productionTab.getSubMenu(), t("Lixeira"), () -> {
                 selectTab("lancamentos");
                 showLaunchTrash();
             });
         }
+
+        MenuItem stockTab = mainTabs.addItem("📦 " + t("Estoque"));
+        stockTab.addClassName("gp-main-navigation-root");
+        tabKeys.put(stockTab, "estoque");
+        addTabMenuItem(stockTab.getSubMenu(), t("Buscar"), () -> selectTab("estoque"));
+
+        MenuItem reportsTab = mainTabs.addItem("📊 " + t("Relatórios"));
+        reportsTab.addClassName("gp-main-navigation-root");
+        tabKeys.put(reportsTab, SCRAP_REPORT_KEY);
+        addTabMenuItem(reportsTab.getSubMenu(), t("Refugo"), () -> openProductionSubPage(SCRAP_REPORT_KEY));
+
+        addSystemMenu(mainTabs);
+
+        Div nav = new Div(mainTabs);
+        nav.addClassName("gp-navigation");
+        return nav;
     }
 
-    private void reportsMenu(Tab reportsTab) {
-        ContextMenu dropdown = navigationContextMenu(reportsTab);
-        addTabMenuItem(dropdown, t("Refugo"), () -> openProductionSubPage(SCRAP_REPORT_KEY));
-    }
-
-    private void addTabMenuItem(ContextMenu menu, String label, Runnable action) {
-        Span text = new Span(label);
-        text.addClassName("gp-tab-navigation-label");
-        MenuItem item = menu.addItem(text, event -> action.run());
-        item.addClassName("gp-tab-navigation-item");
+    private void addTabMenuItem(HasMenuItems menu, String label, Runnable action) {
+        menu.addItem(label, event -> action.run());
     }
 
     private void openProductionSubPage(String key) {
@@ -402,19 +389,18 @@ public class MainView extends VerticalLayout {
                 : normalizedKey;
         for (var e : tabKeys.entrySet()) {
             if (e.getValue().equals(selectedKey)) {
-                mainTabs.setSelectedTab(e.getKey());
                 updateNavigationIndicator(e.getKey());
                 renderedTabKey = "";
                 activateTab(normalizedKey);
                 return;
             }
         }
-        mainTabs.setSelectedIndex(0);
-        updateNavigationIndicator(mainTabs.getSelectedTab());
-        activateTab(tabKeys.get(mainTabs.getSelectedTab()));
+        MenuItem first = tabKeys.keySet().iterator().next();
+        updateNavigationIndicator(first);
+        activateTab(tabKeys.get(first));
     }
 
-    private void updateNavigationIndicator(Tab activeTab) {
+    private void updateNavigationIndicator(MenuItem activeTab) {
         tabKeys.keySet().forEach(tab -> {
             if (tab == activeTab) tab.addClassName("gp-navigation-active");
             else tab.removeClassName("gp-navigation-active");
@@ -431,14 +417,15 @@ public class MainView extends VerticalLayout {
     }
 
 
-    private Component menu() {
-        Button trigger = new Button("•••");
-        trigger.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
-        trigger.addClassNames("gp-menu-button", "gp-system-menu-trigger-v065", "gp-system-menu-trigger-v066");
-        trigger.setAriaLabel(t("Menu"));
-        ContextMenu dropdown = navigationContextMenu(trigger);
+    private void addSystemMenu(MenuBar menuBar) {
+        Span triggerLabel = new Span("•••");
+        triggerLabel.addClassName("gp-system-menu-label");
+        MenuItem systemMenu = menuBar.addItem(triggerLabel);
+        systemMenu.addClassName("gp-system-menu-root");
+        systemMenu.getElement().setAttribute("aria-label", t("Menu"));
+        HasMenuItems dropdown = systemMenu.getSubMenu();
 
-        MenuItem me = dropdown.addItem(user.username());
+        MenuItem me = dropdown.addItem(user.username(), event -> { });
         me.addClassName("gp-menu-caption");
         me.setEnabled(false);
         if (user.isAdmin()) {
@@ -448,14 +435,14 @@ public class MainView extends VerticalLayout {
             dropdown.addItem(t("Alterar Senha"), event -> showOwnPassword());
         }
 
-        MenuItem languageMenu = dropdown.addItem("pt-BR / en-US");
-        languageMenu.getSubMenu().addItem(leftSystemMenuLabel("pt-BR"), event -> changeLanguage("pt-BR"));
-        languageMenu.getSubMenu().addItem(leftSystemMenuLabel("en-US"), event -> changeLanguage("en-US"));
+        MenuItem languageMenu = dropdown.addItem("pt-BR / en-US", event -> { });
+        languageMenu.getSubMenu().addItem("pt-BR", event -> changeLanguage("pt-BR"));
+        languageMenu.getSubMenu().addItem("en-US", event -> changeLanguage("en-US"));
 
-        MenuItem themeMenu = dropdown.addItem(t("Tema"));
-        themeMenu.getSubMenu().addItem(leftSystemMenuLabel(t("Sistema")), event -> setThemeMode("system"));
-        themeMenu.getSubMenu().addItem(leftSystemMenuLabel(t("Claro")), event -> setThemeMode("light"));
-        themeMenu.getSubMenu().addItem(leftSystemMenuLabel(t("Escuro")), event -> setThemeMode("dark"));
+        MenuItem themeMenu = dropdown.addItem(t("Tema"), event -> { });
+        themeMenu.getSubMenu().addItem(t("Sistema"), event -> setThemeMode("system"));
+        themeMenu.getSubMenu().addItem(t("Claro"), event -> setThemeMode("light"));
+        themeMenu.getSubMenu().addItem(t("Escuro"), event -> setThemeMode("dark"));
 
         dropdown.addItem(t("Sair"), event -> {
             clearTabAuthentication();
@@ -464,45 +451,10 @@ public class MainView extends VerticalLayout {
             buildLogin();
         });
 
-        menuSyncItem = dropdown.addItem("");
+        menuSyncItem = dropdown.addItem("", event -> { });
         menuSyncItem.setEnabled(false);
         menuSyncItem.addClassName("gp-menu-sync-info-v045");
         refreshMenuSyncStatus();
-        return trigger;
-    }
-
-    private Span leftSystemMenuLabel(String label) {
-        Span text = new Span(label);
-        text.addClassName("gp-system-menu-left-label");
-        return text;
-    }
-
-    private ContextMenu navigationContextMenu(Component target) {
-        ContextMenu menu = new ContextMenu();
-        menu.setTarget(target);
-        menu.setOpenOnClick(true);
-        target.addAttachListener(event -> target.getElement().executeJs(
-                """
-                (() => {
-                    const trigger = this;
-                    const ownMenu = $0;
-                    if (trigger.__gpMenuSwitchInstalled) return;
-                    trigger.__gpMenuSwitchInstalled = true;
-                    trigger.addEventListener('pointerdown', () => {
-                        document.querySelectorAll('vaadin-context-menu').forEach(other => {
-                            if (other !== ownMenu && other.opened) other.close();
-                        });
-                    }, true);
-                })();
-                """, menu.getElement()));
-        menu.addOpenedChangeListener(event -> {
-            if (!event.isOpened()) return;
-            navigationMenus.stream()
-                    .filter(other -> other != menu && other.isOpened())
-                    .forEach(ContextMenu::close);
-        });
-        navigationMenus.add(menu);
-        return menu;
     }
 
     private void changeLanguage(String lang) {

@@ -7,7 +7,7 @@ import java.util.List;
 public final class AppConfig {
     private AppConfig() {}
 
-    public static final String VERSION = "0.0.178";
+    public static final String VERSION = "0.0.188";
     public static final ZoneId ZONE = ZoneId.of("America/Sao_Paulo");
     public static final int PBKDF2_ITERATIONS = 260_000;
     public static final String DEFAULT_LANGUAGE = "pt-BR";
