@@ -103,14 +103,13 @@ public final class Norm {
     }
 
     /**
-     * Refugo não traz hora de lançamento no payload do ERP. Para A/B, usa a
-     * primeira detecção somente quando ela pertence à própria DATA_APON; antes
-     * das 06h o registro ainda pertence ao dia produtivo anterior. O Turno C
-     * conserva a regra operacional histórica e sempre retrocede um dia.
+     * Refugo não traz hora de lançamento no payload do ERP. A primeira
+     * detecção é usada como horário operacional: antes das 06h, o registro
+     * pertence ao dia produtivo anterior; a partir das 06h, ao próprio dia.
      */
     public static LocalDate productiveScrapDate(LocalDate rawDate, String shift, Object firstDetectedAt) {
         LocalDate legacy = productiveDate(rawDate, shift);
-        if (rawDate == null || "C".equalsIgnoreCase(text(shift))) return legacy;
+        if (rawDate == null) return legacy;
 
         String value = text(firstDetectedAt);
         if (value.isBlank()) return legacy;
@@ -124,7 +123,7 @@ public final class Norm {
                 if (local.toLocalDate().equals(rawDate) && local.getHour() < 6) return rawDate.minusDays(1);
             } catch (Exception ignoredAgain) { }
         }
-        return legacy;
+        return rawDate;
     }
 
     public static LocalDate productiveToday() {

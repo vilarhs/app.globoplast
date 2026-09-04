@@ -27,6 +27,8 @@ public final class OeeRankingChart extends Div {
             double value = raw == null ? 0.0 : raw;
             Div column = new Div();
             column.addClassName("gp-oee-ranking-column");
+            Span valueLabel = new Span(DisplayFormat.decimal(value, 1, displayLocale) + "%");
+            valueLabel.addClassName("gp-oee-ranking-value");
             Div area = new Div();
             area.addClassName("gp-oee-ranking-area");
             Div bar = new Div();
@@ -38,6 +40,7 @@ public final class OeeRankingChart extends Div {
             double hue = normalized * 120.0;
             bar.getStyle().set("background", String.format(Locale.ROOT, "hsl(%.1f 70%% 45%%)", hue));
             column.setTitle(machine + "\nOEE: " + DisplayFormat.decimal(value, 1, displayLocale) + "%");
+            bar.add(valueLabel);
             area.add(bar);
             Span label = new Span(machine);
             label.addClassName("gp-oee-ranking-label");

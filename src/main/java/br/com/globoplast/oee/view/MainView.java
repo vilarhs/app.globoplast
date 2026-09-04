@@ -65,6 +65,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -79,6 +80,7 @@ import java.util.stream.Collectors;
 public class MainView extends VerticalLayout {
     private static final String TAB_AUTH_STORAGE_KEY = "globoplast_tab_auth_v078";
     private static final String SCRAP_REPORT_KEY = "relatorios_refugo";
+    private enum ProductionSource { AUTOMATIC, MANUAL }
 
     private final AuthService auth;
     private final CatalogService catalog;
@@ -95,6 +97,7 @@ public class MainView extends VerticalLayout {
     private MenuBar mainTabs;
     private final Map<MenuItem, String> tabKeys = new LinkedHashMap<>();
     private String renderedTabKey = "";
+    private ProductionSource productionSource = ProductionSource.AUTOMATIC;
 
     private LocalDate launchStart = Norm.productiveToday();
     private LocalDate launchEnd = Norm.productiveToday();
@@ -126,15 +129,13 @@ public class MainView extends VerticalLayout {
     private int monthLimit = AppConfig.PAGE_SIZE;
     private H2 scrapReportTitle;
     private H2 scrapReportPrintTitle;
-    private LocalDate summaryDayDate = Norm.productiveToday();
+    private LocalDate summaryDayDate = LocalDate.now(AppConfig.ZONE).minusDays(1);
     private final Set<String> summaryDaySectors = new LinkedHashSet<>();
     private final Set<String> summaryDayMachines = new LinkedHashSet<>();
     private final Set<String> summaryDayShifts = new LinkedHashSet<>();
     private YearMonth summaryMonth = YearMonth.now(AppConfig.ZONE);
     private String summaryMonthSector = null;
     private String lastSyncSignature = "";
-    private Runnable activeDayRefresh = null;
-    private Runnable activeMonthRefresh = null;
 
     // Cache por sessão para várias faixas: trocar de aba e voltar não relê
     // nem recalcula o mesmo período do SQLite. O limite evita crescimento livre.
@@ -142,8 +143,8 @@ public class MainView extends VerticalLayout {
     private long dataRevision = 0;
     private final Map<String, List<LaunchRecord>> launchRangeCache = new LinkedHashMap<>();
     private final Map<String, List<RefugoRecord>> scrapRangeCache = new LinkedHashMap<>();
-    private long launchBoundsRevision = -1;
-    private LocalDate[] launchBoundsCache;
+    private final Map<ProductionSource, Long> launchBoundsRevisions = new EnumMap<>(ProductionSource.class);
+    private final Map<ProductionSource, LocalDate[]> launchBoundsCaches = new EnumMap<>(ProductionSource.class);
     private long scrapBoundsRevision = -1;
     private LocalDate[] scrapBoundsCache;
     private boolean syncRefreshRunning = false;
@@ -267,6 +268,7 @@ public class MainView extends VerticalLayout {
     private void buildApp() {
         shell.removeAll();
         renderedTabKey = "";
+        restoreLaunchFilterState();
         applyThemeMode();
         ensureFavicon();
         UI.getCurrent().setLocale(locale());
@@ -292,23 +294,6 @@ public class MainView extends VerticalLayout {
                 if (!currentSignature.isBlank() && !Objects.equals(currentSignature, lastSyncSignature)) {
                     lastSyncSignature = currentSignature;
                     invalidateDataCaches();
-
-                    // Evita reconstruir a página inteira a cada sincronização.
-                    // Lançamentos e Refugo atualizam somente os componentes de dados.
-                    if ("lancamentos".equals(selectedTab)) {
-                        refreshLaunchGrid();
-                        refreshMenuSyncStatus();
-                    } else if ("estoque".equals(selectedTab) || "producao".equals(selectedTab)) {
-                        refreshOrderProduction();
-                    } else if ("refugo".equals(selectedTab)) {
-                        refreshScrap(scrapActiveDimension);
-                    } else if (SCRAP_REPORT_KEY.equals(selectedTab)) {
-                        refreshScrapReport();
-                    } else if ("dia".equals(selectedTab)) {
-                        if (activeDayRefresh != null) activeDayRefresh.run();
-                    } else if ("mes".equals(selectedTab)) {
-                        if (activeMonthRefresh != null) activeMonthRefresh.run();
-                    }
                 }
             } finally {
                 syncRefreshRunning = false;
@@ -353,7 +338,22 @@ public class MainView extends VerticalLayout {
         if (user != null && user.canModifyLaunches()) {
             addTabMenuItem(productionTab.getSubMenu(), t("Lixeira"), () -> {
                 selectTab("lancamentos");
-                showLaunchTrash();
+                showLaunchTrash("ERP");
+            });
+        }
+
+        MenuItem manualProductionTab = mainTabs.addItem(t("Produção (M)"));
+        manualProductionTab.addClassName("gp-main-navigation-root");
+        tabKeys.put(manualProductionTab, "manual_lancamentos");
+        addTabMenuItem(manualProductionTab.getSubMenu(), t("Lançamentos"), () -> selectTab("manual_lancamentos"));
+        if (user.canSeeSummaries()) {
+            addTabMenuItem(manualProductionTab.getSubMenu(), t("Resumo do Dia"), () -> selectTab("manual_dia"));
+            addTabMenuItem(manualProductionTab.getSubMenu(), t("Resumo do Mês"), () -> selectTab("manual_mes"));
+        }
+        if (user.canModifyLaunches()) {
+            addTabMenuItem(manualProductionTab.getSubMenu(), t("Lixeira"), () -> {
+                selectTab("manual_lancamentos");
+                showLaunchTrash("MANUAL");
             });
         }
 
@@ -386,6 +386,8 @@ public class MainView extends VerticalLayout {
         String normalizedKey = "producao".equals(key) ? "estoque" : key;
         String selectedKey = Set.of("lancamentos", "dia", "mes", "refugo").contains(normalizedKey)
                 ? "lancamentos"
+                : Set.of("manual_lancamentos", "manual_dia", "manual_mes").contains(normalizedKey)
+                ? "manual_lancamentos"
                 : normalizedKey;
         for (var e : tabKeys.entrySet()) {
             if (e.getValue().equals(selectedKey)) {
@@ -544,15 +546,16 @@ public class MainView extends VerticalLayout {
     }
 
     private void render(String key) {
-        activeDayRefresh = null;
-        activeMonthRefresh = null;
         switch (key) {
-            case "dia" -> renderDay();
-            case "mes" -> renderMonth();
+            case "dia" -> { productionSource = ProductionSource.AUTOMATIC; renderDay(); }
+            case "mes" -> { productionSource = ProductionSource.AUTOMATIC; renderMonth(); }
+            case "manual_dia" -> { productionSource = ProductionSource.MANUAL; renderDay(); }
+            case "manual_mes" -> { productionSource = ProductionSource.MANUAL; renderMonth(); }
             case "refugo" -> renderScrap();
             case SCRAP_REPORT_KEY -> renderScrapReport();
             case "estoque", "producao" -> renderOrderProduction();
-            default -> renderLaunches();
+            case "manual_lancamentos" -> { productionSource = ProductionSource.MANUAL; renderLaunches(); }
+            default -> { productionSource = ProductionSource.AUTOMATIC; renderLaunches(); }
         }
     }
 
@@ -560,7 +563,7 @@ public class MainView extends VerticalLayout {
         content.removeAll();
         Div titleRow = new Div();
         titleRow.addClassNames("gp-title-row", "gp-title-row-static");
-        H2 title = new H2(t("Lançamentos"));
+        H2 title = new H2(productionTitle(t("Lançamentos")));
         title.addClassName("gp-section-title");
         titleRow.add(title);
 
@@ -585,7 +588,7 @@ public class MainView extends VerticalLayout {
         Popover filterDropdown = launchFilterDropdown(filter);
         Div toolbar = new Div(search, filter);
         toolbar.addClassNames("gp-toolbar", "gp-tab-controls", "gp-search-filter-toolbar-v044", "gp-launch-toolbar-v045");
-        if (user.canModifyLaunches()) {
+        if (user.canModifyLaunches() && productionSource == ProductionSource.MANUAL) {
             Button add = new Button(t("Novo Lançamento"), VaadinIcon.PLUS.create());
             add.addThemeVariants(ButtonVariant.PRIMARY);
             add.addClassNames("gp-new-button", "gp-launch-new-inline-v045");
@@ -608,6 +611,10 @@ public class MainView extends VerticalLayout {
         content.add(more);
         refreshLaunchGrid();
         refreshMenuSyncStatus();
+    }
+
+    private String productionTitle(String title) {
+        return productionSource == ProductionSource.MANUAL ? title + " (" + t("Manual") + ")" : title;
     }
 
     private void renderOrderProduction() {
@@ -656,7 +663,7 @@ public class MainView extends VerticalLayout {
                 .setHeader(t("Código Produto")).setWidth("160px").setFlexGrow(0);
         grid.addColumn(new ComponentRenderer<>(r -> fullTextCell(r.description())))
                 .setHeader(t("Descrição")).setWidth("300px").setFlexGrow(1);
-        grid.addColumn(r -> formatInt(r.plannedPcs())).setHeader(t("Programado (OP)")).setAutoWidth(true);
+        grid.addColumn(r -> formatInt(r.plannedPcs())).setHeader(compactGridHeader(t("Programado (OP)"))).setWidth("132px").setFlexGrow(0);
         grid.addColumn(r -> formatInt(r.producedPcs())).setHeader(t("Produzido (OP)")).setAutoWidth(true);
         grid.addColumn(r -> formatInt(r.remainingPcs())).setHeader(t("Falta (OP)")).setAutoWidth(true);
         grid.addColumn(r -> productionPeriod(r.firstDate(), r.lastDate())).setHeader(t("Período")).setAutoWidth(true);
@@ -697,19 +704,19 @@ public class MainView extends VerticalLayout {
         Grid<LaunchRecord> grid = new Grid<>(LaunchRecord.class, false);
         grid.addClassName("gp-launch-grid-v059");
         grid.addThemeVariants(GridVariant.LUMO_NO_BORDER, GridVariant.LUMO_ROW_STRIPES);
-        grid.addColumn(r -> Norm.br(r.getDate())).setHeader(t("Data")).setAutoWidth(true);
+        grid.addColumn(r -> Norm.br(r.getDate())).setHeader(t("Data")).setWidth("108px").setFlexGrow(0);
         grid.addColumn(new ComponentRenderer<>(r -> fullTextCell(r.getMachine())))
                 .setHeader(t("Máquina")).setAutoWidth(true).setFlexGrow(0);
-        grid.addColumn(new ComponentRenderer<>(this::launchProductCell)).setHeader(t("Código Produto")).setFlexGrow(2);
-        grid.addColumn(new ComponentRenderer<>(this::launchOrderCell)).setHeader(t("Nº da OP")).setAutoWidth(true);
+        grid.addColumn(new ComponentRenderer<>(this::launchProductCell)).setHeader(t("Código Produto")).setWidth("140px").setFlexGrow(0);
+        grid.addColumn(new ComponentRenderer<>(this::launchOrderCell)).setHeader(t("Nº OP")).setWidth("84px").setFlexGrow(0);
         grid.addColumn(r -> formatInt(r.getTotalProduced())).setHeader(t("Total Lançamento")).setAutoWidth(true);
         grid.addColumn(r -> format(r.getScrapTotalKg())).setHeader(t("Refugo (kg)")).setAutoWidth(true);
         grid.addColumn(r -> formatInt(r.getScrapTotalPcs())).setHeader(t("Refugo (pçs)")).setAutoWidth(true);
         grid.addColumn(r -> format(r.getScrapPct()) + "%").setHeader(t("Refugo (%)")).setAutoWidth(true);
-        grid.addColumn(r -> r.isOrderProgressAvailable() ? formatInt(r.getOrderPlannedPcs()) : "—").setHeader(t("Programado (OP)")).setAutoWidth(true);
+        grid.addColumn(r -> r.isOrderProgressAvailable() ? formatInt(r.getOrderPlannedPcs()) : "—").setHeader(compactGridHeader(t("Programado (OP)"))).setWidth("132px").setFlexGrow(0);
         grid.addColumn(r -> r.isOrderProgressAvailable() ? formatInt(r.getOrderLaunchedPcs()) : "—").setHeader(t("Produzido (OP)")).setAutoWidth(true);
         grid.addColumn(r -> r.isOrderProgressAvailable() ? formatInt(r.getOrderRemainingPcs()) : "—").setHeader(t("Falta (OP)")).setAutoWidth(true);
-        grid.addColumn(new ComponentRenderer<>(r -> oeeCell(r, 1))).setHeader("OEE").setAutoWidth(true);
+        grid.addColumn(new ComponentRenderer<>(r -> oeeCell(r, 1))).setHeader("OEE").setWidth("120px").setFlexGrow(0);
         grid.addColumn(new ComponentRenderer<>(this::launchActions)).setHeader(t("Ações")).setAutoWidth(true);
         grid.setAllRowsVisible(true);
         return grid;
@@ -850,6 +857,12 @@ public class MainView extends VerticalLayout {
         return wrapper;
     }
 
+    private Span compactGridHeader(String text) {
+        Span header = new Span(text);
+        header.addClassName("gp-grid-compact-header-v210");
+        return header;
+    }
+
     private Component launchActions(LaunchRecord record) {
         HorizontalLayout actions = new HorizontalLayout();
         actions.setPadding(false);
@@ -900,6 +913,7 @@ public class MainView extends VerticalLayout {
         Component component = byId("launch-grid");
         if (!(component instanceof Grid<?> raw)) return;
         Grid<LaunchRecord> grid = (Grid<LaunchRecord>) raw;
+        rememberLaunchFilterState();
         List<LaunchRecord> all = cachedLaunchData(launchStart, launchEnd);
         List<LaunchRecord> filtered = launches.filter(all, launchSearch, launchSectors, launchStart, launchEnd, launchMachines, launchClients);
         grid.setItems(filtered.stream().limit(launchLimit).toList());
@@ -930,18 +944,39 @@ public class MainView extends VerticalLayout {
         dataRevision++;
         launchRangeCache.clear();
         scrapRangeCache.clear();
-        launchBoundsRevision = -1;
+        launchBoundsRevisions.clear();
+        launchBoundsCaches.clear();
         scrapBoundsRevision = -1;
+    }
+
+    private void rememberLaunchFilterState() {
+        VaadinSession.getCurrent().setAttribute("gp_launch_filter_state", new LaunchFilterState(
+                launchStart, launchEnd, launchSearch,
+                new LinkedHashSet<>(launchSectors), new LinkedHashSet<>(launchMachines), new LinkedHashSet<>(launchClients), launchLimit));
+    }
+
+    private void restoreLaunchFilterState() {
+        Object saved = VaadinSession.getCurrent().getAttribute("gp_launch_filter_state");
+        if (!(saved instanceof LaunchFilterState state)) return;
+        if (state.start() != null) launchStart = state.start();
+        if (state.end() != null) launchEnd = state.end();
+        launchSearch = state.search() == null ? "" : state.search();
+        replace(launchSectors, state.sectors());
+        replace(launchMachines, state.machines());
+        replace(launchClients, state.clients());
+        launchLimit = Math.max(AppConfig.PAGE_SIZE, state.limit());
     }
 
     private List<LaunchRecord> cachedLaunchData(LocalDate start, LocalDate end) {
         if (start == null) start = Norm.productiveToday();
         if (end == null) end = start;
         if (end.isBefore(start)) { LocalDate tmp = start; start = end; end = tmp; }
-        String key = start + "|" + end;
+        String key = productionSource + "|" + start + "|" + end;
         List<LaunchRecord> cached = launchRangeCache.get(key);
         if (cached != null) return cached;
-        List<LaunchRecord> loaded = List.copyOf(launches.all(start, end));
+        List<LaunchRecord> loaded = List.copyOf(productionSource == ProductionSource.MANUAL
+                ? launches.manualOnly(start, end)
+                : launches.automaticOnly(start, end));
         putBounded(launchRangeCache, key, loaded);
         return loaded;
     }
@@ -967,11 +1002,15 @@ public class MainView extends VerticalLayout {
     }
 
     private LocalDate[] cachedLaunchBounds() {
-        if (launchBoundsRevision != dataRevision || launchBoundsCache == null) {
-            launchBoundsCache = launches.dateBounds();
-            launchBoundsRevision = dataRevision;
+        LocalDate[] cached = launchBoundsCaches.get(productionSource);
+        if (!Objects.equals(launchBoundsRevisions.get(productionSource), dataRevision) || cached == null) {
+            cached = productionSource == ProductionSource.MANUAL
+                    ? launches.manualDateBounds()
+                    : launches.automaticDateBounds();
+            launchBoundsCaches.put(productionSource, cached);
+            launchBoundsRevisions.put(productionSource, dataRevision);
         }
-        return launchBoundsCache.clone();
+        return cached.clone();
     }
 
     private LocalDate[] cachedScrapBounds() {
@@ -1129,12 +1168,18 @@ public class MainView extends VerticalLayout {
     private void showLaunchDialog(LaunchRecord original) {
         boolean edit = original != null;
         LaunchRecord record = edit ? original.copy() : new LaunchRecord();
-        if (!edit) record.setDate(Norm.productiveToday());
+        if (!edit) {
+            record.setDate(LocalDate.now(AppConfig.ZONE).minusDays(1));
+            Object savedMachine = VaadinSession.getCurrent().getAttribute("gp_last_manual_machine");
+            if (savedMachine instanceof String machine && (user.isAdmin() ? catalog.machines() : catalog.allowedMachines(user)).stream()
+                    .anyMatch(candidate -> machine.equals(candidate.name()))) record.setMachine(machine);
+        }
         String title = edit ? t("Editar Lançamento") : t("Novo Lançamento");
         Dialog dialog = launchDialog(title);
         Div itemDescription = addLaunchItemDescription(dialog, record);
         LaunchFormFields fields = createLaunchForm(record, false, !edit, edit);
-        configureProductMetadataLookup(fields.product, record, itemDescription);
+        configureProductMetadataLookup(fields.product, fields.weight, record, itemDescription);
+        if (!record.isErp() && !edit) configureManualScrapLookup(fields);
         dialog.add(fields.root);
 
         Button save = new Button(edit ? t("Salvar Alterações") : t("Salvar Lançamento"));
@@ -1142,23 +1187,20 @@ public class MainView extends VerticalLayout {
         save.addClickListener(e -> {
             try {
                 applyLaunchForm(record, fields);
-                if (record.getShiftA() + record.getShiftB() + record.getShiftC() == 0) {
-                    throw new IllegalArgumentException(t("IMPOSSÍVEL SALVAR: Preencha a Produção de pelo menos um turno."));
-                }
                 if (edit) {
                     if (record.isErp()) launches.saveErpOverride(record, user);
                     else launches.updateManual(record, user);
                 } else {
                     launches.saveManual(record, user);
                 }
+                if (!record.isErp()) VaadinSession.getCurrent().setAttribute("gp_last_manual_machine", record.getMachine());
                 dialog.close();
-                launchLimit = AppConfig.PAGE_SIZE;
-                if (edit && record.getDate() != null) {
-                    if (launchStart == null || record.getDate().isBefore(launchStart)) launchStart = record.getDate();
-                    if (launchEnd == null || record.getDate().isAfter(launchEnd)) launchEnd = record.getDate();
-                }
                 invalidateDataCaches();
-                renderLaunches();
+                if (!record.isErp() && !"manual_lancamentos".equals(renderedTabKey)) {
+                    selectTab("manual_lancamentos");
+                } else {
+                    renderLaunches();
+                }
                 notify(t(edit
                         ? "Lançamento atualizado no Banco de Dados!"
                         : "Lançamento salvo no Banco de Dados!"));
@@ -1209,7 +1251,7 @@ public class MainView extends VerticalLayout {
         itemDescription.setVisible(!value.isBlank());
     }
 
-    private void configureProductMetadataLookup(TextField product, LaunchRecord record, Div itemDescription) {
+    private void configureProductMetadataLookup(TextField product, TextField weight, LaunchRecord record, Div itemDescription) {
         if (product == null || product.isReadOnly()) return;
         product.setValueChangeMode(ValueChangeMode.LAZY);
         product.setValueChangeTimeout(300);
@@ -1218,8 +1260,31 @@ public class MainView extends VerticalLayout {
             record.setProduct(normalizeProduct(event.getValue()));
             record.setDescriptionErp(metadata.description());
             record.setClientErp(metadata.client());
+            if (!record.isErp()) {
+                double unitWeightG = launches.productUnitWeightG(record.getProduct());
+                if (unitWeightG > 0) weight.setValue(numberValue(unitWeightG));
+            }
             updateLaunchItemDescription(itemDescription, record);
         });
+    }
+
+    private void configureManualScrapLookup(LaunchFormFields fields) {
+        Runnable load = () -> {
+            Machine machine = findCatalogMachine(fields.machine.getValue());
+            String sector = machine == null ? "" : machine.sector();
+            LaunchService.ScrapByShift scrap = launches.remainingManualScrapByShift(fields.date.getValue(), fields.order.getValue(), sector, fields.machine.getValue(), fields.product.getValue());
+            fields.scrapA.setValue(scrapInputValue(scrap.shiftA()));
+            fields.scrapB.setValue(scrapInputValue(scrap.shiftB()));
+            fields.scrapC.setValue(scrapInputValue(scrap.shiftC()));
+        };
+        fields.order.setValueChangeMode(ValueChangeMode.LAZY);
+        fields.order.setValueChangeTimeout(300);
+        fields.product.setValueChangeMode(ValueChangeMode.LAZY);
+        fields.product.setValueChangeTimeout(300);
+        fields.product.addValueChangeListener(event -> load.run());
+        fields.order.addValueChangeListener(event -> load.run());
+        fields.date.setChangeListener(load);
+        fields.machine.addValueChangeListener(event -> load.run());
     }
 
 
@@ -1316,7 +1381,9 @@ public class MainView extends VerticalLayout {
         time.addClassName("gp-launch-time");
         if (showTime) {
             String hour = record.getLaunchTime() == null || record.getLaunchTime().isBlank() ? "—" : record.getLaunchTime();
-            time.setText(t("Hora do lançamento") + ": " + hour);
+            String edited = record.getEditedAt();
+            time.setText(t("Hora do lançamento") + ": " + hour
+                    + (edited == null || edited.isBlank() ? "" : " · " + t("Editado") + ": " + formatTrashDate(edited)));
         }
         Div rowMachine = new Div(f.machine, f.capacity);
         rowMachine.addClassNames("gp-launch-row", "gp-launch-row-2");
@@ -1713,7 +1780,7 @@ public class MainView extends VerticalLayout {
         d.open();
     }
 
-    private void showLaunchTrash() {
+    private void showLaunchTrash(String type) {
         Dialog d = dialog(t("Lixeira de Lançamentos"));
         d.setWidth("min(980px, calc(100vw - 32px))");
         Span retention = new Span(t("Os lançamentos excluídos permanecem na lixeira por 30 dias e depois são excluídos definitivamente."));
@@ -1721,10 +1788,10 @@ public class MainView extends VerticalLayout {
 
         Grid<LaunchService.TrashItem> grid = new Grid<>(LaunchService.TrashItem.class, false);
         grid.addThemeVariants(GridVariant.LUMO_NO_BORDER, GridVariant.LUMO_ROW_STRIPES);
-        grid.addColumn(item -> Norm.br(item.record().getDate())).setHeader(t("Data")).setAutoWidth(true);
+        grid.addColumn(item -> Norm.br(item.record().getDate())).setHeader(t("Data")).setWidth("108px").setFlexGrow(0);
         grid.addColumn(item -> item.record().getMachine()).setHeader(t("Máquina")).setFlexGrow(2);
-        grid.addColumn(item -> item.record().getProduct()).setHeader(t("Código Produto")).setFlexGrow(2);
-        grid.addColumn(item -> item.record().getOrderNumber()).setHeader(t("Nº da OP")).setAutoWidth(true);
+        grid.addColumn(new ComponentRenderer<>(item -> launchProductCell(item.record()))).setHeader(t("Código Produto")).setWidth("140px").setFlexGrow(0);
+        grid.addColumn(new ComponentRenderer<>(item -> launchOrderCell(item.record()))).setHeader(t("Nº OP")).setWidth("84px").setFlexGrow(0);
         grid.addColumn(item -> formatTrashDate(item.deletedAt())).setHeader(t("Excluído em")).setAutoWidth(true);
         grid.addColumn(item -> formatTrashDate(item.expiresAt())).setHeader(t("Exclusão definitiva")).setAutoWidth(true);
         grid.addColumn(new ComponentRenderer<>(item -> {
@@ -1734,7 +1801,7 @@ public class MainView extends VerticalLayout {
                 try {
                     launches.restoreTrash(item.id(), user);
                     invalidateDataCaches();
-                    grid.setItems(launches.trash(user));
+                    grid.setItems(launches.trash(user, type));
                     refreshLaunchGrid();
                     notify(t("Lançamento restaurado com sucesso!"));
                 } catch (Exception ex) {
@@ -1742,16 +1809,40 @@ public class MainView extends VerticalLayout {
                     notify(message == null || message.isBlank() ? t("Não foi possível restaurar o lançamento.") : t(message));
                 }
             });
-            return restore;
+            Button remove = new Button(t("Apagar"), VaadinIcon.TRASH.create());
+            remove.addThemeVariants(ButtonVariant.ERROR, ButtonVariant.LUMO_TERTIARY_INLINE);
+            remove.setTooltipText(t("Apagar permanentemente")).withPosition(Tooltip.TooltipPosition.TOP);
+            remove.addClickListener(e -> confirmTrashDeletion(item, grid, type));
+            return new HorizontalLayout(restore, remove);
         })).setHeader(t("Ações")).setAutoWidth(true);
         grid.setHeight("420px");
-        grid.setItems(launches.trash(user));
+        grid.setItems(launches.trash(user, type));
 
         Div body = new Div(retention, grid);
         body.setWidthFull();
         d.add(body);
         d.getFooter().add(new Button(t("Fechar"), e -> d.close()));
         d.open();
+    }
+
+    private void confirmTrashDeletion(LaunchService.TrashItem item, Grid<LaunchService.TrashItem> grid, String type) {
+        Dialog confirmation = dialog(t("Apagar permanentemente"));
+        confirmation.add(new Span(t("Este lançamento será apagado definitivamente e não poderá ser restaurado.")));
+        Button remove = new Button(t("Apagar definitivamente"));
+        remove.addThemeVariants(ButtonVariant.ERROR, ButtonVariant.PRIMARY);
+        remove.addClickListener(e -> {
+            try {
+                launches.deleteTrash(item.id(), user);
+                confirmation.close();
+                grid.setItems(launches.trash(user, type));
+                notify(t("Lançamento apagado permanentemente."));
+            } catch (Exception ex) {
+                String message = ex.getMessage();
+                notify(message == null || message.isBlank() ? t("Não foi possível apagar o lançamento.") : t(message));
+            }
+        });
+        confirmation.getFooter().add(new Button(t("Cancelar"), e -> confirmation.close()), remove);
+        confirmation.open();
     }
 
     private String formatTrashDate(String value) {
@@ -1769,7 +1860,7 @@ public class MainView extends VerticalLayout {
         Div page = new Div();
         page.addClassNames("gp-summary-page", "gp-summary-day-page", "gp-original-summary");
 
-        H2 title = new H2(t("Resumo Diário da Produção"));
+        H2 title = new H2(productionTitle(t("Resumo Diário da Produção")));
         title.addClassName("gp-section-title");
         Button filter = searchFilterButton();
         filter.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
@@ -1780,8 +1871,8 @@ public class MainView extends VerticalLayout {
         titleRow.addClassNames("gp-title-row", "gp-summary-title-row-v047");
 
         LocalDate[] bounds = cachedLaunchBounds();
-        LocalDate today = Norm.productiveToday();
-        LocalDate defaultDate = today.isBefore(bounds[0]) ? bounds[0] : (today.isAfter(bounds[1]) ? bounds[1] : today);
+        LocalDate yesterday = LocalDate.now(AppConfig.ZONE).minusDays(1);
+        LocalDate defaultDate = yesterday.isBefore(bounds[0]) ? bounds[0] : (yesterday.isAfter(bounds[1]) ? bounds[1] : yesterday);
         if (summaryDayDate == null || summaryDayDate.isBefore(bounds[0]) || summaryDayDate.isAfter(bounds[1])) summaryDayDate = defaultDate;
 
         DateRangePicker date = new DateRangePicker(
@@ -1843,18 +1934,15 @@ public class MainView extends VerticalLayout {
                 return;
             }
 
-            Div metrics=new Div(
-                    kpi(t("🎯 OEE Geral"), format1(avg(summary,"oee"))+"%"),
-                    kpi(t("⏱️ Disponibilidade"), format1(avg(summary,"availability"))+"%"),
-                    kpi(t("⚡ Desempenho"), format1(avg(summary,"performance"))+"%"),
-                    kpi(t("✨ Qualidade"), format1(avg(summary,"quality"))+"%"),
-                    kpi(t("📦 Peças Boas Produzidas"), formatInt(summary.stream().mapToInt(LaunchRecord::getTotalProduced).sum())+" "+t("pçs"))
-            );
-            metrics.addClassNames("gp-original-metrics", "gp-original-metrics-5");
+            Div metrics=new Div();
+            renderSummaryMetrics(metrics, summary, rows);
 
             H3 tableTitle=new H3(t("Tabela Consolidada por Máquina")); tableTitle.addClassName("gp-original-subtitle");
             Grid<LaunchRecord> grid=dailySummaryGrid(); grid.setItems(summary);
-            result.add(metrics,tableTitle,grid);
+            H3 chartTitle=new H3(t("OEE por Máquina no Dia")); chartTitle.addClassName("gp-original-subtitle");
+            Map<String,Double> bars=new LinkedHashMap<>();
+            summary.stream().sorted(Comparator.comparingDouble(LaunchRecord::getOeePct).reversed()).forEach(record -> bars.put(record.getMachine(), record.getOeePct()));
+            result.add(metrics,tableTitle,grid,chartTitle,new OeeRankingChart(bars,locale()));
         };
         date.setChangeListener(() -> {
             if (!adjusting[0]) {
@@ -1865,7 +1953,6 @@ public class MainView extends VerticalLayout {
         sector.addValueChangeListener(e->{if(!adjusting[0]){replace(summaryDaySectors,e.getValue());refreshRef[0].run();}});
         machine.addValueChangeListener(e->{if(!adjusting[0]){replace(summaryDayMachines,e.getValue());refreshRef[0].run();}});
         shift.addValueChangeListener(e->{if(!adjusting[0]){replace(summaryDayShifts,e.getValue());refreshRef[0].run();}});
-        activeDayRefresh = refreshRef[0];
 
         Popover filterDropdown = summaryFilterDropdown(filter, filterFields, () -> {
             adjusting[0]=true;
@@ -1901,6 +1988,29 @@ public class MainView extends VerticalLayout {
         return card;
     }
 
+    private void renderSummaryMetrics(Div metrics, List<LaunchRecord> summary, List<LaunchRecord> filteredRows) {
+        int produced = summary.stream().mapToInt(LaunchRecord::getTotalProduced).sum();
+        int scrapPieces = summary.stream().mapToInt(LaunchRecord::getScrapTotalPcs).sum();
+        long expected = capacityTargetByMachineDay(filteredRows);
+        double scrapPct = produced > 0 ? Norm.round(scrapPieces * 100.0 / produced, 2) : 0;
+        double performancePct = expected > 0 ? Norm.round((produced + scrapPieces) * 100.0 / expected, 2) : 0;
+        double achievedPct = expected > 0 ? Norm.round(produced * 100.0 / expected, 2) : 0;
+        metrics.removeAll();
+        metrics.add(
+                kpi(t("🎯 OEE Geral"), format1(avg(summary, "oee")) + "%"),
+                kpi(t("⏱️ Disponibilidade"), format1(avg(summary, "availability")) + "%"),
+                kpi(t("⚡ Desempenho"), format1(performancePct) + "%"),
+                kpi(t("✨ Qualidade"), format1(avg(summary, "quality")) + "%"),
+                kpi(t("🔄 Trocas"), formatInt(summary.stream().mapToInt(LaunchRecord::getChangeovers).sum())),
+                kpi(t("♻️ Refugo (pçs)"), formatInt(scrapPieces) + " " + t("pçs")),
+                kpi(t("♻️ Refugo / Peças Boas"), format1(scrapPct) + "%"),
+                kpi(t("📦 Peças Boas Produzidas"), formatInt(produced) + " " + t("pçs")),
+                kpi(t("🎯 Produção Esperada (24h)"), formatInt(expected) + " " + t("pçs")),
+                kpi(t("📊 Realizado / Esperado"), format1(achievedPct) + "%")
+        );
+        metrics.addClassNames("gp-original-metrics", "gp-original-metrics-10");
+    }
+
     private Grid<LaunchRecord> summaryGrid() {
         Grid<LaunchRecord> grid = new Grid<>(LaunchRecord.class, false);
         grid.addThemeVariants(GridVariant.LUMO_NO_BORDER, GridVariant.LUMO_ROW_STRIPES);
@@ -1911,7 +2021,7 @@ public class MainView extends VerticalLayout {
         grid.addColumn(r -> format(r.getScrapTotalKg())).setHeader(t("Refugo Total (kg)"));
         grid.addColumn(r -> formatInt(r.getScrapTotalPcs())).setHeader(t("Refugo Total (pçs)"));
         grid.addColumn(r -> formatInt(r.getChangeovers())).setHeader(t("Qtd. Trocas"));
-        grid.addColumn(new ComponentRenderer<>(r -> oeeCell(r, 1))).setHeader("OEE (%)");
+        grid.addColumn(new ComponentRenderer<>(r -> oeeCell(r, 1))).setHeader("OEE (%)").setWidth("120px").setFlexGrow(0);
         grid.addColumn(r -> format1(r.getAvailabilityPct()) + "%").setHeader(t("Disponibilidade (%)"));
         grid.addColumn(r -> format1(r.getPerformancePct()) + "%").setHeader(t("Desempenho (%)"));
         grid.addColumn(r -> format1(r.getQualityPct()) + "%").setHeader(t("Qualidade (%)"));
@@ -1923,15 +2033,16 @@ public class MainView extends VerticalLayout {
     private Grid<LaunchRecord> dailySummaryGrid() {
         Grid<LaunchRecord> grid = new Grid<>(LaunchRecord.class, false);
         grid.addThemeVariants(GridVariant.LUMO_NO_BORDER, GridVariant.LUMO_ROW_STRIPES);
-        grid.addColumn(r -> Norm.br(r.getDate())).setHeader(t("Data")).setAutoWidth(true);
+        grid.addColumn(r -> Norm.br(r.getDate())).setHeader(t("Data")).setWidth("108px").setFlexGrow(0);
         grid.addColumn(LaunchRecord::getMachine).setHeader(t("Máquina")).setFlexGrow(2);
-        grid.addColumn(new ComponentRenderer<>(r -> summaryCompactCell(r.getProduct()))).setHeader(t("Código Produto")).setFlexGrow(2);
-        grid.addColumn(new ComponentRenderer<>(r -> summaryCompactCell(r.getOrderNumber()))).setHeader(t("Nº da OP")).setAutoWidth(true);
+        grid.addColumn(new ComponentRenderer<>(r -> summaryCompactCell(r.getProduct()))).setHeader(t("Código Produto")).setWidth("140px").setFlexGrow(0);
+        grid.addColumn(new ComponentRenderer<>(r -> summaryCompactCell(r.getOrderNumber()))).setHeader(t("Nº OP")).setWidth("84px").setFlexGrow(0);
         grid.addColumn(r -> formatInt(r.getTotalProduced())).setHeader(t("Total Produzido")).setAutoWidth(true);
         grid.addColumn(r -> format(r.getScrapTotalKg())).setHeader(t("Refugo (kg)")).setAutoWidth(true);
         grid.addColumn(r -> formatInt(r.getScrapTotalPcs())).setHeader(t("Refugo (pçs)")).setAutoWidth(true);
         grid.addColumn(r -> format1(r.getScrapPct()) + "%").setHeader(t("Refugo (%)")).setAutoWidth(true);
-        grid.addColumn(new ComponentRenderer<>(r -> oeeCell(r, 1))).setHeader("OEE").setAutoWidth(true);
+        grid.addColumn(r -> formatInt(r.getChangeovers())).setHeader(t("Trocas")).setAutoWidth(true);
+        grid.addColumn(new ComponentRenderer<>(r -> oeeCell(r, 1))).setHeader("OEE").setWidth("120px").setFlexGrow(0);
         grid.addColumn(r -> formatInt(r.getLaunchCount())).setHeader(t("Lançamentos")).setAutoWidth(true);
         grid.setAllRowsVisible(true);
         grid.addClassNames("gp-summary-grid", "gp-summary-day-grid-v083");
@@ -2144,7 +2255,7 @@ public class MainView extends VerticalLayout {
             z.setScrapAKg(g.stream().mapToDouble(LaunchRecord::getScrapAKg).sum());
             z.setScrapBKg(g.stream().mapToDouble(LaunchRecord::getScrapBKg).sum());
             z.setScrapCKg(g.stream().mapToDouble(LaunchRecord::getScrapCKg).sum());
-            z.setScrapTotalKg(g.stream().mapToDouble(LaunchRecord::getScrapTotalKg).sum());
+            z.setScrapTotalKg(Norm.round(g.stream().mapToDouble(LaunchRecord::getScrapTotalKg).sum(), 3));
             z.setScrapTotalPcs(g.stream().mapToInt(LaunchRecord::getScrapTotalPcs).sum());
             int processed = Math.max(0,z.getTotalProduced()) + Math.max(0,z.getScrapTotalPcs());
             z.setScrapPct(processed>0 ? Norm.round(z.getScrapTotalPcs()*100.0/processed,2) : 0.0);
@@ -2189,7 +2300,7 @@ public class MainView extends VerticalLayout {
         content.removeAll();
         Div page=new Div();
         page.addClassNames("gp-summary-page","gp-summary-month-page","gp-original-summary");
-        H2 title=new H2(t("Resumo Mensal de Eficiência")); title.addClassName("gp-section-title");
+        H2 title=new H2(productionTitle(t("Resumo Mensal de Eficiência"))); title.addClassName("gp-section-title");
         Button filter = searchFilterButton();
         filter.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
         filter.addClassNames("gp-filter-button", "gp-summary-filter-trigger-v047");
@@ -2215,14 +2326,15 @@ public class MainView extends VerticalLayout {
 
         // A estrutura pesada da aba é criada uma vez. Filtros apenas trocam os
         // dados; "Mostrar mais" atualiza somente a grade de apontamentos.
-        H3 rankingTitle=new H3(t("Ranking de OEE no Mês"));rankingTitle.addClassName("gp-original-subtitle");
+        Div metrics=new Div();
+        H3 rankingTitle=new H3(t("OEE por Máquina no Mês"));rankingTitle.addClassName("gp-original-subtitle");
         Div rankingHolder=new Div();rankingHolder.addClassName("gp-month-ranking-holder-v054");
         H3 tableTitle=new H3(t("Tabela Consolidada por Equipamento"));tableTitle.addClassName("gp-original-subtitle");
         Grid<LaunchRecord> summaryGrid=summaryGrid();
         H3 allTitle=new H3(t("Todos os Apontamentos do Mês"));allTitle.addClassName("gp-original-subtitle");
         Grid<LaunchRecord> entries=launchGrid();
         Div moreHolder=new Div();moreHolder.addClassName("gp-show-more-holder");
-        result.add(rankingTitle,rankingHolder,tableTitle,summaryGrid,allTitle,entries,moreHolder);
+        result.add(metrics,tableTitle,summaryGrid,rankingTitle,rankingHolder,allTitle,entries,moreHolder);
 
         boolean[] adjusting={false};
         @SuppressWarnings("unchecked")
@@ -2265,8 +2377,9 @@ public class MainView extends VerticalLayout {
             }
             if(result.getChildren().noneMatch(component->component==rankingTitle)){
                 result.removeAll();
-                result.add(rankingTitle,rankingHolder,tableTitle,summaryGrid,allTitle,entries,moreHolder);
+                result.add(metrics,tableTitle,summaryGrid,rankingTitle,rankingHolder,allTitle,entries,moreHolder);
             }
+            renderSummaryMetrics(metrics, summary, filtered);
             Map<String,Double> bars=new LinkedHashMap<>();
             summary.stream().sorted(Comparator.comparingDouble(LaunchRecord::getOeePct).reversed()).forEach(r->bars.put(r.getMachine(),r.getOeePct()));
             rankingHolder.removeAll();
@@ -2278,7 +2391,6 @@ public class MainView extends VerticalLayout {
         };
         month.addValueChangeListener(e->{if(!adjusting[0]){summaryMonth=e.getValue();summaryMonthSector=null;monthLimit=AppConfig.PAGE_SIZE;refreshRef[0].run();}});
         sector.addValueChangeListener(e->{if(!adjusting[0]){summaryMonthSector=e.getValue();monthLimit=AppConfig.PAGE_SIZE;refreshRef[0].run();}});
-        activeMonthRefresh = refreshRef[0];
 
         Popover filterDropdown = summaryFilterDropdown(filter, filterFields, () -> {
             adjusting[0]=true;
@@ -2343,7 +2455,7 @@ public class MainView extends VerticalLayout {
             z.setSector(g.get(0).getSector());
             z.setCapacity24h(g.stream().mapToInt(LaunchRecord::getCapacity24h).max().orElse(0));
             z.setTotalProduced(g.stream().mapToInt(LaunchRecord::getTotalProduced).sum());
-            z.setScrapTotalKg(g.stream().mapToDouble(LaunchRecord::getScrapTotalKg).sum());
+            z.setScrapTotalKg(Norm.round(g.stream().mapToDouble(LaunchRecord::getScrapTotalKg).sum(), 3));
             z.setScrapTotalPcs(g.stream().mapToInt(LaunchRecord::getScrapTotalPcs).sum());
             z.setChangeovers(g.stream().mapToInt(LaunchRecord::getChangeovers).sum());
             z.setProblem(combineObservations(g));
@@ -3255,11 +3367,11 @@ public class MainView extends VerticalLayout {
 
         Grid<RefugoRecord> grid = new Grid<>(RefugoRecord.class, false);
         grid.addThemeVariants(GridVariant.LUMO_NO_BORDER, GridVariant.LUMO_ROW_STRIPES);
-        grid.addColumn(r -> Norm.br(r.productiveDate())).setHeader(t("Data")).setAutoWidth(true);
+        grid.addColumn(r -> Norm.br(r.productiveDate())).setHeader(t("Data")).setWidth("108px").setFlexGrow(0);
         grid.addColumn(MainView::scrapLoadTime).setHeader(t("Hora")).setAutoWidth(true);
-        grid.addColumn(RefugoRecord::orderNumber).setHeader(t("OP")).setAutoWidth(true);
+        grid.addColumn(RefugoRecord::orderNumber).setHeader(t("Nº OP")).setWidth("84px").setFlexGrow(0);
         grid.addColumn(RefugoRecord::machine).setHeader(t("Máquina")).setAutoWidth(true);
-        grid.addColumn(RefugoRecord::product).setHeader(t("Produto")).setAutoWidth(true);
+        grid.addColumn(RefugoRecord::product).setHeader(t("Código Produto")).setWidth("140px").setFlexGrow(0);
         grid.addColumn(RefugoRecord::shift).setHeader(t("Turno")).setAutoWidth(true);
         grid.addColumn(r -> t(nonBlank(r.motive()))).setHeader(t("Motivo")).setAutoWidth(true);
         grid.addColumn(RefugoRecord::operator).setHeader(t("Lançado por")).setAutoWidth(true);
@@ -3286,12 +3398,12 @@ public class MainView extends VerticalLayout {
         title.addClassName("gp-subsection-title");
         Grid<RefugoRecord> grid = new Grid<>(RefugoRecord.class, false);
         grid.addThemeVariants(GridVariant.LUMO_NO_BORDER, GridVariant.LUMO_ROW_STRIPES);
-        grid.addColumn(r -> Norm.br(r.productiveDate())).setHeader(t("Data"));
+        grid.addColumn(r -> Norm.br(r.productiveDate())).setHeader(t("Data")).setWidth("108px").setFlexGrow(0);
         grid.addColumn(MainView::scrapLoadTime).setHeader(t("Hora"));
-        grid.addColumn(RefugoRecord::orderNumber).setHeader(t("Nº da OP"));
+        grid.addColumn(RefugoRecord::orderNumber).setHeader(t("Nº OP")).setWidth("84px").setFlexGrow(0);
         grid.addColumn(RefugoRecord::sector).setHeader(t("Setor"));
         grid.addColumn(RefugoRecord::machine).setHeader(t("Máquina"));
-        grid.addColumn(RefugoRecord::product).setHeader(t("Produto"));
+        grid.addColumn(RefugoRecord::product).setHeader(t("Código Produto")).setWidth("140px").setFlexGrow(0);
         grid.addColumn(RefugoRecord::description).setHeader(t("Descrição"));
         grid.addColumn(RefugoRecord::shift).setHeader(t("Turno"));
         grid.addColumn(RefugoRecord::motive).setHeader(t("Motivo"));
@@ -3373,9 +3485,9 @@ public class MainView extends VerticalLayout {
 
             Grid<ScrapDetailRow> grid = new Grid<>(ScrapDetailRow.class, false);
             grid.addThemeVariants(GridVariant.LUMO_NO_BORDER, GridVariant.LUMO_ROW_STRIPES);
-            if (multiDay) grid.addColumn(ScrapDetailRow::date).setHeader(t("Data"));
-            grid.addColumn(ScrapDetailRow::order).setHeader(t("Ordem"));
-            if (multiProducts) grid.addColumn(ScrapDetailRow::product).setHeader(t("Produto"));
+            if (multiDay) grid.addColumn(ScrapDetailRow::date).setHeader(t("Data")).setWidth("108px").setFlexGrow(0);
+            grid.addColumn(ScrapDetailRow::order).setHeader(t("Nº OP")).setWidth("84px").setFlexGrow(0);
+            if (multiProducts) grid.addColumn(ScrapDetailRow::product).setHeader(t("Código Produto")).setWidth("140px").setFlexGrow(0);
             grid.addColumn(r -> formatInt((int) Math.round(r.planned()))).setHeader(t("Planejado (un)"));
             grid.addColumn(r -> format(r.scrapKg())).setHeader(t("Refugo (Kg)"));
             grid.addColumn(r -> formatInt(r.items())).setHeader(t("Refugo (un)"));
@@ -4365,8 +4477,7 @@ public class MainView extends VerticalLayout {
             for (String part : raw.split("\\+")) {
                 String p = part.trim().replace(" ", "");
                 if (p.isBlank()) continue;
-                if (p.contains(",") || p.contains(".")) total += Double.parseDouble(p.replace(',', '.'));
-                else total += Double.parseDouble(p) / 1000.0;
+                total += Double.parseDouble(p.replace(',', '.'));
             }
             return total;
         } catch (Exception e) {
@@ -4400,6 +4511,8 @@ public class MainView extends VerticalLayout {
     }
 
     private static record ScrapDetailRow(String date, String order, String product, double planned, double scrapKg, int items, Double lossPct) {}
+
+    private record LaunchFilterState(LocalDate start, LocalDate end, String search, Set<String> sectors, Set<String> machines, Set<String> clients, int limit) {}
 
     private static record ScrapSectorReportRow(String sector, double scrapKg, long launches, double participation) {}
 

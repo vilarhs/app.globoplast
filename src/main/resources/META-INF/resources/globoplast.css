@@ -437,12 +437,13 @@ vaadin-text-field[readonly] input,vaadin-date-picker[readonly] input{-webkit-tex
 .gp-oee-ranking-chart{width:100%;padding:.15rem 0 .25rem;overflow-x:auto;box-sizing:border-box}
 .gp-oee-ranking-frame{position:relative;min-width:max(100%,680px);padding-left:48px;box-sizing:border-box}
 .gp-oee-ranking-y-title{position:absolute;left:2px;top:48%;transform:translate(-24%,-50%) rotate(-90deg);font-size:.78rem;color:var(--gp-muted);white-space:nowrap}
-.gp-oee-ranking-plot{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(58px,1fr);align-items:stretch;gap:12px;height:340px;padding:22px 12px 72px;border-left:1px solid var(--gp-border);border-bottom:1px solid var(--gp-border);background:repeating-linear-gradient(to top,transparent 0,transparent calc(25% - 1px),var(--gp-border) 25%,transparent calc(25% + 1px));box-sizing:border-box}
-.gp-oee-ranking-column{height:100%;display:grid;grid-template-rows:minmax(0,1fr) 62px;align-items:end;justify-items:center}
-.gp-oee-ranking-area{height:100%;width:min(44px,68%);display:flex;align-items:flex-end;justify-content:center}
-.gp-oee-ranking-bar{width:100%;min-height:2px;border-radius:2px 2px 0 0;opacity:.88}
+.gp-oee-ranking-plot{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(92px,1fr);align-items:stretch;gap:14px;height:340px;padding:12px 12px 56px;border:1px solid var(--gp-border);border-radius:.4rem;background-color:color-mix(in srgb,var(--gp-text) 2%,transparent);background-image:repeating-linear-gradient(to top,transparent 0,transparent calc(25% - 1px),color-mix(in srgb,var(--gp-border) 95%,var(--gp-text)) calc(25% - 1px),color-mix(in srgb,var(--gp-border) 95%,var(--gp-text)) 25%);box-sizing:border-box}
+.gp-oee-ranking-column{height:100%;display:grid;grid-template-rows:minmax(0,1fr) 42px;align-items:end;justify-items:center}
+.gp-oee-ranking-area{height:100%;width:min(52px,72%);display:flex;align-items:flex-end;justify-content:center}
+.gp-oee-ranking-bar{position:relative;width:100%;min-height:2px;border-radius:3px 3px 0 0;opacity:.88}
+.gp-oee-ranking-value{position:absolute;left:50%;bottom:calc(100% + 7px);transform:translateX(-50%);font-size:.78rem;font-weight:700;font-variant-numeric:tabular-nums;color:var(--gp-text);white-space:nowrap}
 .gp-oee-ranking-column:hover .gp-oee-ranking-bar{opacity:1}
-.gp-oee-ranking-label{width:88px;max-width:88px;height:58px;padding-top:8px;overflow:visible;white-space:nowrap;text-align:right;font-size:.75rem;line-height:1;color:var(--gp-text);transform:rotate(-35deg);transform-origin:top right}
+.gp-oee-ranking-label{width:100%;height:38px;padding-top:7px;overflow:hidden;white-space:normal;text-align:center;font-size:.72rem;line-height:1.1;color:var(--gp-text)}
 
 /* v016 — contraste final dos controles nos três modos de tema. */
 html[theme~="dark"],html[data-gp-theme="dark"]{--lumo-primary-contrast-color:#fff;--lumo-disabled-text-color:rgba(250,250,250,.48);--lumo-required-field-indicator-color:#ff4b4b}
@@ -2227,6 +2228,11 @@ vaadin-context-menu-item[focus-ring]:not(:hover){background:transparent!importan
 .gp-summary-result{width:100%!important;min-width:0!important;display:flex!important;flex-direction:column!important;gap:.65rem!important}
 .gp-original-metrics{display:grid!important;gap:1rem!important;width:100%!important;min-width:0!important;margin:.15rem 0 .35rem!important}
 .gp-original-metrics-5{grid-template-columns:repeat(5,minmax(0,1fr))!important}
+.gp-original-metrics-6{grid-template-columns:repeat(6,minmax(0,1fr))!important}
+.gp-original-metrics-8{grid-template-columns:repeat(8,minmax(0,1fr))!important}
+.gp-original-metrics-9{grid-template-columns:repeat(9,minmax(0,1fr))!important}
+.gp-original-metrics-10{grid-template-columns:repeat(5,minmax(0,1fr))!important;column-gap:clamp(1.5rem,3vw,4rem)!important;row-gap:1.2rem!important;justify-items:stretch!important;transform:translateX(60px)!important}
+.gp-original-metrics-10>.gp-kpi{width:100%!important;box-sizing:border-box!important}
 .gp-original-metrics .gp-kpi{
   border:0!important;border-radius:0!important;background:transparent!important;
   box-shadow:none!important;padding:.3rem 0!important;min-width:0!important;
@@ -2263,12 +2269,12 @@ html[data-gp-theme="light"] .gp-login-card label{color:#31333f!important}
 }
 
 @media(max-width:900px){
-  .gp-original-metrics-5{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .gp-original-metrics-5,.gp-original-metrics-6,.gp-original-metrics-8,.gp-original-metrics-9,.gp-original-metrics-10{grid-template-columns:repeat(2,minmax(0,1fr))!important}
 }
 @media(max-width:700px){
   .gp-shell{padding-left:.6rem!important;padding-right:.6rem!important}
   .gp-summary-inline-3,.gp-summary-inline-2{grid-template-columns:1fr!important}
-  .gp-original-metrics-5{grid-template-columns:1fr 1fr!important;gap:.65rem!important}
+  .gp-original-metrics-5,.gp-original-metrics-6,.gp-original-metrics-8,.gp-original-metrics-9,.gp-original-metrics-10{grid-template-columns:1fr 1fr!important;gap:.65rem!important}
 }
 
 
@@ -2277,11 +2283,11 @@ html[data-gp-theme="light"] .gp-login-card label{color:#31333f!important}
    ========================================================== */
 .gp-shell{
   width:100%!important;
-  max-width:1800px!important;
+  max-width:none!important;
   margin-left:auto!important;
   margin-right:auto!important;
-  padding-left:clamp(1.4rem,3.6vw,4.75rem)!important;
-  padding-right:clamp(1.4rem,3.6vw,4.75rem)!important;
+  padding-left:clamp(1rem,1.8vw,2rem)!important;
+  padding-right:clamp(1rem,1.8vw,2rem)!important;
   box-sizing:border-box!important;
 }
 .gp-content,.gp-header,.gp-tabs,.gp-footer,.gp-title-row,.gp-toolbar{
@@ -2985,7 +2991,6 @@ html body vaadin-dialog.gp-modal-v053.gp-modal-v053.gp-modal-v053
 
 /* A ampliação é exclusiva da tabela principal de Lançamentos. */
 html body vaadin-grid.gp-launch-grid-v059.gp-launch-grid-v059::part(header-cell){
-  font-size:15px!important;
   line-height:1.3!important;
 }
 html body vaadin-grid.gp-launch-grid-v059.gp-launch-grid-v059::part(body-cell){
@@ -2994,6 +2999,10 @@ html body vaadin-grid.gp-launch-grid-v059.gp-launch-grid-v059::part(body-cell){
 }
 html body vaadin-grid.gp-launch-grid-v059.gp-launch-grid-v059 .gp-oee-value{
   font-size:16px!important;
+}
+html body .gp-grid-compact-header-v210{
+  font-size:13px!important;
+  white-space:nowrap!important;
 }
 
 /* O tooltip agora é o overlay nativo do Vaadin. Desativa o balão CSS antigo
@@ -4577,7 +4586,6 @@ html body .gp-refugo-page>.gp-refugo-kpis-v056>.gp-kpi>.gp-kpi-caption{
 
 /* O consolidado diário usa exatamente os tamanhos da tabela de Lançamentos. */
 html body vaadin-grid.gp-summary-day-grid-v083::part(header-cell){
-  font-size:15px!important;
   line-height:1.3!important;
 }
 html body vaadin-grid.gp-summary-day-grid-v083::part(body-cell),

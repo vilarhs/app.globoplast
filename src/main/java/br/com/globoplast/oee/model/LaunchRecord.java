@@ -41,6 +41,7 @@ public class LaunchRecord {
     private String actionTaken = "";
     private String launchTime = "";
     private String movementAt = "";
+    private String editedAt = "";
     private String operatorErp = "";
     private String descriptionErp = "";
     private String clientErp = "";
@@ -121,6 +122,8 @@ public class LaunchRecord {
     public void setLaunchTime(String launchTime) { this.launchTime = nz(launchTime); }
     public String getMovementAt() { return movementAt; }
     public void setMovementAt(String movementAt) { this.movementAt = nz(movementAt); }
+    public String getEditedAt() { return editedAt; }
+    public void setEditedAt(String editedAt) { this.editedAt = nz(editedAt); }
     public String getOperatorErp() { return operatorErp; }
     public void setOperatorErp(String operatorErp) { this.operatorErp = nz(operatorErp); }
     public String getDescriptionErp() { return descriptionErp; }
@@ -150,7 +153,7 @@ public class LaunchRecord {
         x.unitWeightG=unitWeightG; x.scrapAKg=scrapAKg; x.scrapBKg=scrapBKg; x.scrapCKg=scrapCKg; x.scrapTotalKg=scrapTotalKg; x.scrapTotalPcs=scrapTotalPcs;
         x.scrapPct=scrapPct; x.changeovers=changeovers; x.setupHours=setupHours; x.breakdownHours=breakdownHours; x.producingHours=producingHours;
         x.availabilityPct=availabilityPct; x.performancePct=performancePct; x.qualityPct=qualityPct; x.oeePct=oeePct;
-        x.problem=problem; x.actionTaken=actionTaken; x.launchTime=launchTime; x.movementAt=movementAt; x.operatorErp=operatorErp; x.descriptionErp=descriptionErp; x.clientErp=clientErp; x.launchCount=launchCount;
+        x.problem=problem; x.actionTaken=actionTaken; x.launchTime=launchTime; x.movementAt=movementAt; x.editedAt=editedAt; x.operatorErp=operatorErp; x.descriptionErp=descriptionErp; x.clientErp=clientErp; x.launchCount=launchCount;
         x.orderProgressAvailable=orderProgressAvailable; x.orderPlannedPcs=orderPlannedPcs; x.orderLaunchedPcs=orderLaunchedPcs;
         return x;
     }
