@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+SOURCE_DIR="${GLOBOPLAST_SYSTEM_DIR:-/opt/globoplast}"
+LOCAL_DIR="${GLOBOPLAST_SYSTEM_BACKUP_DIR:-/var/backups/globoplast-system}"
+CONFIG="${GLOBOPLAST_RCLONE_CONFIG:-/home/ubuntu/.config/rclone/rclone.conf}"
+REMOTE_NAME="${GLOBOPLAST_RCLONE_REMOTE:-globoplast-drive}"
+REMOTE_DIR="${GLOBOPLAST_SYSTEM_DRIVE_FOLDER:-Globoplast Backups/Globoplast OEE/Sistema}"
+LOCAL_COPIES="${GLOBOPLAST_SYSTEM_BACKUP_COPIES:-8}"
+
+test -d "$SOURCE_DIR" || { echo "ERRO: pasta do sistema ausente: $SOURCE_DIR"; exit 1; }
+test -d "$LOCAL_DIR" || { echo "ERRO: pasta de backup ausente: $LOCAL_DIR"; exit 1; }
+test -r "$CONFIG" || { echo "ERRO: configuração rclone ausente: $CONFIG"; exit 1; }
+[[ "$LOCAL_COPIES" =~ ^[1-9][0-9]*$ ]] || { echo "ERRO: retenção local inválida: $LOCAL_COPIES"; exit 1; }
+
+exec 9>"$LOCAL_DIR/.backup.lock"
+flock -n 9 || { echo "ERRO: backup semanal já está em execução."; exit 1; }
+
+timestamp="$(TZ=America/Sao_Paulo date +%Y%m%d-%H%M%S)"
+name="globoplast-sistema-$timestamp.tar.gz"
+archive="$LOCAL_DIR/$name"
+checksum="$archive.sha256"
+partial="$archive.partial"
+checksum_partial="$checksum.partial"
+remote="${REMOTE_NAME}:${REMOTE_DIR}"
+
+cleanup() {
+  rm -f -- "$partial" "$checksum_partial"
+}
+trap cleanup EXIT
+
+echo "INÍCIO SISTEMA | origem=$SOURCE_DIR | destino=$remote"
+tar -C "$(dirname "$SOURCE_DIR")" -czf "$partial" "$(basename "$SOURCE_DIR")"
+chmod 600 "$partial"
+digest="$(sha256sum "$partial" | cut -d' ' -f1)"
+printf '%s  %s\n' "$digest" "$name" > "$checksum_partial"
+chmod 600 "$checksum_partial"
+mv -- "$partial" "$archive"
+mv -- "$checksum_partial" "$checksum"
+
+rclone mkdir "$remote" --config "$CONFIG"
+rclone copyto "$archive" "$remote/$name" --config "$CONFIG" --immutable --retries 5 --low-level-retries 10
+rclone copyto "$checksum" "$remote/$name.sha256" --config "$CONFIG" --immutable --retries 5 --low-level-retries 10
+rclone check "$LOCAL_DIR" "$remote" --config "$CONFIG" --include "$name" --include "$name.sha256" --checksum --one-way
+
+mapfile -t old_archives < <(
+  find "$LOCAL_DIR" -maxdepth 1 -type f -name 'globoplast-sistema-*.tar.gz' \
+    -printf '%T@ %p\n' | sort -nr | awk -v keep="$LOCAL_COPIES" 'NR > keep {sub(/^[^ ]+ /, ""); print}'
+)
+for old in "${old_archives[@]}"; do
+  rm -f -- "$old" "$old.sha256"
+done
+
+echo "OK SISTEMA | arquivo=$name | sha256=$digest | removidos_locais=${#old_archives[@]}"

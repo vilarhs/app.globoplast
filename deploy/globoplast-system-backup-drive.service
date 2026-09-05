@@ -1,0 +1,30 @@
+[Unit]
+Description=Backup semanal da pasta do sistema Globoplast no Google Drive
+Wants=network-online.target
+After=network-online.target globoplast.service
+ConditionPathExists=/home/ubuntu/.config/rclone/rclone.conf
+
+[Service]
+Type=oneshot
+User=ubuntu
+Group=ubuntu
+UMask=0077
+Environment=HOME=/home/ubuntu
+Environment=TZ=America/Sao_Paulo
+ExecStart=/usr/local/sbin/globoplast-system-backup-drive
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=false
+ProtectSystem=full
+ReadOnlyPaths=/opt/globoplast
+ReadWritePaths=/var/backups/globoplast-system
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

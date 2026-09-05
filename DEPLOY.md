@@ -10,6 +10,9 @@
 - Backups: `/var/backups/globoplast`
 - Backup diário: `globoplast-backup.timer`, às 03:15 (America/Sao_Paulo)
 - Segunda cópia: `globoplast-backup-drive.timer`, ativada automaticamente quando o rclone estiver configurado
+- Backup semanal da pasta `/opt/globoplast`: `/var/backups/globoplast-system`
+- Cópia semanal do sistema no Drive: `globoplast-system-backup-drive.timer`, aos domingos às 04:15
+- Pasta separada no Drive: `Globoplast Backups/Globoplast OEE/Sistema`
 
 ## Deploy normal
 

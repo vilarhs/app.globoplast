@@ -45,6 +45,9 @@ required_files=(
   deploy/globoplast-backup.timer
   deploy/globoplast-backup-drive.service
   deploy/globoplast-backup-drive.timer
+  deploy/globoplast-system-backup-drive
+  deploy/globoplast-system-backup-drive.service
+  deploy/globoplast-system-backup-drive.timer
   deploy/nginx.conf
   deploy/windows/ajustar-intervalo-erp-2min.ps1
   deploy/windows/diagnosticar_estoque_erp.py
@@ -72,6 +75,7 @@ echo '=== SINTAXE ==='
 bash -n deploy/deploy-vps.sh
 bash -n deploy/preflight.sh
 bash -n deploy/globoplast-backup-drive
+bash -n deploy/globoplast-system-backup-drive
 python3 -c 'import ast, pathlib, sys; [ast.parse(pathlib.Path(name).read_text(encoding="utf-8"), filename=name) for name in sys.argv[1:]]' \
   deploy/globoplast-backup \
   deploy/globoplast-backup-check \

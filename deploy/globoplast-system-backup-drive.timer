@@ -1,0 +1,11 @@
+[Unit]
+Description=Agenda semanal do backup da pasta do sistema Globoplast
+
+[Timer]
+OnCalendar=Sun *-*-* 04:15:00 America/Sao_Paulo
+Persistent=true
+AccuracySec=1min
+Unit=globoplast-system-backup-drive.service
+
+[Install]
+WantedBy=timers.target

@@ -57,9 +57,12 @@ echo "[2/5] Enviando Globoplast $VERSION para $DEPLOY_HOST"
   "$ROOT_DIR/deploy/globoplast-backup.timer" \
   "$ROOT_DIR/deploy/globoplast-backup-drive.service" \
   "$ROOT_DIR/deploy/globoplast-backup-drive.timer" \
+  "$ROOT_DIR/deploy/globoplast-system-backup-drive.service" \
+  "$ROOT_DIR/deploy/globoplast-system-backup-drive.timer" \
   "$ROOT_DIR/deploy/globoplast-backup" \
   "$ROOT_DIR/deploy/globoplast-backup-check" \
   "$ROOT_DIR/deploy/globoplast-backup-drive" \
+  "$ROOT_DIR/deploy/globoplast-system-backup-drive" \
   "$DEPLOY_HOST:$REMOTE_STAGE/"
 
 echo "[3/5] Instalando release com troca atômica"
@@ -88,17 +91,23 @@ systemctl cat "$SERVICE.service" >/dev/null
 sudo install -o root -g root -m 0755 "$STAGE/globoplast-backup" /usr/local/sbin/globoplast-backup
 sudo install -o root -g root -m 0755 "$STAGE/globoplast-backup-check" /usr/local/sbin/globoplast-backup-check
 sudo install -o root -g root -m 0755 "$STAGE/globoplast-backup-drive" /usr/local/sbin/globoplast-backup-drive
+sudo install -o root -g root -m 0755 "$STAGE/globoplast-system-backup-drive" /usr/local/sbin/globoplast-system-backup-drive
 sudo install -o root -g root -m 0644 "$STAGE/globoplast.service" /etc/systemd/system/globoplast.service
 sudo install -o root -g root -m 0644 "$STAGE/globoplast-backup.service" /etc/systemd/system/globoplast-backup.service
 sudo install -o root -g root -m 0644 "$STAGE/globoplast-backup.timer" /etc/systemd/system/globoplast-backup.timer
 sudo install -o root -g root -m 0644 "$STAGE/globoplast-backup-drive.service" /etc/systemd/system/globoplast-backup-drive.service
 sudo install -o root -g root -m 0644 "$STAGE/globoplast-backup-drive.timer" /etc/systemd/system/globoplast-backup-drive.timer
+sudo install -o root -g root -m 0644 "$STAGE/globoplast-system-backup-drive.service" /etc/systemd/system/globoplast-system-backup-drive.service
+sudo install -o root -g root -m 0644 "$STAGE/globoplast-system-backup-drive.timer" /etc/systemd/system/globoplast-system-backup-drive.timer
+sudo install -d -o ubuntu -g ubuntu -m 0750 /var/backups/globoplast-system
 sudo systemctl daemon-reload
 sudo systemctl enable --now globoplast-backup.timer
 if [[ -r /home/ubuntu/.config/rclone/rclone.conf ]]; then
   sudo systemctl enable --now globoplast-backup-drive.timer
+  sudo systemctl enable --now globoplast-system-backup-drive.timer
 else
   sudo systemctl disable --now globoplast-backup-drive.timer >/dev/null 2>&1 || true
+  sudo systemctl disable --now globoplast-system-backup-drive.timer >/dev/null 2>&1 || true
 fi
 
 ACTUAL="$(unzip -p "$UPLOAD" META-INF/maven/br.com.globoplast/globoplast/pom.properties 2>/dev/null | grep '^version=' || true)"

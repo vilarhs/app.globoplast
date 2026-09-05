@@ -22,6 +22,7 @@ import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -161,11 +162,81 @@ public class LaunchService {
             }
         } catch (SQLException ignored) {
         }
+        if (description.isBlank()) {
+            try (Connection c = db.open(); PreparedStatement p = c.prepareStatement(
+                    "SELECT descricao FROM erp_planejamento_raw WHERE UPPER(REPLACE(TRIM(produto),' ',''))=? " +
+                            "AND TRIM(COALESCE(descricao,''))<>'' ORDER BY sincronizado_em DESC, erp_id DESC LIMIT 1")) {
+                p.setString(1, product);
+                try (ResultSet r = p.executeQuery()) {
+                    if (r.next()) description = Norm.text(r.getString(1));
+                }
+            } catch (SQLException ignored) {
+            }
+        }
         return new ProductMetadata(description, client);
     }
 
     public String productDescription(String productCode) {
         return productMetadata(productCode).description();
+    }
+
+    /** Máquina e produto mais recentes da OP no processo correspondente ao setor do usuário. */
+    public OrderLaunchDefaults orderLaunchDefaults(String orderNumber, String sectorName, LocalDate productionDate) {
+        String order = Norm.order(orderNumber);
+        String sector = Norm.canonicalSector(sectorName);
+        if (!order.matches("\\d+")) return new OrderLaunchDefaults("", "");
+        long orderValue;
+        try { orderValue = Long.parseLong(order); }
+        catch (NumberFormatException ignored) { return new OrderLaunchDefaults("", ""); }
+
+        Map<String, Machine> machines = catalog.machineMap();
+        OrderLaunchDefaults latest = null;
+        OrderLaunchDefaults nearest = null;
+        long nearestDistance = Long.MAX_VALUE;
+        try (Connection c = db.open(); PreparedStatement p = c.prepareStatement(
+                "SELECT data_apon,turno,produto,maquina FROM erp_apontamento_raw " +
+                        "WHERE ordem=? AND TRIM(COALESCE(produto,''))<>'' " +
+                        "ORDER BY sincronizado_em DESC,erp_id DESC")) {
+            p.setLong(1, orderValue);
+            try (ResultSet r = p.executeQuery()) {
+                while (r.next()) {
+                    String product = Norm.product(r.getString("produto"));
+                    if (!sector.isBlank() && !sector.equals(Norm.canonicalSector(Norm.scrapSector(product)))) continue;
+                    Machine machine = resolveMachine(machines, r.getString("maquina"));
+                    if (!sector.isBlank() && machine != null && !sector.equals(Norm.canonicalSector(machine.sector()))) continue;
+                    OrderLaunchDefaults candidate = new OrderLaunchDefaults(product, machine == null ? "" : machine.name());
+                    LocalDate date = Norm.productiveDate(Norm.isoDate(r.getString("data_apon")), r.getString("turno"));
+                    if (productionDate != null && date != null) {
+                        long distance = Math.abs(ChronoUnit.DAYS.between(productionDate, date));
+                        if (distance <= 1 && distance < nearestDistance) {
+                            nearest = candidate;
+                            nearestDistance = distance;
+                        }
+                    }
+                    if (latest == null) latest = candidate;
+                }
+            }
+        } catch (SQLException e) {
+            throw new IllegalStateException(e);
+        }
+        if (nearest != null) return nearest;
+        if (latest != null) return latest;
+
+        try (Connection c = db.open(); PreparedStatement p = c.prepareStatement(
+                "SELECT produto FROM erp_planejamento_raw WHERE ordem=? AND TRIM(COALESCE(produto,''))<>'' " +
+                        "ORDER BY data_plan DESC,sincronizado_em DESC,erp_id DESC")) {
+            p.setLong(1, orderValue);
+            try (ResultSet r = p.executeQuery()) {
+                while (r.next()) {
+                    String product = Norm.product(r.getString(1));
+                    if (sector.isBlank() || sector.equals(Norm.canonicalSector(Norm.scrapSector(product))))
+                        return new OrderLaunchDefaults(product, "");
+                }
+            }
+        } catch (SQLException e) {
+            throw new IllegalStateException(e);
+        }
+        return new OrderLaunchDefaults("", "");
     }
 
     public double productUnitWeightG(String productCode) {
@@ -190,6 +261,8 @@ public class LaunchService {
     public ScrapByShift manualScrapByShift(LocalDate productionDate, String orderNumber, String sectorName, String machineName, String launchProduct) {
         String order = Norm.order(orderNumber);
         String sector = Norm.canonicalSector(sectorName);
+        if (sector.isBlank() && !Norm.product(launchProduct).isBlank())
+            sector = Norm.canonicalSector(Norm.scrapSector(launchProduct));
         if (productionDate == null || order.isBlank() || sector.isBlank()) return new ScrapByShift(0, 0, 0);
         double shiftA = 0, shiftB = 0, shiftC = 0;
         try (Connection c = db.open(); PreparedStatement p = c.prepareStatement(
@@ -202,7 +275,7 @@ public class LaunchService {
                 while (r.next()) {
                     LocalDate date = Norm.productiveScrapDate(Norm.isoDate(r.getString("data_apon")), r.getString("turno"), r.getString("sincronizado_em"));
                     if (!productionDate.equals(date)) continue;
-                    if (!matchesScrapToLaunch(sector, machineName, launchProduct, r.getString("produto"), r.getString("maquina"))) continue;
+                    if (!matchesManualScrapLookup(sector, launchProduct, r.getString("produto"), r.getString("maquina"))) continue;
                     double kg = Math.max(0, r.getDouble("qtd_refugo"));
                     switch (Norm.token(r.getString("turno"))) {
                         case "A" -> shiftA += kg;
@@ -221,14 +294,32 @@ public class LaunchService {
         ScrapByShift erp = manualScrapByShift(productionDate, orderNumber, sectorName, machineName, launchProduct);
         if (productionDate == null || Norm.order(orderNumber).isBlank()) return erp;
         double a = 0, b = 0, c = 0;
+        String targetSector = Norm.canonicalSector(sectorName);
+        if (targetSector.isBlank() && !Norm.product(launchProduct).isBlank())
+            targetSector = Norm.canonicalSector(Norm.scrapSector(launchProduct));
         for (LaunchRecord record : manual(productionDate, productionDate)) {
             Machine machine = resolveMachine(catalog.machineMap(), record.getMachine());
             String sector = machine == null ? Norm.sectorFromMachineRaw(record.getMachine()) : machine.sector();
             if (!Norm.order(record.getOrderNumber()).equals(Norm.order(orderNumber))
-                    || !matchesScrapToLaunch(sector, record.getMachine(), record.getProduct(), launchProduct, machineName)) continue;
+                    || !Norm.canonicalSector(sector).equals(targetSector)
+                    || (!productProcess(launchProduct).isBlank()
+                    && !productProcess(record.getProduct()).equals(productProcess(launchProduct)))) continue;
             a += Math.max(0, record.getScrapAKg()); b += Math.max(0, record.getScrapBKg()); c += Math.max(0, record.getScrapCKg());
         }
         return new ScrapByShift(Norm.round(Math.max(0, erp.shiftA() - a), 3), Norm.round(Math.max(0, erp.shiftB() - b), 3), Norm.round(Math.max(0, erp.shiftC() - c), 3));
+    }
+
+    /** Busca manual por OP/data/processo; máquina é apenas informativa. */
+    private static boolean matchesManualScrapLookup(String launchSector, String launchProduct, String scrapProduct, String scrapMachine) {
+        String sector = Norm.canonicalSector(launchSector);
+        String scrapSector = Norm.canonicalSector(Norm.scrapSector(scrapProduct));
+        String process = productProcess(launchProduct);
+        String scrapProcess = productProcess(scrapProduct);
+        if (sector.equals(scrapSector)) return process.isBlank() || process.equals(scrapProcess);
+        return "COL DE TAMPA".equals(sector)
+                && (process.isBlank() || "776".equals(process))
+                && "775".equals(scrapProcess)
+                && Norm.machine(scrapMachine).startsWith("HOT AIR ");
     }
 
     /** HOT AIR é lançado como Colocação de Tampa, mas o ERP registra seu refugo no processo 775 (Fechamento). */
@@ -256,8 +347,38 @@ public class LaunchService {
 
     @PostConstruct
     void recalculateSavedManualHistory() {
+        synchronizeSavedManualCapacities();
         fillManualMissingWeights();
         rebuildManualErpScrap();
+        recalculateStoredManualOee();
+    }
+
+    /** Atualiza o histórico manual quando a capacidade cadastrada é alterada. */
+    public void refreshAllMachineCapacities() {
+        synchronizeSavedManualCapacities();
+        recalculateStoredManualOee();
+    }
+
+    private void synchronizeSavedManualCapacities() {
+        Map<String, Machine> machines = catalog.machineMap();
+        List<long[]> updates = new ArrayList<>();
+        try (Connection c = db.open(); Statement s = c.createStatement(); ResultSet r = s.executeQuery(
+                "SELECT id,maquina,capacidade_24h FROM historico_oee")) {
+            while (r.next()) {
+                Machine machine = resolveMachine(machines, r.getString("maquina"));
+                if (machine != null && machine.capacity() > 0 && r.getInt("capacidade_24h") != machine.capacity())
+                    updates.add(new long[]{r.getLong("id"), machine.capacity()});
+            }
+        } catch (SQLException e) { throw new IllegalStateException(e); }
+        if (updates.isEmpty()) return;
+        try (Connection c = db.open(); PreparedStatement p = c.prepareStatement(
+                "UPDATE historico_oee SET capacidade_24h=? WHERE id=?")) {
+            for (long[] update : updates) { p.setInt(1, (int) update[1]); p.setLong(2, update[0]); p.addBatch(); }
+            p.executeBatch();
+        } catch (SQLException e) { throw new IllegalStateException(e); }
+    }
+
+    private void recalculateStoredManualOee() {
         List<String[]> groups = new ArrayList<>();
         try (Connection c = db.open(); Statement s = c.createStatement(); ResultSet r = s.executeQuery(
                 "SELECT data,maquina FROM historico_oee GROUP BY data,maquina")) {
@@ -1205,6 +1326,7 @@ public class LaunchService {
     private static String erpKey(LocalDate d,String op,String machine,String product){return d+"|"+Norm.order(op)+"|"+Norm.token(machine)+"|"+Norm.product(product);}
     private static long erpId(String key){try{byte[]b=MessageDigest.getInstance("SHA-1").digest(key.getBytes(StandardCharsets.UTF_8));long v=0;for(int i=0;i<7;i++)v=(v<<8)|(b[i]&255);return 8_000_000_000_000L+(Math.abs(v)%900_000_000_000L);}catch(Exception e){return 8_000_000_000_000L+Math.abs(key.hashCode());}}
     public record ProductMetadata(String description,String client){}
+    public record OrderLaunchDefaults(String product,String machine){}
     public record ScrapByShift(double shiftA, double shiftB, double shiftC){}
     public record TrashItem(long id,String type,LaunchRecord record,String deletedBy,String deletedAt,String expiresAt){}
     public record OrderProcessProgress(String orderNumber,String process,String processName,String product,
