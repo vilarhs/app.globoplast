@@ -401,7 +401,7 @@ public class MainView extends VerticalLayout {
         MenuItem reportsTab = mainTabs.addItem("📊 " + t("Relatórios"));
         reportsTab.addClassName("gp-main-navigation-root");
         tabKeys.put(reportsTab, SCRAP_REPORT_KEY);
-        addTabMenuItem(reportsTab.getSubMenu(), t("Refugo"), () -> openProductionSubPage(SCRAP_REPORT_KEY));
+        addTabMenuItem(reportsTab.getSubMenu(), t("Refugo"), this::renderScrapReport);
 
         addSystemMenu(mainTabs);
 
@@ -1736,7 +1736,7 @@ public class MainView extends VerticalLayout {
 
     private void showLaunchTrash(String type) {
         Dialog d = dialog(t("Lixeira de Lançamentos"));
-        d.setWidth("min(980px, calc(100vw - 32px))");
+        d.setWidth("min(1120px, calc(100vw - 32px))");
         Span retention = new Span(t("Os lançamentos excluídos permanecem na lixeira por 30 dias e depois são excluídos definitivamente."));
         retention.addClassName("gp-muted");
 
@@ -1746,10 +1746,12 @@ public class MainView extends VerticalLayout {
         grid.addColumn(item -> item.record().getMachine()).setHeader(t("Máquina")).setWidth("190px").setFlexGrow(1);
         grid.addColumn(new ComponentRenderer<>(item -> launchProductCell(item.record()))).setHeader(t("Código Produto")).setWidth("140px").setFlexGrow(0);
         grid.addColumn(new ComponentRenderer<>(item -> launchOrderCell(item.record()))).setHeader(t("Nº OP")).setWidth("84px").setFlexGrow(0);
-        grid.addColumn(item -> formatTrashDate(item.deletedAt())).setHeader(t("Excluído em")).setAutoWidth(true);
-        grid.addColumn(item -> formatTrashDate(item.expiresAt())).setHeader(t("Exclusão definitiva")).setAutoWidth(true);
+        grid.addColumn(item -> formatTrashDate(item.deletedAt())).setHeader(t("Excluído em")).setWidth("155px").setFlexGrow(1);
+        grid.addColumn(item -> formatTrashDate(item.expiresAt())).setHeader(t("Exclusão definitiva")).setWidth("155px").setFlexGrow(1);
         grid.addColumn(new ComponentRenderer<>(item -> {
-            Button restore = new Button(t("Restaurar"), VaadinIcon.ROTATE_LEFT.create());
+            Button restore = new Button(VaadinIcon.ROTATE_LEFT.create());
+            restore.setAriaLabel(t("Recuperar"));
+            restore.setTooltipText(t("Recuperar"));
             restore.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
             restore.addClickListener(e -> {
                 try {
@@ -1763,12 +1765,14 @@ public class MainView extends VerticalLayout {
                     notify(message == null || message.isBlank() ? t("Não foi possível restaurar o lançamento.") : t(message));
                 }
             });
-            Button remove = new Button(t("Apagar"), VaadinIcon.TRASH.create());
+            Button remove = new Button(VaadinIcon.TRASH.create());
+            remove.setAriaLabel(t("Apagar"));
             remove.addThemeVariants(ButtonVariant.ERROR, ButtonVariant.LUMO_TERTIARY_INLINE);
-            remove.setTooltipText(t("Apagar permanentemente")).withPosition(Tooltip.TooltipPosition.TOP);
+            remove.setTooltipText(t("Apagar")).withPosition(Tooltip.TooltipPosition.TOP);
             remove.addClickListener(e -> confirmTrashDeletion(item, grid, type));
             return new HorizontalLayout(restore, remove);
-        })).setHeader(t("Ações")).setAutoWidth(true);
+        })).setHeader(t("Ações")).setWidth("90px").setFlexGrow(0);
+        grid.getColumns().forEach(column -> column.setFlexGrow(1));
         grid.setHeight("420px");
         grid.setItems(launches.trash(user, type));
 
@@ -2622,13 +2626,13 @@ public class MainView extends VerticalLayout {
     }
 
     private void renderScrapReport() {
-        content.removeAll();
+        content.getChildren().filter(c -> c.getElement().getClassList().contains("gp-scrap-report-page-v116"))
+                .toList().forEach(content::remove);
+        Dialog reportDialog = launchDialog(t("Relatório de Refugo"));
 
         scrapReportTitle = new H2();
         scrapReportTitle.addClassName("gp-section-title");
         updateScrapReportTitle();
-        Div titleRow = new Div(scrapReportTitle);
-        titleRow.addClassNames("gp-title-row", "gp-title-row-static");
 
         TextField search = new TextField(t("Pesquisar refugo"));
         search.setPlaceholder(t("Ordem, produto ou descrição"));
@@ -2650,12 +2654,16 @@ public class MainView extends VerticalLayout {
                 .withPosition(Tooltip.TooltipPosition.TOP);
         exportPdf.addClickListener(e -> exportScrapReportPdf());
 
-        Div toolbar = new Div(search, filter, exportPdf);
-        toolbar.addClassNames("gp-toolbar", "gp-tab-controls", "gp-search-filter-toolbar-v044", "gp-scrap-report-toolbar-v116");
-        Popover filterDropdown = scrapFilterDropdown(filter, this::refreshScrapReport, this::renderScrapReport);
+        Popover filterDropdown = scrapFilterDropdown(filter, this::refreshScrapReport, () -> {
+            reportDialog.close();
+            renderScrapReport();
+        });
+        Component filterFields = filterDropdown.getChildren().findFirst().orElseThrow();
+        filterDropdown.remove(filterFields);
+        reportDialog.add(search, filterFields);
+        reportDialog.addClassName("gp-report-filter-dialog");
+        reportDialog.getFooter().add(exportPdf);
 
-        Paragraph explanation = new Paragraph(t("Todos os setores de refugo aparecem no relatório, mesmo quando não possuem lançamentos no período."));
-        explanation.addClassNames("gp-muted", "gp-scrap-report-explanation-v117");
 
         Image printLogo = new Image("/images/globoplast-logo.png", "Globoplast");
         printLogo.addClassName("gp-scrap-report-print-logo-v117");
@@ -2681,7 +2689,7 @@ public class MainView extends VerticalLayout {
         reasons.setId("scrap-report-reasons");
         reasons.addClassName("gp-scrap-report-reasons-v116");
 
-        Div page = new Div(titleRow, toolbar, filterDropdown, explanation, printHeader, kpis, sectors, reasons, comparison);
+        Div page = new Div(printHeader, kpis, sectors, reasons, comparison);
         page.addClassName("gp-scrap-report-page-v116");
         content.add(page);
 
@@ -2690,6 +2698,7 @@ public class MainView extends VerticalLayout {
             refreshScrapReport();
         });
         refreshScrapReport();
+        reportDialog.open();
     }
 
     private void exportScrapReportPdf() {

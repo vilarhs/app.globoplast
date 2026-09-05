@@ -4761,7 +4761,20 @@ html body .gp-scrap-report-print-header-v117{
   }
 }
 
+@media screen{
+  .gp-content>.gp-scrap-report-page-v116{display:none!important}
+}
+.gp-report-filter-dialog .gp-filter-dropdown-grid{
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+}
+.gp-report-filter-dialog .gp-filter-dropdown-grid>.gp-period-picker{grid-column:1/-1}
+@media(max-width:600px){
+  .gp-report-filter-dialog .gp-filter-dropdown-grid{grid-template-columns:1fr!important}
+}
 @media print{
+  html.gp-print-scrap-report-v117 .gp-content>:not(.gp-scrap-report-page-v116),
+  html.gp-print-scrap-report-v117 vaadin-dialog,
+  html.gp-print-scrap-report-v117 vaadin-dialog-overlay{display:none!important}
   @page{size:A4 landscape;margin:10mm}
   html.gp-print-scrap-report-v117,
   html.gp-print-scrap-report-v117 body{
