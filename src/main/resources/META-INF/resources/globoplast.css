@@ -4660,7 +4660,7 @@ html body .gp-scrap-report-page-v116{
   flex-direction:column;
   width:100%;
   min-width:0;
-  padding:0 clamp(.75rem,2vw,1.5rem) 1.5rem;
+  padding:0 0 1.5rem;
   box-sizing:border-box;
 }
 html body .gp-scrap-report-toolbar-v116{
