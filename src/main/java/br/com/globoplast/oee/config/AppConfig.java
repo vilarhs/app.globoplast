@@ -7,7 +7,7 @@ import java.util.List;
 public final class AppConfig {
     private AppConfig() {}
 
-    public static final String VERSION = "0.1.263";
+    public static final String VERSION = "0.1.264";
     public static final ZoneId ZONE = ZoneId.of("America/Sao_Paulo");
     public static final int PBKDF2_ITERATIONS = 260_000;
     public static final String DEFAULT_LANGUAGE = "pt-BR";
@@ -19,7 +19,10 @@ public final class AppConfig {
     public static final int PAGE_SIZE = 20;
 
     public static Path dbFile() {
-        String configured = System.getenv("GLOBOPLAST_DB");
+        String configured = System.getProperty("globoplast.db");
+        if (configured == null || configured.isBlank()) {
+            configured = System.getenv("GLOBOPLAST_DB");
+        }
         if (configured == null || configured.isBlank()) {
             configured = "/var/lib/globoplast/database.db";
         }

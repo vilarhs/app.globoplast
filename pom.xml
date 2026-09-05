@@ -13,7 +13,7 @@
 
     <groupId>br.com.globoplast</groupId>
     <artifactId>globoplast</artifactId>
-    <version>0.1.263</version>
+    <version>0.1.264</version>
     <name>Globoplast OEE Java</name>
 
     <properties>
@@ -51,6 +51,11 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-json</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
