@@ -1280,14 +1280,15 @@ vaadin-dialog-overlay::part(header){
 
 /* Ícones de ações/filtros: menores, alinhados e consistentes. */
 .gp-action-icon{
-  width:32px!important;min-width:32px!important;max-width:32px!important;
-  height:32px!important;min-height:32px!important;max-height:32px!important;
+  width:34px!important;min-width:34px!important;max-width:34px!important;
+  height:34px!important;min-height:34px!important;max-height:34px!important;
   margin:0 2px!important;padding:0!important;
   color:var(--gp-muted)!important;background:transparent!important;
   border:1px solid transparent!important;border-radius:8px!important;
   box-shadow:none!important;
 }
-.gp-action-icon vaadin-icon{width:16px!important;height:16px!important}
+.gp-action-icon vaadin-icon{width:24px!important;height:24px!important}
+.gp-action-buttons{width:100%!important;align-items:center!important;justify-content:center!important}
 .gp-action-icon:hover,.gp-action-icon:focus-visible{
   color:var(--gp-text)!important;background:var(--gp-hover)!important;
   border-color:var(--gp-control-border)!important;
@@ -1317,25 +1318,6 @@ vaadin-dialog-overlay::part(header){
 /* ==========================================================
    0.0.23 — paridade original: ações, filtro, gráfico e dropdown
    ========================================================== */
-
-/* Ações: exatamente os glifos usados no app Python original. */
-.gp-action-icon{
-  width:22px!important;min-width:22px!important;max-width:22px!important;
-  height:22px!important;min-height:22px!important;max-height:22px!important;
-  margin:0 2px!important;padding:0!important;
-  border:0!important;border-radius:0!important;
-  background:transparent!important;box-shadow:none!important;
-  color:inherit!important;font-size:16px!important;line-height:22px!important;
-  font-family:system-ui,-apple-system,"Segoe UI Emoji","Apple Color Emoji",sans-serif!important;
-  transform:none!important;transition:none!important;
-}
-.gp-action-icon:hover,.gp-action-icon:focus,.gp-action-icon:focus-visible,.gp-action-icon:active{
-  border:0!important;background:transparent!important;box-shadow:none!important;
-  outline:0!important;transform:none!important;color:inherit!important;
-}
-.gp-action-icon-danger,.gp-action-icon-danger:hover,.gp-action-icon-danger:focus-visible{
-  color:inherit!important;background:transparent!important;border:0!important;
-}
 
 /* Filtro: mesmo funil sólido 15x14 do original; sem VaadinIcon. */
 .gp-filter-button{
@@ -4761,20 +4743,7 @@ html body .gp-scrap-report-print-header-v117{
   }
 }
 
-@media screen{
-  .gp-content>.gp-scrap-report-page-v116{display:none!important}
-}
-.gp-report-filter-dialog .gp-filter-dropdown-grid{
-  grid-template-columns:repeat(2,minmax(0,1fr))!important;
-}
-.gp-report-filter-dialog .gp-filter-dropdown-grid>.gp-period-picker{grid-column:1/-1}
-@media(max-width:600px){
-  .gp-report-filter-dialog .gp-filter-dropdown-grid{grid-template-columns:1fr!important}
-}
 @media print{
-  html.gp-print-scrap-report-v117 .gp-content>:not(.gp-scrap-report-page-v116),
-  html.gp-print-scrap-report-v117 vaadin-dialog,
-  html.gp-print-scrap-report-v117 vaadin-dialog-overlay{display:none!important}
   @page{size:A4 landscape;margin:10mm}
   html.gp-print-scrap-report-v117,
   html.gp-print-scrap-report-v117 body{

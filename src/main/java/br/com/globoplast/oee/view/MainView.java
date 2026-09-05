@@ -28,6 +28,7 @@ import com.vaadin.flow.component.combobox.MultiSelectComboBox;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.details.Details;
 import com.vaadin.flow.component.grid.Grid;
+import com.vaadin.flow.component.grid.ColumnTextAlign;
 import com.vaadin.flow.component.grid.GridVariant;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H1;
@@ -401,7 +402,7 @@ public class MainView extends VerticalLayout {
         MenuItem reportsTab = mainTabs.addItem("📊 " + t("Relatórios"));
         reportsTab.addClassName("gp-main-navigation-root");
         tabKeys.put(reportsTab, SCRAP_REPORT_KEY);
-        addTabMenuItem(reportsTab.getSubMenu(), t("Refugo"), this::renderScrapReport);
+        addTabMenuItem(reportsTab.getSubMenu(), t("Refugo"), () -> openProductionSubPage(SCRAP_REPORT_KEY));
 
         addSystemMenu(mainTabs);
 
@@ -759,7 +760,8 @@ public class MainView extends VerticalLayout {
         grid.addColumn(r -> r.isOrderProgressAvailable() ? formatInt(r.getOrderLaunchedPcs()) : "—").setHeader(t("Produzido (OP)")).setAutoWidth(true);
         grid.addColumn(r -> r.isOrderProgressAvailable() ? formatInt(r.getOrderRemainingPcs()) : "—").setHeader(t("Falta (OP)")).setAutoWidth(true);
         grid.addColumn(new ComponentRenderer<>(r -> oeeCell(r, 1))).setHeader("OEE").setWidth("120px").setFlexGrow(0);
-        grid.addColumn(new ComponentRenderer<>(this::launchActions)).setHeader(t("Ações")).setAutoWidth(true);
+        grid.addColumn(new ComponentRenderer<>(this::launchActions)).setHeader(t("Ações"))
+                .setWidth("116px").setFlexGrow(0).setTextAlign(ColumnTextAlign.CENTER);
         grid.setAllRowsVisible(true);
         return grid;
     }
@@ -906,20 +908,19 @@ public class MainView extends VerticalLayout {
     }
 
     private Component launchActions(LaunchRecord record) {
-        HorizontalLayout actions = new HorizontalLayout();
-        actions.setPadding(false);
-        actions.setSpacing(false);
-        Button view = icon(VaadinIcon.EYE, t("Visualizar lançamento"));
+        Button view = actionIcon(VaadinIcon.EYE, t("Visualizar lançamento"));
         view.addClickListener(e -> showLaunchView(record));
-        actions.add(view);
+        List<Button> buttons = new ArrayList<>();
+        buttons.add(view);
         if (canActOnLaunch(record)) {
-            Button edit = icon(VaadinIcon.EDIT, t("Editar"));
+            Button edit = actionIcon(VaadinIcon.EDIT, t("Editar"));
             edit.addClickListener(e -> showLaunchDialog(record));
-            Button delete = icon(VaadinIcon.TRASH, t("Excluir"));
+            Button delete = actionIcon(VaadinIcon.TRASH, t("Excluir"));
             delete.addClickListener(e -> confirmDelete(record));
-            actions.add(edit, delete);
+            buttons.add(edit);
+            buttons.add(delete);
         }
-        return actions;
+        return actionIcons(buttons.toArray(Button[]::new));
     }
 
     private boolean canActOnLaunch(LaunchRecord record) {
@@ -937,17 +938,6 @@ public class MainView extends VerticalLayout {
             }
         }
         return !target.isBlank() && allowed.equalsIgnoreCase(target);
-    }
-
-    private Button icon(VaadinIcon icon, String tip) {
-        String glyph = icon == VaadinIcon.EYE ? "👁️" : icon == VaadinIcon.EDIT ? "✏️" : icon == VaadinIcon.TRASH ? "❌" : "";
-        Button button = new Button(glyph);
-        button.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
-        button.setTooltipText(tip).withPosition(Tooltip.TooltipPosition.TOP);
-        button.getElement().setAttribute("aria-label", tip);
-        button.addClassName("gp-action-icon");
-        if (icon == VaadinIcon.TRASH) button.addClassName("gp-action-icon-danger");
-        return button;
     }
 
     @SuppressWarnings("unchecked")
@@ -1749,10 +1739,7 @@ public class MainView extends VerticalLayout {
         grid.addColumn(item -> formatTrashDate(item.deletedAt())).setHeader(t("Excluído em")).setWidth("155px").setFlexGrow(1);
         grid.addColumn(item -> formatTrashDate(item.expiresAt())).setHeader(t("Exclusão definitiva")).setWidth("155px").setFlexGrow(1);
         grid.addColumn(new ComponentRenderer<>(item -> {
-            Button restore = new Button(VaadinIcon.ROTATE_LEFT.create());
-            restore.setAriaLabel(t("Recuperar"));
-            restore.setTooltipText(t("Recuperar"));
-            restore.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
+            Button restore = actionIcon(VaadinIcon.ROTATE_LEFT, t("Recuperar"));
             restore.addClickListener(e -> {
                 try {
                     launches.restoreTrash(item.id(), user);
@@ -1765,14 +1752,10 @@ public class MainView extends VerticalLayout {
                     notify(message == null || message.isBlank() ? t("Não foi possível restaurar o lançamento.") : t(message));
                 }
             });
-            Button remove = new Button(VaadinIcon.TRASH.create());
-            remove.setAriaLabel(t("Apagar"));
-            remove.addThemeVariants(ButtonVariant.ERROR, ButtonVariant.LUMO_TERTIARY_INLINE);
-            remove.setTooltipText(t("Apagar")).withPosition(Tooltip.TooltipPosition.TOP);
+            Button remove = actionIcon(VaadinIcon.TRASH, t("Apagar"));
             remove.addClickListener(e -> confirmTrashDeletion(item, grid, type));
-            return new HorizontalLayout(restore, remove);
-        })).setHeader(t("Ações")).setWidth("90px").setFlexGrow(0);
-        grid.getColumns().forEach(column -> column.setFlexGrow(1));
+            return actionIcons(restore, remove);
+        })).setHeader(t("Ações")).setWidth("90px").setFlexGrow(0).setTextAlign(ColumnTextAlign.CENTER);
         grid.setHeight("420px");
         grid.setItems(launches.trash(user, type));
 
@@ -2626,13 +2609,13 @@ public class MainView extends VerticalLayout {
     }
 
     private void renderScrapReport() {
-        content.getChildren().filter(c -> c.getElement().getClassList().contains("gp-scrap-report-page-v116"))
-                .toList().forEach(content::remove);
-        Dialog reportDialog = launchDialog(t("Relatório de Refugo"));
+        content.removeAll();
 
         scrapReportTitle = new H2();
         scrapReportTitle.addClassName("gp-section-title");
         updateScrapReportTitle();
+        Div titleRow = new Div(scrapReportTitle);
+        titleRow.addClassNames("gp-title-row", "gp-title-row-static");
 
         TextField search = new TextField(t("Pesquisar refugo"));
         search.setPlaceholder(t("Ordem, produto ou descrição"));
@@ -2654,16 +2637,12 @@ public class MainView extends VerticalLayout {
                 .withPosition(Tooltip.TooltipPosition.TOP);
         exportPdf.addClickListener(e -> exportScrapReportPdf());
 
-        Popover filterDropdown = scrapFilterDropdown(filter, this::refreshScrapReport, () -> {
-            reportDialog.close();
-            renderScrapReport();
-        });
-        Component filterFields = filterDropdown.getChildren().findFirst().orElseThrow();
-        filterDropdown.remove(filterFields);
-        reportDialog.add(search, filterFields);
-        reportDialog.addClassName("gp-report-filter-dialog");
-        reportDialog.getFooter().add(exportPdf);
+        Div toolbar = new Div(search, filter, exportPdf);
+        toolbar.addClassNames("gp-toolbar", "gp-tab-controls", "gp-search-filter-toolbar-v044", "gp-scrap-report-toolbar-v116");
+        Popover filterDropdown = scrapFilterDropdown(filter, this::refreshScrapReport, this::renderScrapReport);
 
+        Paragraph explanation = new Paragraph(t("Todos os setores de refugo aparecem no relatório, mesmo quando não possuem lançamentos no período."));
+        explanation.addClassNames("gp-muted", "gp-scrap-report-explanation-v117");
 
         Image printLogo = new Image("/images/globoplast-logo.png", "Globoplast");
         printLogo.addClassName("gp-scrap-report-print-logo-v117");
@@ -2689,7 +2668,7 @@ public class MainView extends VerticalLayout {
         reasons.setId("scrap-report-reasons");
         reasons.addClassName("gp-scrap-report-reasons-v116");
 
-        Div page = new Div(printHeader, kpis, sectors, reasons, comparison);
+        Div page = new Div(titleRow, toolbar, filterDropdown, explanation, printHeader, kpis, sectors, reasons, comparison);
         page.addClassName("gp-scrap-report-page-v116");
         content.add(page);
 
@@ -2698,7 +2677,6 @@ public class MainView extends VerticalLayout {
             refreshScrapReport();
         });
         refreshScrapReport();
-        reportDialog.open();
     }
 
     private void exportScrapReportPdf() {
@@ -3922,15 +3900,12 @@ public class MainView extends VerticalLayout {
         grid.addClassName("gp-admin-grid");
         grid.addColumn(Sector::name).setHeader(t("Setor")).setAutoWidth(true).setFlexGrow(1);
         grid.addColumn(new ComponentRenderer<>(sector -> {
-            Button edit = iconButton(VaadinIcon.EDIT, t("Editar"));
+            Button edit = actionIcon(VaadinIcon.EDIT, t("Editar"));
             edit.addClickListener(e -> showSectorEdit(sector, body));
-            Button delete = iconButton(VaadinIcon.TRASH, t("Excluir"));
-            delete.addThemeVariants(ButtonVariant.ERROR);
+            Button delete = actionIcon(VaadinIcon.TRASH, t("Excluir"));
             delete.addClickListener(e -> confirmDeleteSector(sector, body));
-            HorizontalLayout actions = new HorizontalLayout(edit, delete);
-            actions.setPadding(false); actions.setSpacing(true);
-            return actions;
-        })).setHeader(t("Ações")).setAutoWidth(true).setFlexGrow(0);
+            return actionIcons(edit, delete);
+        })).setHeader(t("Ações")).setWidth("90px").setFlexGrow(0).setTextAlign(ColumnTextAlign.CENTER);
         grid.setItems(catalog.sectorEntries());
         grid.setAllRowsVisible(true);
         body.add(form, grid);
@@ -3997,15 +3972,12 @@ public class MainView extends VerticalLayout {
         grid.addColumn(m -> formatInt(m.capacity())).setHeader(t("Capacidade 24h")).setAutoWidth(true);
         grid.addColumn(Machine::sector).setHeader(t("Setor")).setAutoWidth(true);
         grid.addColumn(new ComponentRenderer<>(machine -> {
-            Button edit = iconButton(VaadinIcon.EDIT, t("Editar"));
+            Button edit = actionIcon(VaadinIcon.EDIT, t("Editar"));
             edit.addClickListener(e -> showMachineEdit(machine, body));
-            Button delete = iconButton(VaadinIcon.TRASH, t("Excluir"));
-            delete.addThemeVariants(ButtonVariant.ERROR);
+            Button delete = actionIcon(VaadinIcon.TRASH, t("Excluir"));
             delete.addClickListener(e -> confirmDeleteMachine(machine, body));
-            HorizontalLayout actions = new HorizontalLayout(edit, delete);
-            actions.setPadding(false); actions.setSpacing(true);
-            return actions;
-        })).setHeader(t("Ações")).setAutoWidth(true).setFlexGrow(0);
+            return actionIcons(edit, delete);
+        })).setHeader(t("Ações")).setWidth("90px").setFlexGrow(0).setTextAlign(ColumnTextAlign.CENTER);
         grid.setItems(catalog.machines());
         grid.setAllRowsVisible(true);
         body.add(form, grid);
@@ -4063,16 +4035,13 @@ public class MainView extends VerticalLayout {
         grid.addColumn(u -> profileLabel(u.profile())).setHeader(t("Perfil")).setAutoWidth(true);
         grid.addColumn(u -> u.sector() == null ? "—" : u.sector()).setHeader(t("Setor")).setAutoWidth(true);
         grid.addColumn(new ComponentRenderer<>(u -> {
-            Button edit = iconButton(VaadinIcon.EDIT, t("Editar"));
+            Button edit = actionIcon(VaadinIcon.EDIT, t("Editar"));
             edit.addClickListener(e -> showUserEdit(u, d));
-            Button delete = iconButton(VaadinIcon.TRASH, t("Excluir"));
-            delete.addThemeVariants(ButtonVariant.ERROR);
+            Button delete = actionIcon(VaadinIcon.TRASH, t("Excluir"));
             delete.setEnabled(user == null || user.id() != u.id());
             delete.addClickListener(e -> confirmDeleteUser(u, d));
-            HorizontalLayout actions = new HorizontalLayout(edit, delete);
-            actions.setPadding(false); actions.setSpacing(true);
-            return actions;
-        })).setHeader(t("Ações")).setAutoWidth(true).setFlexGrow(0);
+            return actionIcons(edit, delete);
+        })).setHeader(t("Ações")).setWidth("90px").setFlexGrow(0).setTextAlign(ColumnTextAlign.CENTER);
         grid.setItems(auth.users()); grid.setAllRowsVisible(true);
         Button add = new Button(t("Novo Usuário"), VaadinIcon.PLUS.create());
         add.addThemeVariants(ButtonVariant.PRIMARY);
@@ -4141,15 +4110,28 @@ public class MainView extends VerticalLayout {
         d.open();
     }
 
-    private Button iconButton(VaadinIcon icon, String aria) {
-        String glyph = icon == VaadinIcon.EYE ? "👁️" : icon == VaadinIcon.EDIT ? "✏️" : icon == VaadinIcon.TRASH ? "❌" : "";
-        Button b = new Button(glyph);
+    private Button actionIcon(VaadinIcon icon, String aria) {
+        Button b = new Button(icon.create());
         b.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
         b.getElement().setAttribute("aria-label", aria);
         b.setTooltipText(aria).withPosition(Tooltip.TooltipPosition.TOP);
         b.addClassName("gp-action-icon");
-        if (icon == VaadinIcon.TRASH) b.addClassName("gp-action-icon-danger");
+        if (icon == VaadinIcon.TRASH) {
+            b.addThemeVariants(ButtonVariant.ERROR);
+            b.addClassName("gp-action-icon-danger");
+        }
         return b;
+    }
+
+    private HorizontalLayout actionIcons(Button... buttons) {
+        HorizontalLayout actions = new HorizontalLayout(buttons);
+        actions.setPadding(false);
+        actions.setSpacing(false);
+        actions.setWidthFull();
+        actions.setAlignItems(FlexComponent.Alignment.CENTER);
+        actions.setJustifyContentMode(FlexComponent.JustifyContentMode.CENTER);
+        actions.addClassName("gp-action-buttons");
+        return actions;
     }
 
     private void showOwnPassword() {
