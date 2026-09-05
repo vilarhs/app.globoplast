@@ -1648,65 +1648,12 @@ public class MainView extends VerticalLayout {
     }
 
     private void showLaunchTrash(String type) {
-        Dialog d = dialog(t("Lixeira de Lançamentos"));
-        d.setWidth("min(1120px, calc(100vw - 32px))");
-        Span retention = new Span(t("Os lançamentos excluídos permanecem na lixeira por 30 dias e depois são excluídos definitivamente."));
-        retention.addClassName("gp-muted");
-
-        Grid<LaunchService.TrashItem> grid = new Grid<>(LaunchService.TrashItem.class, false);
-        grid.addThemeVariants(GridVariant.LUMO_NO_BORDER, GridVariant.LUMO_ROW_STRIPES);
-        grid.addColumn(item -> Norm.br(item.record().getDate())).setHeader(t("Data")).setWidth("108px").setFlexGrow(0);
-        grid.addColumn(item -> item.record().getMachine()).setHeader(t("Máquina")).setWidth("190px").setFlexGrow(1);
-        grid.addColumn(new ComponentRenderer<>(item -> launchProductCell(item.record()))).setHeader(t("Código Produto")).setWidth("140px").setFlexGrow(0);
-        grid.addColumn(new ComponentRenderer<>(item -> launchOrderCell(item.record()))).setHeader(t("Nº OP")).setWidth("84px").setFlexGrow(0);
-        grid.addColumn(item -> formatTrashDate(item.deletedAt())).setHeader(t("Excluído em")).setWidth("155px").setFlexGrow(1);
-        grid.addColumn(item -> formatTrashDate(item.expiresAt())).setHeader(t("Exclusão definitiva")).setWidth("155px").setFlexGrow(1);
-        grid.addColumn(new ComponentRenderer<>(item -> {
-            Button restore = actionIcon(VaadinIcon.ROTATE_LEFT, t("Recuperar"));
-            restore.addClickListener(e -> {
-                try {
-                    launches.restoreTrash(item.id(), user);
+        new LaunchTrashDialog(launches, user, type, this::t, this::dialog,
+                this::launchProductCell, this::launchOrderCell, this::formatTrashDate,
+                this::actionIcon, this::actionIcons, () -> {
                     invalidateDataCaches();
-                    grid.setItems(launches.trash(user, type));
                     refreshLaunchGrid();
-                    notify(t("Lançamento restaurado com sucesso!"));
-                } catch (Exception ex) {
-                    String message = ex.getMessage();
-                    notify(message == null || message.isBlank() ? t("Não foi possível restaurar o lançamento.") : t(message));
-                }
-            });
-            Button remove = actionIcon(VaadinIcon.TRASH, t("Apagar"));
-            remove.addClickListener(e -> confirmTrashDeletion(item, grid, type));
-            return actionIcons(restore, remove);
-        })).setHeader(t("Ações")).setWidth("90px").setFlexGrow(0).setTextAlign(ColumnTextAlign.CENTER);
-        grid.setHeight("420px");
-        grid.setItems(launches.trash(user, type));
-
-        Div body = new Div(retention, grid);
-        body.setWidthFull();
-        d.add(body);
-        d.getFooter().add(new Button(t("Fechar"), e -> d.close()));
-        d.open();
-    }
-
-    private void confirmTrashDeletion(LaunchService.TrashItem item, Grid<LaunchService.TrashItem> grid, String type) {
-        Dialog confirmation = dialog(t("Apagar permanentemente"));
-        confirmation.add(new Span(t("Este lançamento será apagado definitivamente e não poderá ser restaurado.")));
-        Button remove = new Button(t("Apagar definitivamente"));
-        remove.addThemeVariants(ButtonVariant.ERROR, ButtonVariant.PRIMARY);
-        remove.addClickListener(e -> {
-            try {
-                launches.deleteTrash(item.id(), user);
-                confirmation.close();
-                grid.setItems(launches.trash(user, type));
-                notify(t("Lançamento apagado permanentemente."));
-            } catch (Exception ex) {
-                String message = ex.getMessage();
-                notify(message == null || message.isBlank() ? t("Não foi possível apagar o lançamento.") : t(message));
-            }
-        });
-        confirmation.getFooter().add(new Button(t("Cancelar"), e -> confirmation.close()), remove);
-        confirmation.open();
+                }, this::notify).open();
     }
 
     private String formatTrashDate(String value) {
