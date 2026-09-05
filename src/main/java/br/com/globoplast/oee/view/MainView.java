@@ -1400,13 +1400,14 @@ public class MainView extends VerticalLayout {
         f.capacity = textField(t("Capacidade (pçs/24h)"), value(record.getCapacity24h()), capacityReadOnly);
         f.product = textField(t("Cód. Produto"), cleanInput(record.getProduct()), readOnly);
         f.order = textField(t("Nº da OP"), cleanInput(record.getOrderNumber()), readOnly);
+        if (!readOnly) f.order.setAllowedCharPattern("[0-9]");
         f.hours = textField(t("Hrs Program."), "24", true);
         f.weight = textField(t("Peso da Bis. (g)"), numberValue(record.getUnitWeightG()), readOnly);
-        f.shiftA = textField(t("Turno A (pçs)"), productionInputValue(record, "A"), readOnly);
+        f.shiftA = textField(t("Turno A (pçs)"), intValue(record.getShiftA()), readOnly);
         f.scrapA = textField(t("Refugo A (kg)"), scrapInputValue(record.getScrapAKg()), readOnly);
-        f.shiftB = textField(t("Turno B (pçs)"), productionInputValue(record, "B"), readOnly);
+        f.shiftB = textField(t("Turno B (pçs)"), intValue(record.getShiftB()), readOnly);
         f.scrapB = textField(t("Refugo B (kg)"), scrapInputValue(record.getScrapBKg()), readOnly);
-        f.shiftC = textField(t("Turno C (pçs)"), productionInputValue(record, "C"), readOnly);
+        f.shiftC = textField(t("Turno C (pçs)"), intValue(record.getShiftC()), readOnly);
         f.scrapC = textField(t("Refugo C (kg)"), scrapInputValue(record.getScrapCKg()), readOnly);
         f.changeovers = textField(t("Qtd. Trocas"), intValue(record.getChangeovers()), readOnly);
         f.setup = textField(t("Setup (hrs)"), numberValue(record.getSetupHours()), readOnly);
@@ -1414,17 +1415,8 @@ public class MainView extends VerticalLayout {
         f.observations = textField(t("Observações"), cleanProblem(record.getProblem()), readOnly);
         if (!readOnly) forceUppercase(f.observations);
 
-        String productionHelp = t("Com várias OPs, cada valor separado por + pertence à OP da mesma posição. Um único valor pertence à primeira OP; OPs sem valor naquele turno recebem zero.");
-        String scrapHelp = t("Digite sem ponto ou vírgula: 2500 = 2,500 kg. Aceita soma (+): 2500+1500 = 4,000 kg.");
-        for (TextField field : List.of(f.shiftA, f.shiftB, f.shiftC)) {
-            field.setTooltipText(productionHelp).withPosition(Tooltip.TooltipPosition.TOP);
-        }
-        for (TextField field : List.of(f.scrapA, f.scrapB, f.scrapC)) {
-            field.setTooltipText(scrapHelp).withPosition(Tooltip.TooltipPosition.TOP);
-        }
-
         configureInputMode(f.product, "text");
-        configureInputMode(f.order, "text");
+        configureInputMode(f.order, "numeric");
         configureInputMode(f.hours, "decimal");
         configureInputMode(f.weight, "decimal");
         configureInputMode(f.setup, "decimal");
@@ -1508,7 +1500,10 @@ public class MainView extends VerticalLayout {
         LaunchService.ProductMetadata productMetadata = launches.productMetadata(record.getProduct());
         record.setDescriptionErp(productMetadata.description());
         record.setClientErp(productMetadata.client());
-        record.setOrderNumber(f.order.getValue() == null ? "" : f.order.getValue().trim());
+        String orderNumber = f.order.getValue() == null ? "" : f.order.getValue().trim();
+        if (!orderNumber.isBlank() && !orderNumber.matches("\\d+"))
+            throw new IllegalArgumentException(t("Informe uma única OP usando apenas números."));
+        record.setOrderNumber(orderNumber);
 
         record.setScheduledHours(24.0);
 
@@ -1531,10 +1526,7 @@ public class MainView extends VerticalLayout {
         // metadados válidos ao simplesmente abrir e salvar o item.
 
         record.setUnitWeightG(parseDecimal(f.weight.getValue(), 0));
-        record.setProductionDetail(buildProductionDetail(
-                record.getOrderNumber(),
-                f.shiftA.getValue(), f.shiftB.getValue(), f.shiftC.getValue()
-        ));
+        record.setProductionDetail("");
         record.setShiftA(parseSumInt(f.shiftA.getValue()));
         record.setShiftB(parseSumInt(f.shiftB.getValue()));
         record.setShiftC(parseSumInt(f.shiftC.getValue()));
@@ -1637,94 +1629,6 @@ public class MainView extends VerticalLayout {
         field.getElement().setAttribute("data-gp-inputmode", mode == null ? "text" : mode);
     }
 
-    private String productionInputValue(LaunchRecord record, String shift) {
-        int fallback = switch (shift) {
-            case "A" -> record.getShiftA();
-            case "B" -> record.getShiftB();
-            case "C" -> record.getShiftC();
-            default -> 0;
-        };
-        String detail = record.getProductionDetail();
-        List<String> currentOps = extractOps(record.getOrderNumber());
-        if (detail == null || detail.isBlank() || currentOps.size() < 2) return intValue(fallback);
-
-        try {
-            List<String> detailOps = extractJsonStringArray(detail, "ops");
-            if (!detailOps.equals(currentOps)) return intValue(fallback);
-
-            int aggregate = extractJsonObjectInt(detail, "agregados", shift, 0);
-            if (aggregate != 0) return String.valueOf(aggregate);
-
-            List<Integer> values = extractJsonIntArray(detail, shift);
-            int quantity = extractJsonObjectInt(detail, "quantidades_componentes", shift, values.size());
-            quantity = Math.max(0, Math.min(quantity, values.size()));
-            if (quantity == 0) return "";
-            return values.subList(0, quantity).stream().map(String::valueOf).collect(Collectors.joining("+"));
-        } catch (Exception ignored) {
-            return intValue(fallback);
-        }
-    }
-
-    private String buildProductionDetail(String orderNumber, String shiftA, String shiftB, String shiftC) {
-        List<String> ops = extractOps(orderNumber);
-        if (ops.size() < 2) return "";
-
-        Map<String, List<Integer>> turns = new LinkedHashMap<>();
-        Map<String, Integer> aggregate = new LinkedHashMap<>();
-        Map<String, Integer> quantities = new LinkedHashMap<>();
-        Map<String, String> input = Map.of("A", nz(shiftA), "B", nz(shiftB), "C", nz(shiftC));
-
-        for (String shift : List.of("A", "B", "C")) {
-            List<Integer> components = parseProductionComponents(input.get(shift), shift);
-            int mapped = Math.min(components.size(), ops.size());
-            List<Integer> values = new ArrayList<>();
-            for (int i = 0; i < ops.size(); i++) values.add(i < mapped ? components.get(i) : 0);
-            int extra = components.size() <= ops.size()
-                    ? 0
-                    : components.subList(ops.size(), components.size()).stream().mapToInt(Integer::intValue).sum();
-            turns.put(shift, values);
-            aggregate.put(shift, extra);
-            quantities.put(shift, mapped);
-        }
-
-        List<Integer> totals = new ArrayList<>();
-        for (int i = 0; i < ops.size(); i++) {
-            totals.add(turns.get("A").get(i) + turns.get("B").get(i) + turns.get("C").get(i));
-        }
-
-        return "{"
-                + "\"ops\":" + jsonStringArray(ops) + ","
-                + "\"turnos\":{\"A\":" + jsonIntArray(turns.get("A"))
-                + ",\"B\":" + jsonIntArray(turns.get("B"))
-                + ",\"C\":" + jsonIntArray(turns.get("C")) + "},"
-                + "\"totais\":" + jsonIntArray(totals) + ","
-                + "\"agregados\":{\"A\":" + aggregate.get("A")
-                + ",\"B\":" + aggregate.get("B")
-                + ",\"C\":" + aggregate.get("C") + "},"
-                + "\"quantidades_componentes\":{\"A\":" + quantities.get("A")
-                + ",\"B\":" + quantities.get("B")
-                + ",\"C\":" + quantities.get("C") + "}"
-                + "}";
-    }
-
-    private List<Integer> parseProductionComponents(String raw, String shift) {
-        if (raw == null || raw.trim().isBlank()) return new ArrayList<>();
-        List<Integer> out = new ArrayList<>();
-        try {
-            for (String part : raw.trim().split("\\+")) {
-                String term = part.trim().replace(',', '.');
-                if (term.isBlank()) throw new NumberFormatException();
-                out.add((int) Double.parseDouble(term));
-            }
-            return out;
-        } catch (Exception e) {
-            String message = "en-US".equals(language)
-                    ? "Shift " + shift + " production contains an invalid value. Use numbers separated by + only."
-                    : "A produção do Turno " + shift + " contém um valor inválido. Use somente números separados por +.";
-            throw new IllegalArgumentException(message);
-        }
-    }
-
     private static List<String> extractOps(String raw) {
         if (raw == null || raw.trim().isBlank()) return new ArrayList<>();
         return java.util.Arrays.stream(raw.trim().split("\\s*[/;|]\\s*"))
@@ -1753,29 +1657,6 @@ public class MainView extends VerticalLayout {
         List<Integer> out = new ArrayList<>();
         for (String part : m.group(1).split(",")) out.add((int) Double.parseDouble(part.trim()));
         return out;
-    }
-
-    private static int extractJsonObjectInt(String json, String objectName, String key, int def) {
-        java.util.regex.Matcher object = java.util.regex.Pattern
-                .compile("\\\"" + java.util.regex.Pattern.quote(objectName) + "\\\"\\s*:\\s*\\{([^}]*)}")
-                .matcher(json);
-        if (!object.find()) return def;
-        java.util.regex.Matcher value = java.util.regex.Pattern
-                .compile("\\\"" + java.util.regex.Pattern.quote(key) + "\\\"\\s*:\\s*(-?\\d+)")
-                .matcher(object.group(1));
-        return value.find() ? Integer.parseInt(value.group(1)) : def;
-    }
-
-    private static String jsonStringArray(List<String> values) {
-        return values.stream().map(v -> "\"" + jsonEscape(v) + "\"").collect(Collectors.joining(",", "[", "]"));
-    }
-
-    private static String jsonIntArray(List<Integer> values) {
-        return values.stream().map(String::valueOf).collect(Collectors.joining(",", "[", "]"));
-    }
-
-    private static String jsonEscape(String value) {
-        return nz(value).replace("\\", "\\\\").replace("\"", "\\\"");
     }
 
     private static String jsonUnescape(String value) {
