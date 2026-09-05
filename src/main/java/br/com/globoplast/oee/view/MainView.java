@@ -662,85 +662,9 @@ public class MainView extends VerticalLayout {
 
     private void renderOrderProduction() {
         content.removeAll();
-        H2 title = new H2(t("Estoque por OP"));
-        title.addClassName("gp-section-title");
-
-        Paragraph explanation = new Paragraph(t("Dados do ERP separados por OP e processo. OPs atuais usam Planejamento/Estoque; OPs encerradas ausentes do planejamento usam os Apontamentos do ERP."));
-        explanation.addClassName("gp-muted");
-
-        TextField order = new TextField(t("Nº da OP"));
-        order.setPlaceholder(t("Digite o Nº da OP"));
-        order.setValue(productionOrderSearch);
-        order.setClearButtonVisible(true);
-        order.getElement().setAttribute("autocomplete", "off");
-        Button search = new Button(t("Buscar"), VaadinIcon.SEARCH.create());
-        search.addThemeVariants(ButtonVariant.PRIMARY);
-        Runnable apply = () -> {
-            productionOrderSearch = Norm.order(order.getValue());
-            order.setValue(productionOrderSearch);
-            refreshOrderProduction();
-        };
-        search.addClickListener(e -> apply.run());
-        order.addKeyPressListener(Key.ENTER, e -> apply.run());
-        order.addValueChangeListener(e -> {
-            if (e.getValue() == null || e.getValue().isBlank()) {
-                productionOrderSearch = "";
-                refreshOrderProduction();
-            }
-        });
-
-        Div searchRow = new Div(order, search);
-        searchRow.addClassName("gp-order-production-search-v110");
-
-        Span state = new Span();
-        state.setId("order-production-state");
-        state.addClassName("gp-muted");
-
-        Grid<LaunchService.OrderProcessProgress> grid = new Grid<>(LaunchService.OrderProcessProgress.class, false);
-        grid.setId("order-production-grid");
-        grid.addClassName("gp-order-production-grid-v110");
-        grid.addThemeVariants(GridVariant.LUMO_NO_BORDER, GridVariant.LUMO_ROW_STRIPES);
-        grid.addColumn(LaunchService.OrderProcessProgress::process).setHeader(t("Processo")).setAutoWidth(true);
-        grid.addColumn(r -> t(r.processName())).setHeader(t("Etapa")).setAutoWidth(true);
-        grid.addColumn(new ComponentRenderer<>(r -> fullTextCell(r.product())))
-                .setHeader(t("Código Produto")).setWidth("160px").setFlexGrow(0);
-        grid.addColumn(new ComponentRenderer<>(r -> fullTextCell(r.description())))
-                .setHeader(t("Descrição")).setWidth("300px").setFlexGrow(1);
-        grid.addColumn(r -> formatInt(r.plannedPcs())).setHeader(compactGridHeader(t("Programado (OP)"))).setWidth("150px").setFlexGrow(0);
-        grid.addColumn(r -> formatInt(r.producedPcs())).setHeader(t("Produzido (OP)")).setAutoWidth(true);
-        grid.addColumn(r -> formatInt(r.remainingPcs())).setHeader(t("Falta (OP)")).setAutoWidth(true);
-        grid.addColumn(r -> productionPeriod(r.firstDate(), r.lastDate())).setHeader(t("Período")).setAutoWidth(true);
-        grid.setAllRowsVisible(true);
-
-        content.add(title, explanation, searchRow, state, grid);
-        refreshOrderProduction();
-    }
-
-    @SuppressWarnings("unchecked")
-    private void refreshOrderProduction() {
-        Component component = byId("order-production-grid");
-        if (!(component instanceof Grid<?> raw)) return;
-        Grid<LaunchService.OrderProcessProgress> grid = (Grid<LaunchService.OrderProcessProgress>) raw;
-        Component stateComponent = byId("order-production-state");
-        Span state = stateComponent instanceof Span span ? span : null;
-        if (productionOrderSearch == null || productionOrderSearch.isBlank()) {
-            grid.setItems(List.of());
-            if (state != null) state.setText(t("Informe uma OP para consultar os processos 770, 771, 772, 773, 775 e 776."));
-            return;
-        }
-        List<LaunchService.OrderProcessProgress> rows = launches.orderProcessProgress(productionOrderSearch);
-        grid.setItems(rows);
-        if (state != null) {
-            state.setText(rows.isEmpty()
-                    ? t("Nenhum dado de produção encontrado no ERP para esta OP.")
-                    : t("OP") + " " + productionOrderSearch + " · " + rows.size() + " " + t(rows.size() == 1 ? "processo encontrado" : "processos encontrados"));
-        }
-    }
-
-    private String productionPeriod(LocalDate first, LocalDate last) {
-        if (first == null && last == null) return "—";
-        if (Objects.equals(first, last)) return Norm.br(first);
-        return Norm.br(first) + " – " + Norm.br(last);
+        OrderStockPage page = new OrderStockPage(launches, productionOrderSearch,
+                value -> productionOrderSearch = value, this::t, this::formatInt, this::fullTextCell);
+        content.add(page.components());
     }
 
     private Grid<LaunchRecord> launchGrid() {

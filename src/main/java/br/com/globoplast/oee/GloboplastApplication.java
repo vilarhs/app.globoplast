@@ -16,6 +16,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableScheduling
 @StyleSheet(Lumo.STYLESHEET)
 @StyleSheet("globoplast.css")
+@StyleSheet("order-stock.css")
 @StyleSheet("globoplast-mobile.css")
 @CssImport(value = "./styles/gp-menu-bar-button.css", themeFor = "vaadin-menu-bar-button")
 @CssImport(value = "./styles/gp-menu-bar-button-mobile.css", themeFor = "vaadin-menu-bar-button")

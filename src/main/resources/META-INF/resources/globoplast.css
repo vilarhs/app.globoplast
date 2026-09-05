@@ -2833,26 +2833,6 @@ html body .gp-full-text-cell-v110{
   text-overflow:ellipsis!important;
   white-space:nowrap!important;
 }
-html body .gp-order-production-search-v110{
-  display:flex!important;
-  align-items:end!important;
-  gap:.65rem!important;
-  width:min(440px,100%)!important;
-  margin:.3rem 0 .7rem!important;
-}
-html body .gp-order-production-search-v110 vaadin-text-field{
-  flex:1 1 auto!important;
-  min-width:0!important;
-}
-html body vaadin-grid.gp-order-production-grid-v110{
-  margin-top:.6rem!important;
-  --vaadin-grid-cell-background:var(--gp-surface)!important;
-}
-@media(max-width:640px){
-  html body .gp-order-production-search-v110{
-    width:100%!important;
-  }
-}
 
 /* Enquanto houver um Dialog aberto, a página que está atrás permanece imóvel.
    O conteúdo do próprio modal continua rolando e contém o fim da rolagem. */
