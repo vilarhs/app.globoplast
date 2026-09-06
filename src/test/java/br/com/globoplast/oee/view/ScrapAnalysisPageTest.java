@@ -68,6 +68,10 @@ class ScrapAnalysisPageTest {
         assertEquals(1, descendants(comparison).filter(InteractiveBarChart.class::isInstance).count());
         assertEquals(1, descendants(comparison).filter(component -> component.getElement().getClassList()
                 .contains("gp-comparison-kpis")).count());
+
+        page.renderRecent(List.of(row));
+        assertEquals(1, descendants(page.recent()).filter(component -> component.getElement().getClassList()
+                .contains("gp-refugo-recent-expander")).count());
     }
 
     private static java.util.stream.Stream<com.vaadin.flow.component.Component> descendants(

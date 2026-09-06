@@ -28,7 +28,6 @@ import com.vaadin.flow.component.contextmenu.MenuItem;
 import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.combobox.MultiSelectComboBox;
 import com.vaadin.flow.component.dialog.Dialog;
-import com.vaadin.flow.component.details.Details;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.GridVariant;
 import com.vaadin.flow.component.html.Div;
@@ -1861,7 +1860,7 @@ public class MainView extends VerticalLayout {
             recent.removeAll();
             LocalDate productiveToday = Norm.productiveToday();
             if (Objects.equals(scrapStart, productiveToday) && Objects.equals(scrapEnd, productiveToday)) {
-                renderRecentScrapLaunches(recent, rows);
+                scrapAnalysisPage.renderRecent(rows);
             }
         }
     }
@@ -2075,38 +2074,6 @@ public class MainView extends VerticalLayout {
                 chart -> attachScrapContextMenu(chart, rows, dimension));
     }
 
-    private void renderRecentScrapLaunches(Div host, List<RefugoRecord> rows) {
-        List<RefugoRecord> recentRows = rows.stream()
-                .sorted(Comparator.comparingLong(RefugoRecord::erpId).reversed())
-                .limit(20)
-                .toList();
-
-        Grid<RefugoRecord> grid = new Grid<>(RefugoRecord.class, false);
-        grid.addThemeVariants(GridVariant.LUMO_NO_BORDER, GridVariant.LUMO_ROW_STRIPES);
-        grid.addColumn(r -> Norm.br(r.productiveDate())).setHeader(t("Data")).setWidth("108px").setFlexGrow(0);
-        grid.addColumn(MainView::scrapLoadTime).setHeader(t("Hora")).setAutoWidth(true);
-        grid.addColumn(RefugoRecord::orderNumber).setHeader(t("Nº OP")).setWidth("84px").setFlexGrow(0);
-        grid.addColumn(RefugoRecord::machine).setHeader(t("Máquina")).setAutoWidth(true);
-        grid.addColumn(RefugoRecord::product).setHeader(t("Código Produto")).setWidth("140px").setFlexGrow(0);
-        grid.addColumn(RefugoRecord::shift).setHeader(t("Turno")).setAutoWidth(true);
-        grid.addColumn(r -> t(nonBlank(r.motive()))).setHeader(t("Motivo")).setAutoWidth(true);
-        grid.addColumn(RefugoRecord::operator).setHeader(t("Lançado por")).setAutoWidth(true);
-        grid.addColumn(r -> format(r.scrapKg())).setHeader(t("Refugo (Kg)")).setAutoWidth(true);
-        grid.setItems(recentRows);
-        grid.setAllRowsVisible(true);
-        grid.addClassName("gp-refugo-recent-grid");
-
-        Component body = recentRows.isEmpty()
-                ? new Span(t("Nenhum lançamento encontrado."))
-                : grid;
-        if (body instanceof Span span) span.addClassName("gp-caption");
-
-        Details expander = new Details(t("Lançamentos recentes"), body);
-        expander.setOpened(false);
-        expander.addClassName("gp-refugo-recent-expander");
-        host.add(expander);
-    }
-
     private void renderScrapLaunches(Div host, List<RefugoRecord> rows, String dimension, String key) {
         List<RefugoRecord> selected = rows.stream().filter(r -> scraps.matches(r, dimension, key)).toList();
         if (selected.isEmpty()) return;
@@ -2115,7 +2082,7 @@ public class MainView extends VerticalLayout {
         Grid<RefugoRecord> grid = new Grid<>(RefugoRecord.class, false);
         grid.addThemeVariants(GridVariant.LUMO_NO_BORDER, GridVariant.LUMO_ROW_STRIPES);
         grid.addColumn(r -> Norm.br(r.productiveDate())).setHeader(t("Data")).setWidth("108px").setFlexGrow(0);
-        grid.addColumn(MainView::scrapLoadTime).setHeader(t("Hora"));
+        grid.addColumn(ScrapAnalysisPage::loadTime).setHeader(t("Hora"));
         grid.addColumn(RefugoRecord::orderNumber).setHeader(t("Nº OP")).setWidth("84px").setFlexGrow(0);
         grid.addColumn(RefugoRecord::sector).setHeader(t("Setor"));
         grid.addColumn(RefugoRecord::machine).setHeader(t("Máquina"));
@@ -2241,11 +2208,6 @@ public class MainView extends VerticalLayout {
         Span weight = new Span(t("Peso unitário") + ": " + weightText);
         weight.addClassName("gp-caption");
         host.add(weight);
-    }
-
-    private static String scrapLoadTime(RefugoRecord record) {
-        String time = Norm.syncTime(record == null ? null : record.firstDetectedAt());
-        return time == null || time.isBlank() ? "—" : time;
     }
 
     private Popover scrapFilterDropdown(Button target, Runnable refresh, Runnable clearView) {

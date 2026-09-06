@@ -4,8 +4,8 @@ Sistema web de acompanhamento de produção, OEE e Refugo da Globoplast.
 
 ## Estado atual
 
-- Versão: `0.1.277`
-- Sequência das próximas versões: `0.1.278`, `0.1.279` e seguintes.
+- Versão: `0.1.278`
+- Sequência das próximas versões: `0.1.279`, `0.1.280` e seguintes.
 - Java 21, Spring Boot, Vaadin e SQLite
 - Aplicação publicada em `globoplast.app`
 - Serviço da VPS: `globoplast.service`

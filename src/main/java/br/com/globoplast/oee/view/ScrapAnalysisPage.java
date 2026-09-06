@@ -3,8 +3,12 @@ package br.com.globoplast.oee.view;
 import br.com.globoplast.oee.model.RefugoRecord;
 import br.com.globoplast.oee.service.RefugoService;
 import br.com.globoplast.oee.util.Norm;
+import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.details.Details;
+import com.vaadin.flow.component.grid.Grid;
+import com.vaadin.flow.component.grid.GridVariant;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.H3;
@@ -20,6 +24,7 @@ import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -292,6 +297,45 @@ final class ScrapAnalysisPage extends Div {
         renderTopReasonsByPeriod(host, rows, monthly);
     }
 
+    void renderRecent(List<RefugoRecord> rows) {
+        recent.removeAll();
+        List<RefugoRecord> recentRows = rows.stream()
+                .sorted(Comparator.comparingLong(RefugoRecord::erpId).reversed())
+                .limit(20)
+                .toList();
+
+        Grid<RefugoRecord> grid = new Grid<>(RefugoRecord.class, false);
+        grid.addThemeVariants(GridVariant.LUMO_NO_BORDER, GridVariant.LUMO_ROW_STRIPES);
+        grid.addColumn(row -> Norm.br(row.productiveDate())).setHeader(t("Data"))
+                .setWidth("108px").setFlexGrow(0);
+        grid.addColumn(ScrapAnalysisPage::loadTime).setHeader(t("Hora")).setAutoWidth(true);
+        grid.addColumn(RefugoRecord::orderNumber).setHeader(t("Nº OP"))
+                .setWidth("84px").setFlexGrow(0);
+        grid.addColumn(RefugoRecord::machine).setHeader(t("Máquina")).setAutoWidth(true);
+        grid.addColumn(RefugoRecord::product).setHeader(t("Código Produto"))
+                .setWidth("140px").setFlexGrow(0);
+        grid.addColumn(RefugoRecord::shift).setHeader(t("Turno")).setAutoWidth(true);
+        grid.addColumn(row -> t(nonBlank(row.motive()))).setHeader(t("Motivo")).setAutoWidth(true);
+        grid.addColumn(RefugoRecord::operator).setHeader(t("Lançado por")).setAutoWidth(true);
+        grid.addColumn(row -> formatDecimal.apply(row.scrapKg())).setHeader(t("Refugo (Kg)"))
+                .setAutoWidth(true);
+        grid.setItems(recentRows);
+        grid.setAllRowsVisible(true);
+        grid.addClassName("gp-refugo-recent-grid");
+
+        Component body = recentRows.isEmpty() ? new Span(t("Nenhum lançamento encontrado.")) : grid;
+        if (body instanceof Span span) span.addClassName("gp-caption");
+        Details expander = new Details(t("Lançamentos recentes"), body);
+        expander.setOpened(false);
+        expander.addClassName("gp-refugo-recent-expander");
+        recent.add(expander);
+    }
+
+    static String loadTime(RefugoRecord record) {
+        String time = Norm.syncTime(record == null ? null : record.firstDetectedAt());
+        return time == null || time.isBlank() ? "—" : time;
+    }
+
     void alignChartTitle(InteractiveBarChart chart) {
         chart.addClassName("gp-refugo-chart-title-aligned-v070");
         chart.addAttachListener(event -> chart.getElement().executeJs("""
@@ -336,6 +380,10 @@ final class ScrapAnalysisPage extends Div {
 
     private String signed(double value) {
         return (value > 0 ? "+" : "") + formatOneDecimal.apply(value);
+    }
+
+    private static String nonBlank(String value) {
+        return value == null || value.isBlank() ? "NÃO INFORMADO" : value;
     }
 
     private void rebuild(Popover dropdown) {
