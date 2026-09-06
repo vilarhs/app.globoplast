@@ -22,7 +22,7 @@ public final class CachePolicyFilter implements Filter {
         boolean noStore = false;
         if (request instanceof HttpServletRequest http && response instanceof HttpServletResponse httpResponse) {
             String path = http.getRequestURI();
-            noStore = "/".equals(path) || "/index.html".equals(path) || "/health".equals(path) || path.endsWith(".css");
+            noStore = "/".equals(path) || "/index.html".equals(path) || "/health".equals(path);
         }
         chain.doFilter(request, response);
         if (noStore && response instanceof HttpServletResponse httpResponse) {
