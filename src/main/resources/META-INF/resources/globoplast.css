@@ -5655,3 +5655,38 @@ html body vaadin-dialog-overlay .gp-period-field{
   color:var(--gp-text)!important;
   border-color:var(--gp-control-border)!important;
 }
+
+/* Acabamento único dos modais e formulário de lançamento mais compacto. */
+html body .gp-dialog-close{
+  width:40px!important;
+  min-width:40px!important;
+  max-width:40px!important;
+  height:40px!important;
+  min-height:40px!important;
+  max-height:40px!important;
+}
+html body .gp-dialog-close :is(vaadin-icon,svg){
+  width:20px!important;
+  height:20px!important;
+}
+html body vaadin-dialog-overlay[theme~="gp-modal-v053"] .gp-launch-dialog-actions{
+  padding-top:0!important;
+  gap:.28rem!important;
+}
+html body vaadin-dialog-overlay[theme~="gp-modal-v053"] .gp-launch-form-python{
+  gap:.14rem!important;
+}
+html body vaadin-dialog-overlay[theme~="gp-modal-v053"] .gp-launch-row{
+  gap:.3rem!important;
+}
+
+/* Cinza suave comum às superfícies temporárias. */
+:root{--gp-modal-uniform-v058:#e9ebee;--gp-overlay-surface-v315:#f1f2f4}
+html[theme~="dark"],html[data-gp-theme="dark"]{--gp-modal-uniform-v058:#2d2f37;--gp-overlay-surface-v315:#2b2d35}
+html body .gp-filter-popover::part(overlay),
+html body .gp-filter-popover::part(content),
+html body .gp-filter-dropdown,
+html body .gp-filter-dropdown-actions{
+  background:var(--gp-overlay-surface-v315)!important;
+  background-color:var(--gp-overlay-surface-v315)!important;
+}
