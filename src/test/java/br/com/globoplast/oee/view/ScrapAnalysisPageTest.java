@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -24,7 +25,8 @@ class ScrapAnalysisPageTest {
         AtomicInteger searches = new AtomicInteger();
         Button filter = new Button();
         ScrapAnalysisPage page = new ScrapAnalysisPage(text -> text, new RefugoService(null),
-                Long::toString, Double::toString, Double::toString, "", "Comparativo Mensal",
+                Long::toString, Double::toString, Double::toString, () -> Locale.forLanguageTag("pt-BR"),
+                "", "Comparativo Mensal",
                 filter, () -> false, () -> false, value -> searches.incrementAndGet(),
                 () -> { }, dimensions::add);
         Popover dropdown = new Popover();
@@ -49,5 +51,17 @@ class ScrapAnalysisPageTest {
         ((TextField) toolbar.getComponentAt(0)).setValue("59298");
         assertEquals(1, searches.get());
         assertEquals(7, ((Tabs) page.getComponentAt(4)).getComponentCount());
+
+        Div ranking = new Div();
+        page.renderTopReasonsBySector(ranking, List.of(row), "Setor", "EXTRUSÃO", List.of());
+        assertEquals(5, descendants(ranking)
+                .filter(component -> component.getElement().getClassList().contains("gp-ranking-row"))
+                .count());
+    }
+
+    private static java.util.stream.Stream<com.vaadin.flow.component.Component> descendants(
+            com.vaadin.flow.component.Component component) {
+        return java.util.stream.Stream.concat(java.util.stream.Stream.of(component),
+                component.getChildren().flatMap(ScrapAnalysisPageTest::descendants));
     }
 }

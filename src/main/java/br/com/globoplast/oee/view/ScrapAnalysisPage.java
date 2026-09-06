@@ -16,8 +16,13 @@ import com.vaadin.flow.component.tabs.Tabs;
 import com.vaadin.flow.component.textfield.TextField;
 
 import java.time.LocalDate;
+import java.time.YearMonth;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.BooleanSupplier;
@@ -25,6 +30,7 @@ import java.util.function.Consumer;
 import java.util.function.DoubleFunction;
 import java.util.function.Function;
 import java.util.function.LongFunction;
+import java.util.function.Supplier;
 
 final class ScrapAnalysisPage extends Div {
     private final Function<String, String> translate;
@@ -32,6 +38,7 @@ final class ScrapAnalysisPage extends Div {
     private final LongFunction<String> formatInteger;
     private final DoubleFunction<String> formatDecimal;
     private final DoubleFunction<String> formatOneDecimal;
+    private final Supplier<Locale> locale;
     private final BooleanSupplier hasMonthlyComparison;
     private final BooleanSupplier hasYearlyComparison;
     private final Consumer<String> dimensionSelected;
@@ -49,7 +56,8 @@ final class ScrapAnalysisPage extends Div {
 
     ScrapAnalysisPage(Function<String, String> translate, RefugoService scraps,
                       LongFunction<String> formatInteger, DoubleFunction<String> formatDecimal,
-                      DoubleFunction<String> formatOneDecimal, String initialSearch, String initialDimension,
+                      DoubleFunction<String> formatOneDecimal, Supplier<Locale> locale,
+                      String initialSearch, String initialDimension,
                       Button filter, BooleanSupplier hasMonthlyComparison,
                       BooleanSupplier hasYearlyComparison, Consumer<String> searchChanged,
                       Runnable tabChanged, Consumer<String> dimensionSelected) {
@@ -58,6 +66,7 @@ final class ScrapAnalysisPage extends Div {
         this.formatInteger = formatInteger;
         this.formatDecimal = formatDecimal;
         this.formatOneDecimal = formatOneDecimal;
+        this.locale = locale;
         this.filter = filter;
         this.hasMonthlyComparison = hasMonthlyComparison;
         this.hasYearlyComparison = hasYearlyComparison;
@@ -161,6 +170,97 @@ final class ScrapAnalysisPage extends Div {
                 kpi(t("Total de Lançamentos"), formatInteger.apply(rows.size())),
                 periodCaption == null ? kpi(t("Período"), periodValue)
                         : kpiWithCaption(t("Período"), periodValue, periodCaption));
+    }
+
+    void renderTopReasonsBySector(Div host, List<RefugoRecord> rows,
+                                  String selectedDimension, String selectedKey,
+                                  Collection<String> filteredSectors) {
+        String selectedSector = null;
+        if (Objects.equals(selectedDimension, "Setor") && selectedKey != null && !selectedKey.isBlank()) {
+            selectedSector = selectedKey;
+        } else if (filteredSectors.size() == 1) {
+            selectedSector = filteredSectors.iterator().next();
+        }
+        final String sector = selectedSector;
+        List<RefugoRecord> scope = sector == null ? rows : rows.stream()
+                .filter(row -> sector.equalsIgnoreCase(row.sector())).toList();
+        H3 title = new H3(t("Top 5 Motivos"));
+        title.addClassName("gp-subsection-title");
+        Span caption = new Span(sector == null
+                ? t("Ranking geral • valor em Kg e participação no total do recorte atual")
+                : t("Ranking do setor") + " " + sector + " • "
+                        + t("valor em Kg e participação no total do setor"));
+        caption.addClassName("gp-caption");
+        host.add(title, caption, ranking(scope, sector));
+    }
+
+    void renderTopReasonsByPeriod(Div host, List<RefugoRecord> rows, boolean monthly) {
+        String dimension = monthly ? "Comparativo Mensal" : "Comparativo Anual";
+        List<String> periods = rows.stream().map(row -> scraps.analysisKey(row, dimension))
+                .distinct().sorted().toList();
+        H3 title = new H3(t("Top 5 motivos por " + (monthly ? "mês" : "ano")));
+        title.addClassName("gp-subsection-title");
+        Span caption = new Span(t("Ranking independente em cada período • valor em Kg e participação no total do período"));
+        caption.addClassName("gp-caption");
+        Div table = new Div();
+        table.addClassName("gp-period-ranking");
+        table.getStyle().set("--gp-period-count", String.valueOf(periods.size()));
+        Div header = new Div(new Span(t("Ranking")));
+        header.addClassName("gp-period-ranking-row");
+        for (String period : periods) header.add(new Span(displayLabel(period, dimension)));
+        table.add(header);
+
+        Map<String, Map<String, Double>> byPeriod = new LinkedHashMap<>();
+        Map<String, Double> totals = new LinkedHashMap<>();
+        for (String period : periods) {
+            List<RefugoRecord> scope = rows.stream()
+                    .filter(row -> Objects.equals(scraps.analysisKey(row, dimension), period)).toList();
+            byPeriod.put(period, scraps.aggregate(scope, "Motivo"));
+            totals.put(period, scraps.totalKg(scope));
+        }
+        for (int rank = 1; rank <= 5; rank++) {
+            Div row = new Div(new Span(rank + "º"));
+            row.addClassName("gp-period-ranking-row");
+            for (String period : periods) {
+                List<Map.Entry<String, Double>> entries = new ArrayList<>(byPeriod.get(period).entrySet());
+                if (entries.size() < rank) {
+                    row.add(new Span("—"));
+                    continue;
+                }
+                var entry = entries.get(rank - 1);
+                String[] parts = entry.getKey().split("¦", -1);
+                String code = parts.length > 0 ? parts[0] : "";
+                String sector = parts.length > 1 ? parts[1] : "";
+                String motive = parts.length > 2 ? parts[2] : entry.getKey();
+                double percentage = totals.get(period) > 0 ? entry.getValue() / totals.get(period) * 100.0 : 0;
+                row.add(new Span(t(motive).toUpperCase(locale.get()) + " · " + sector + " · " + code
+                        + " · " + formatOneDecimal.apply(entry.getValue()) + " kg ("
+                        + formatOneDecimal.apply(percentage) + "%)"));
+            }
+            table.add(row);
+        }
+        host.add(title, caption, table);
+    }
+
+    String displayLabel(String key, String dimension) {
+        if (key == null) return t("NÃO INFORMADO");
+        if ("Motivo".equals(dimension)) {
+            String[] parts = key.split("¦", -1);
+            return parts.length >= 3 ? t(parts[2]) : t(key);
+        }
+        if ("Comparativo Mensal".equals(dimension)) {
+            try {
+                return YearMonth.parse(key).format(DateTimeFormatter.ofPattern("MMM/yyyy", locale.get()));
+            } catch (RuntimeException ignored) {
+                // Chaves externas continuam visíveis caso não estejam no formato mensal esperado.
+            }
+        }
+        return t(key);
+    }
+
+    private ScrapRankingTable ranking(List<RefugoRecord> rows, String sector) {
+        return new ScrapRankingTable(scraps.aggregate(rows, "Motivo"), scraps.totalKg(rows), sector,
+                this::t, formatOneDecimal, locale.get());
     }
 
     private void rebuild(Popover dropdown) {

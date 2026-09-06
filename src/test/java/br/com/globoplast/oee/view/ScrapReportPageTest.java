@@ -1,12 +1,12 @@
 package br.com.globoplast.oee.view;
 
 import br.com.globoplast.oee.model.RefugoRecord;
+import br.com.globoplast.oee.service.RefugoService;
 import br.com.globoplast.oee.util.Norm;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H2;
-import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.popover.Popover;
 import com.vaadin.flow.component.textfield.TextField;
@@ -23,8 +23,8 @@ class ScrapReportPageTest {
     void preservesSectorsTotalsMonthsTitlesAndSearch() {
         AtomicReference<String> search = new AtomicReference<>();
         ScrapReportPage page = new ScrapReportPage(text -> text,
-                () -> Locale.forLanguageTag("pt-BR"), "OP", new Button(), button -> new Popover(),
-                search::set, (rows, sector) -> new Span(sector));
+                () -> Locale.forLanguageTag("pt-BR"), new RefugoService(null), "OP", new Button(),
+                button -> new Popover(), search::set);
         LocalDate start = LocalDate.of(2026, 8, 1);
         LocalDate end = LocalDate.of(2026, 8, 31);
         RefugoRecord row = new RefugoRecord(1, "1", start, start, "59394", 0,

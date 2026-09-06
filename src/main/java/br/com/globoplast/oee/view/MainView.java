@@ -1768,7 +1768,7 @@ public class MainView extends VerticalLayout {
     private void renderScrap() {
         content.removeAll();
         ScrapAnalysisPage page = new ScrapAnalysisPage(this::t, scraps, this::formatInt, this::format,
-                this::format1, scrapSearch, scrapActiveDimension,
+                this::format1, this::locale, scrapSearch, scrapActiveDimension,
                 searchFilterButton(), this::scrapHasMonthlyComparison, this::scrapHasYearlyComparison,
                 value -> { scrapSearch = value; resetScrapInteraction(); },
                 () -> scrapShowLaunches = false,
@@ -1782,14 +1782,12 @@ public class MainView extends VerticalLayout {
 
     private void renderScrapReport() {
         content.removeAll();
-        scrapReportPage = new ScrapReportPage(this::t, this::locale, scrapSearch, searchFilterButton(),
+        scrapReportPage = new ScrapReportPage(this::t, this::locale, scraps, scrapSearch, searchFilterButton(),
                 filter -> scrapFilterDropdown(filter, this::refreshScrapReport, this::renderScrapReport),
                 value -> {
                     scrapSearch = value;
                     refreshScrapReport();
-                },
-                (rows, sector) -> rankingTable(scraps.aggregate(rows, "Motivo"),
-                        rows.stream().mapToDouble(RefugoRecord::scrapKg).sum(), sector));
+                });
         content.add(scrapReportPage);
         refreshScrapReport();
     }
@@ -1887,7 +1885,7 @@ public class MainView extends VerticalLayout {
         for (int i = start; i < end; i++) {
             var e = all.get(i);
             pageValues.put(e.getKey(), e.getValue());
-            labels.put(e.getKey(), scrapDisplayLabel(e.getKey(), dimension));
+            labels.put(e.getKey(), scrapAnalysisPage.displayLabel(e.getKey(), dimension));
         }
 
         Div chartLine = new Div();
@@ -1907,7 +1905,10 @@ public class MainView extends VerticalLayout {
         chartLine.add(barChart);
         host.add(chartLine);
         host.add(scrapPagination(dimension, page, totalPages));
-        if ("Setor".equals(dimension)) renderTopReasonsBySector(host, rows);
+        if ("Setor".equals(dimension)) {
+            scrapAnalysisPage.renderTopReasonsBySector(host, rows, scrapSelectedDimension,
+                    scrapSelectedKey, scrapSectors);
+        }
     }
 
     private void alignScrapChartTitleV070(InteractiveBarChart chart) {
@@ -1923,18 +1924,6 @@ public class MainView extends VerticalLayout {
             apply();
             requestAnimationFrame(apply);
         """));
-    }
-
-    private String scrapDisplayLabel(String key, String dimension) {
-        if (key == null) return t("NÃO INFORMADO");
-        if ("Motivo".equals(dimension)) {
-            String[] parts = key.split("¦", -1);
-            return parts.length >= 3 ? t(parts[2]) : t(key);
-        }
-        if ("Comparativo Mensal".equals(dimension)) {
-            try { return YearMonth.parse(key).format(DateTimeFormatter.ofPattern("MMM/yyyy", locale())); } catch (Exception ignored) { }
-        }
-        return t(key);
     }
 
     private static String nonBlank(String value) {
@@ -2104,7 +2093,7 @@ public class MainView extends VerticalLayout {
             return;
         }
         Map<String, String> labels = new LinkedHashMap<>();
-        totals.keySet().forEach(k -> labels.put(k, scrapDisplayLabel(k, dimension)));
+        totals.keySet().forEach(k -> labels.put(k, scrapAnalysisPage.displayLabel(k, dimension)));
         Div line = new Div();
         line.addClassName("gp-refugo-chart-line");
         String selected = monthly && Objects.equals(scrapSelectedDimension, dimension) ? scrapSelectedKey : null;
@@ -2135,89 +2124,7 @@ public class MainView extends VerticalLayout {
             metrics.addClassNames("gp-kpis", "gp-comparison-kpis");
             host.add(metrics);
         }
-        renderTopReasonsByPeriod(host, rows, monthly);
-    }
-
-    private void renderTopReasonsBySector(Div host, List<RefugoRecord> rows) {
-        String selectedSector = null;
-        if (Objects.equals(scrapSelectedDimension, "Setor") && !scrapSelectedKey.isBlank()) selectedSector = scrapSelectedKey;
-        else if (scrapSectors.size() == 1) selectedSector = scrapSectors.iterator().next();
-        final String sector = selectedSector;
-        List<RefugoRecord> scope = sector == null ? rows : rows.stream().filter(r -> sector.equalsIgnoreCase(r.sector())).toList();
-        Map<String, Double> ranking = scraps.aggregate(scope, "Motivo");
-        H3 title = new H3(t("Top 5 Motivos"));
-        title.addClassName("gp-subsection-title");
-        Span caption = new Span(sector == null
-                ? t("Ranking geral • valor em Kg e participação no total do recorte atual")
-                : t("Ranking do setor") + " " + sector + " • " + t("valor em Kg e participação no total do setor"));
-        caption.addClassName("gp-caption");
-        host.add(title, caption, rankingTable(ranking, scope.stream().mapToDouble(RefugoRecord::scrapKg).sum(), sector));
-    }
-
-    private Component rankingTable(Map<String, Double> ranking, double total, String sector) {
-        Div table = new Div();
-        table.addClassName("gp-ranking-table");
-        int rank = 1;
-        for (var e : ranking.entrySet()) {
-            if (rank > 5) break;
-            String[] parts = e.getKey().split("¦", -1);
-            String code = parts.length > 0 ? parts[0] : "";
-            String sec = parts.length > 1 ? parts[1] : "";
-            String motive = parts.length > 2 ? parts[2] : e.getKey();
-            double pct = total > 0 ? e.getValue() / total * 100.0 : 0;
-            Div row = new Div();
-            row.addClassName("gp-ranking-row");
-            row.add(new Span(rank + "º"), new Span(t(motive).toUpperCase(locale()) + " · " + (sector == null ? sec + " · " : "") + code + " · " + format1(e.getValue()) + " kg (" + format1(pct) + "%)"));
-            table.add(row);
-            rank++;
-        }
-        while (rank <= 5) {
-            Div row = new Div(new Span(rank + "º"), new Span("—"));
-            row.addClassName("gp-ranking-row");
-            table.add(row);
-            rank++;
-        }
-        return table;
-    }
-
-    private void renderTopReasonsByPeriod(Div host, List<RefugoRecord> rows, boolean monthly) {
-        String dimension = monthly ? "Comparativo Mensal" : "Comparativo Anual";
-        List<String> periods = rows.stream().map(r -> scraps.analysisKey(r, dimension)).distinct().sorted().toList();
-        H3 title = new H3(t("Top 5 motivos por " + (monthly ? "mês" : "ano")));
-        title.addClassName("gp-subsection-title");
-        Span caption = new Span(t("Ranking independente em cada período • valor em Kg e participação no total do período"));
-        caption.addClassName("gp-caption");
-        Div table = new Div();
-        table.addClassName("gp-period-ranking");
-        table.getStyle().set("--gp-period-count", String.valueOf(periods.size()));
-        Div header = new Div(new Span(t("Ranking")));
-        header.addClassName("gp-period-ranking-row");
-        for (String period : periods) header.add(new Span(scrapDisplayLabel(period, dimension)));
-        table.add(header);
-        Map<String, Map<String, Double>> byPeriod = new LinkedHashMap<>();
-        Map<String, Double> totals = new LinkedHashMap<>();
-        for (String period : periods) {
-            List<RefugoRecord> scope = rows.stream().filter(r -> Objects.equals(scraps.analysisKey(r, dimension), period)).toList();
-            byPeriod.put(period, scraps.aggregate(scope, "Motivo"));
-            totals.put(period, scope.stream().mapToDouble(RefugoRecord::scrapKg).sum());
-        }
-        for (int rank = 1; rank <= 5; rank++) {
-            Div row = new Div(new Span(rank + "º"));
-            row.addClassName("gp-period-ranking-row");
-            for (String period : periods) {
-                List<Map.Entry<String, Double>> r = new ArrayList<>(byPeriod.get(period).entrySet());
-                if (r.size() < rank) { row.add(new Span("—")); continue; }
-                var e = r.get(rank - 1);
-                String[] parts = e.getKey().split("¦", -1);
-                String code = parts.length > 0 ? parts[0] : "";
-                String sec = parts.length > 1 ? parts[1] : "";
-                String motive = parts.length > 2 ? parts[2] : e.getKey();
-                double pct = totals.get(period) > 0 ? e.getValue() / totals.get(period) * 100.0 : 0;
-                row.add(new Span(t(motive).toUpperCase(locale()) + " · " + sec + " · " + code + " · " + format1(e.getValue()) + " kg (" + format1(pct) + "%)"));
-            }
-            table.add(row);
-        }
-        host.add(title, caption, table);
+        scrapAnalysisPage.renderTopReasonsByPeriod(host, rows, monthly);
     }
 
     private void renderRecentScrapLaunches(Div host, List<RefugoRecord> rows) {
@@ -2255,7 +2162,7 @@ public class MainView extends VerticalLayout {
     private void renderScrapLaunches(Div host, List<RefugoRecord> rows, String dimension, String key) {
         List<RefugoRecord> selected = rows.stream().filter(r -> scraps.matches(r, dimension, key)).toList();
         if (selected.isEmpty()) return;
-        H3 title = new H3(t("Lançamentos") + " · " + scrapDisplayLabel(key, dimension));
+        H3 title = new H3(t("Lançamentos") + " · " + scrapAnalysisPage.displayLabel(key, dimension));
         title.addClassName("gp-subsection-title");
         Grid<RefugoRecord> grid = new Grid<>(RefugoRecord.class, false);
         grid.addThemeVariants(GridVariant.LUMO_NO_BORDER, GridVariant.LUMO_ROW_STRIPES);

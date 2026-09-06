@@ -1,6 +1,7 @@
 package br.com.globoplast.oee.view;
 
 import br.com.globoplast.oee.model.RefugoRecord;
+import br.com.globoplast.oee.service.RefugoService;
 import br.com.globoplast.oee.util.DisplayFormat;
 import br.com.globoplast.oee.util.Norm;
 import com.vaadin.flow.component.Component;
@@ -24,7 +25,7 @@ import java.util.function.*;
 final class ScrapReportPage extends Div {
     private final Function<String, String> translate;
     private final Supplier<Locale> locale;
-    private final BiFunction<List<RefugoRecord>, String, Component> ranking;
+    private final RefugoService scraps;
     private final Div kpis = new Div();
     private final Div sectors = new Div();
     private final Div reasons = new Div();
@@ -34,12 +35,12 @@ final class ScrapReportPage extends Div {
     private LocalDate scrapStart;
     private LocalDate scrapEnd;
 
-    ScrapReportPage(Function<String, String> translate, Supplier<Locale> locale,
+    ScrapReportPage(Function<String, String> translate, Supplier<Locale> locale, RefugoService scraps,
                     String initialSearch, Button filter, Function<Button, Popover> filterDropdownFactory,
-                    Consumer<String> searchChanged, BiFunction<List<RefugoRecord>, String, Component> ranking) {
+                    Consumer<String> searchChanged) {
         this.translate = translate;
         this.locale = locale;
-        this.ranking = ranking;
+        this.scraps = scraps;
 
         scrapReportTitle = new H2();
         scrapReportTitle.addClassName("gp-section-title");
@@ -174,7 +175,9 @@ final class ScrapReportPage extends Div {
                         .toList();
                 H3 cardTitle = new H3(t(sector));
                 cardTitle.addClassName("gp-scrap-reason-title-v116");
-                Div card = new Div(cardTitle, ranking.apply(scope, sector));
+                Div card = new Div(cardTitle, new ScrapRankingTable(
+                        scraps.aggregate(scope, "Motivo"), scraps.totalKg(scope), sector,
+                        this::t, this::format1, locale.get()));
                 card.addClassName("gp-scrap-reason-card-v116");
                 cards.add(card);
             }
@@ -325,4 +328,3 @@ final class ScrapReportPage extends Div {
 
     private record ScrapSectorReportRow(String sector, double scrapKg, long launches, double participation) {}
 }
-
