@@ -73,7 +73,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 @Route("")
 @PageTitle("GLOBOPLAST APP")
@@ -1900,7 +1899,7 @@ public class MainView extends VerticalLayout {
         if ("Setor".equals(dimension)) {
             barChart.addClassNames("gp-refugo-sector-chart-v064", "gp-refugo-sector-chart-v068", "gp-refugo-sector-chart-v069");
         }
-        alignScrapChartTitleV070(barChart);
+        scrapAnalysisPage.alignChartTitle(barChart);
         attachScrapContextMenu(barChart, rows, dimension);
         chartLine.add(barChart);
         host.add(chartLine);
@@ -1909,21 +1908,6 @@ public class MainView extends VerticalLayout {
             scrapAnalysisPage.renderTopReasonsBySector(host, rows, scrapSelectedDimension,
                     scrapSelectedKey, scrapSectors);
         }
-    }
-
-    private void alignScrapChartTitleV070(InteractiveBarChart chart) {
-        chart.addClassName("gp-refugo-chart-title-aligned-v070");
-        chart.addAttachListener(e -> chart.getElement().executeJs("""
-            const apply=()=>{
-              const title=this.querySelector('.gp-refugo-chart-title');
-              if(title){
-                title.style.setProperty('left','48px','important');
-                title.style.setProperty('top','0px','important');
-              }
-            };
-            apply();
-            requestAnimationFrame(apply);
-        """));
     }
 
     private static String nonBlank(String value) {
@@ -2084,47 +2068,11 @@ public class MainView extends VerticalLayout {
 
     private void renderScrapComparison(Div host, List<RefugoRecord> rows, boolean monthly) {
         String dimension = monthly ? "Comparativo Mensal" : "Comparativo Anual";
-        Map<String, Double> totals = new LinkedHashMap<>();
-        for (RefugoRecord r : rows) totals.merge(scraps.analysisKey(r, dimension), r.scrapKg(), Double::sum);
-        totals = totals.entrySet().stream().sorted(Map.Entry.comparingByKey())
-                .collect(Collectors.toMap(Map.Entry::getKey, e -> Norm.round(e.getValue(), 3), (a, b) -> a, LinkedHashMap::new));
-        if (totals.size() < 2) {
-            host.add(emptyState(t("O comparativo requer pelo menos 2 períodos nos dados filtrados.")));
-            return;
-        }
-        Map<String, String> labels = new LinkedHashMap<>();
-        totals.keySet().forEach(k -> labels.put(k, scrapAnalysisPage.displayLabel(k, dimension)));
-        Div line = new Div();
-        line.addClassName("gp-refugo-chart-line");
         String selected = monthly && Objects.equals(scrapSelectedDimension, dimension) ? scrapSelectedKey : null;
-        InteractiveBarChart chart = new InteractiveBarChart(
-                t(monthly ? "Análise por mês" : "Análise por ano"),
-                totals, labels, selected, locale(), monthly ? key -> {
-                    toggleScrapSelectionAndRefreshKpis(dimension, key);
-                } : null, monthly ? key -> {
-                    selectScrapForContextMenu(dimension, key);
-                } : null);
-        alignScrapChartTitleV070(chart);
-        if (monthly) attachScrapContextMenu(chart, rows, dimension);
-        line.add(chart);
-        host.add(line);
-
-        if (monthly) {
-            List<Map.Entry<String, Double>> ordered = new ArrayList<>(totals.entrySet());
-            var last = ordered.get(ordered.size() - 1);
-            var previous = ordered.get(ordered.size() - 2);
-            var min = ordered.stream().min(Map.Entry.comparingByValue()).orElse(last);
-            var max = ordered.stream().max(Map.Entry.comparingByValue()).orElse(last);
-            double variation = previous.getValue() == 0 ? 0 : (last.getValue() - previous.getValue()) / previous.getValue() * 100.0;
-            Div metrics = new Div(
-                    kpi(t("Último mês"), format(last.getValue()) + " kg · " + signed1(variation) + "%"),
-                    kpi(t("Menor refugo"), labels.get(min.getKey()) + " · " + format(min.getValue()) + " kg"),
-                    kpi(t("Maior refugo"), labels.get(max.getKey()) + " · " + format(max.getValue()) + " kg")
-            );
-            metrics.addClassNames("gp-kpis", "gp-comparison-kpis");
-            host.add(metrics);
-        }
-        scrapAnalysisPage.renderTopReasonsByPeriod(host, rows, monthly);
+        scrapAnalysisPage.renderComparison(host, rows, monthly, selected,
+                key -> toggleScrapSelectionAndRefreshKpis(dimension, key),
+                key -> selectScrapForContextMenu(dimension, key),
+                chart -> attachScrapContextMenu(chart, rows, dimension));
     }
 
     private void renderRecentScrapLaunches(Div host, List<RefugoRecord> rows) {
@@ -2298,10 +2246,6 @@ public class MainView extends VerticalLayout {
     private static String scrapLoadTime(RefugoRecord record) {
         String time = Norm.syncTime(record == null ? null : record.firstDetectedAt());
         return time == null || time.isBlank() ? "—" : time;
-    }
-
-    private String signed1(double value) {
-        return (value > 0 ? "+" : "") + format1(value);
     }
 
     private Popover scrapFilterDropdown(Button target, Runnable refresh, Runnable clearView) {

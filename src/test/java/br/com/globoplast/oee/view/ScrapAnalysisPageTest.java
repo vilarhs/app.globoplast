@@ -57,6 +57,17 @@ class ScrapAnalysisPageTest {
         assertEquals(5, descendants(ranking)
                 .filter(component -> component.getElement().getClassList().contains("gp-ranking-row"))
                 .count());
+
+        LocalDate previousMonth = today.minusMonths(1);
+        RefugoRecord previous = new RefugoRecord(2, "2", previousMonth, previousMonth, "59002", 1000,
+                "MÁQUINA", "77002", "PRODUTO", "CLIENTE", "A", "OPERADOR",
+                1, "FALHA", 5, 1, "Extrusão", "");
+        Div comparison = new Div();
+        page.renderComparison(comparison, List.of(previous, row), true, null,
+                key -> { }, key -> { }, chart -> { });
+        assertEquals(1, descendants(comparison).filter(InteractiveBarChart.class::isInstance).count());
+        assertEquals(1, descendants(comparison).filter(component -> component.getElement().getClassList()
+                .contains("gp-comparison-kpis")).count());
     }
 
     private static java.util.stream.Stream<com.vaadin.flow.component.Component> descendants(

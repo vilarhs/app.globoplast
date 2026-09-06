@@ -31,6 +31,7 @@ import java.util.function.DoubleFunction;
 import java.util.function.Function;
 import java.util.function.LongFunction;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 final class ScrapAnalysisPage extends Div {
     private final Function<String, String> translate;
@@ -242,6 +243,70 @@ final class ScrapAnalysisPage extends Div {
         host.add(title, caption, table);
     }
 
+    void renderComparison(Div host, List<RefugoRecord> rows, boolean monthly, String selectedKey,
+                          Consumer<String> selectionChanged, Consumer<String> contextSelected,
+                          Consumer<InteractiveBarChart> contextMenuInstaller) {
+        String dimension = monthly ? "Comparativo Mensal" : "Comparativo Anual";
+        Map<String, Double> totals = rows.stream().collect(Collectors.groupingBy(
+                row -> scraps.analysisKey(row, dimension), LinkedHashMap::new,
+                Collectors.summingDouble(RefugoRecord::scrapKg)));
+        totals = totals.entrySet().stream().sorted(Map.Entry.comparingByKey())
+                .collect(Collectors.toMap(Map.Entry::getKey,
+                        entry -> Norm.round(entry.getValue(), 3), (left, right) -> left, LinkedHashMap::new));
+        if (totals.size() < 2) {
+            host.add(emptyState(t("O comparativo requer pelo menos 2 períodos nos dados filtrados.")));
+            return;
+        }
+
+        Map<String, String> labels = new LinkedHashMap<>();
+        totals.keySet().forEach(key -> labels.put(key, displayLabel(key, dimension)));
+        Div line = new Div();
+        line.addClassName("gp-refugo-chart-line");
+        InteractiveBarChart comparison = new InteractiveBarChart(
+                t(monthly ? "Análise por mês" : "Análise por ano"), totals, labels,
+                monthly ? selectedKey : null, locale.get(),
+                monthly ? selectionChanged : null, monthly ? contextSelected : null);
+        alignChartTitle(comparison);
+        if (monthly) contextMenuInstaller.accept(comparison);
+        line.add(comparison);
+        host.add(line);
+
+        if (monthly) {
+            List<Map.Entry<String, Double>> ordered = new ArrayList<>(totals.entrySet());
+            var last = ordered.get(ordered.size() - 1);
+            var previous = ordered.get(ordered.size() - 2);
+            var min = ordered.stream().min(Map.Entry.comparingByValue()).orElse(last);
+            var max = ordered.stream().max(Map.Entry.comparingByValue()).orElse(last);
+            double variation = previous.getValue() == 0 ? 0
+                    : (last.getValue() - previous.getValue()) / previous.getValue() * 100.0;
+            Div metrics = new Div(
+                    kpi(t("Último mês"), formatDecimal.apply(last.getValue()) + " kg · "
+                            + signed(variation) + "%"),
+                    kpi(t("Menor refugo"), labels.get(min.getKey()) + " · "
+                            + formatDecimal.apply(min.getValue()) + " kg"),
+                    kpi(t("Maior refugo"), labels.get(max.getKey()) + " · "
+                            + formatDecimal.apply(max.getValue()) + " kg"));
+            metrics.addClassNames("gp-kpis", "gp-comparison-kpis");
+            host.add(metrics);
+        }
+        renderTopReasonsByPeriod(host, rows, monthly);
+    }
+
+    void alignChartTitle(InteractiveBarChart chart) {
+        chart.addClassName("gp-refugo-chart-title-aligned-v070");
+        chart.addAttachListener(event -> chart.getElement().executeJs("""
+            const apply=()=>{
+              const title=this.querySelector('.gp-refugo-chart-title');
+              if(title){
+                title.style.setProperty('left','48px','important');
+                title.style.setProperty('top','0px','important');
+              }
+            };
+            apply();
+            requestAnimationFrame(apply);
+        """));
+    }
+
     String displayLabel(String key, String dimension) {
         if (key == null) return t("NÃO INFORMADO");
         if ("Motivo".equals(dimension)) {
@@ -261,6 +326,16 @@ final class ScrapAnalysisPage extends Div {
     private ScrapRankingTable ranking(List<RefugoRecord> rows, String sector) {
         return new ScrapRankingTable(scraps.aggregate(rows, "Motivo"), scraps.totalKg(rows), sector,
                 this::t, formatOneDecimal, locale.get());
+    }
+
+    private Div emptyState(String message) {
+        Div state = new Div(new Span(message));
+        state.addClassName("gp-empty-state");
+        return state;
+    }
+
+    private String signed(double value) {
+        return (value > 0 ? "+" : "") + formatOneDecimal.apply(value);
     }
 
     private void rebuild(Popover dropdown) {
