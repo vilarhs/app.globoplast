@@ -5690,3 +5690,25 @@ html body .gp-filter-dropdown-actions{
   background:var(--gp-overlay-surface-v315)!important;
   background-color:var(--gp-overlay-surface-v315)!important;
 }
+
+/* As regras de tema têm seletor mais específico que :root. */
+html[theme~="light"],html[data-gp-theme="light"]{
+  --gp-modal-uniform-v058:#e9ebee;
+  --gp-overlay-surface-v315:#f1f2f4;
+}
+html[theme~="dark"],html[data-gp-theme="dark"]{
+  --gp-modal-uniform-v058:#2d2f37;
+  --gp-overlay-surface-v315:#2b2d35;
+}
+
+/* Novo Lançamento: reduz altura real dos controles, não só o espaçamento. */
+html body vaadin-dialog.gp-launch-dialog::part(content){padding-top:8px!important;padding-bottom:8px!important}
+html body vaadin-dialog.gp-launch-dialog .gp-launch-form-python{gap:.14rem!important}
+html body vaadin-dialog.gp-launch-dialog .gp-launch-row{gap:.3rem!important}
+html body vaadin-dialog.gp-launch-dialog .gp-launch-shift-column{gap:.14rem!important}
+html body vaadin-dialog.gp-launch-dialog .gp-launch-row :is(vaadin-text-field,vaadin-combo-box)::part(input-field),
+html body vaadin-dialog.gp-launch-dialog .gp-period-field{min-height:36px!important;height:36px!important}
+
+/* A alteração de senha cabe lado a lado no desktop e mantém leitura no celular. */
+.gp-password-form{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:.7rem!important}
+@media(max-width:520px){.gp-password-form{grid-template-columns:1fr!important}}
