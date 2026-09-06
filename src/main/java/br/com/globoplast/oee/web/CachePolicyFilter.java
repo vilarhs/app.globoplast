@@ -19,14 +19,16 @@ public final class CachePolicyFilter implements Filter {
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
             throws IOException, ServletException {
+        boolean noStore = false;
         if (request instanceof HttpServletRequest http && response instanceof HttpServletResponse httpResponse) {
             String path = http.getRequestURI();
-            if ("/".equals(path) || "/index.html".equals(path) || "/health".equals(path) || path.endsWith(".css")) {
-                httpResponse.setHeader("Cache-Control", NO_STORE);
-                httpResponse.setHeader("Pragma", "no-cache");
-                httpResponse.setDateHeader("Expires", 0);
-            }
+            noStore = "/".equals(path) || "/index.html".equals(path) || "/health".equals(path) || path.endsWith(".css");
         }
         chain.doFilter(request, response);
+        if (noStore && response instanceof HttpServletResponse httpResponse) {
+            httpResponse.setHeader("Cache-Control", NO_STORE);
+            httpResponse.setHeader("Pragma", "no-cache");
+            httpResponse.setDateHeader("Expires", 0);
+        }
     }
 }
