@@ -18,7 +18,12 @@ class ProductionDateRulesTest {
         assertEquals(rawDate.minusDays(1), Norm.productiveDate(rawDate, "C"));
         assertEquals(rawDate.minusDays(1), Norm.productiveScrapDate(rawDate, "A", rawDate + "T05:59:59-03:00"));
         assertEquals(rawDate.minusDays(1), Norm.productiveScrapDate(rawDate, "B", rawDate + "T05:00:00-03:00"));
-        assertEquals(rawDate, Norm.productiveScrapDate(rawDate, "A", rawDate + "T06:00:00-03:00"));
+        assertEquals(rawDate.minusDays(1), Norm.productiveScrapDate(rawDate, "A", rawDate + "T06:00:00-03:00"));
+        assertEquals(rawDate.minusDays(1), Norm.productiveScrapDate(rawDate, "A", rawDate + "T06:09:59-03:00"));
+        assertEquals(rawDate, Norm.productiveScrapDate(rawDate, "A", rawDate + "T06:10:00-03:00"));
+        assertEquals("A", Norm.effectiveShift("B", rawDate + "T14:09:59-03:00"));
+        assertEquals("B", Norm.effectiveShift("C", rawDate + "T22:09:59-03:00"));
+        assertEquals("C", Norm.effectiveShift("A", rawDate + "T06:09:59-03:00"));
     }
 
     @Test
@@ -27,7 +32,7 @@ class ProductionDateRulesTest {
 
         assertEquals(lastMonth.atEndOfMonth(),
                 Norm.productiveScrapDate(firstDay, "A", firstDay + "T05:30:00-03:00"));
-        assertEquals(firstDay,
+        assertEquals(lastMonth.atEndOfMonth(),
                 Norm.productiveScrapDate(firstDay, "A", firstDay + "T06:00:00-03:00"));
     }
 }

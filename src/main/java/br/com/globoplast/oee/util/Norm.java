@@ -104,31 +104,52 @@ public final class Norm {
 
     /**
      * Refugo não traz hora de lançamento no payload do ERP. A primeira
-     * detecção é usada como horário operacional: antes das 06h, o registro
-     * pertence ao dia produtivo anterior; a partir das 06h, ao próprio dia.
+     * detecção é usada como horário operacional: antes das 06:10, o registro
+     * pertence ao dia produtivo anterior; a partir das 06:10, ao próprio dia.
      */
     public static LocalDate productiveScrapDate(LocalDate rawDate, String shift, Object firstDetectedAt) {
         LocalDate legacy = productiveDate(rawDate, shift);
         if (rawDate == null) return legacy;
 
-        String value = text(firstDetectedAt);
-        if (value.isBlank()) return legacy;
-        try {
-            ZonedDateTime detected = ZonedDateTime.parse(value).withZoneSameInstant(AppConfig.ZONE);
-            if (detected.toLocalDate().equals(rawDate) && detected.getHour() < 6) return rawDate.minusDays(1);
-        } catch (Exception ignored) {
-            try {
-                OffsetDateTime detected = OffsetDateTime.parse(value);
-                ZonedDateTime local = detected.atZoneSameInstant(AppConfig.ZONE);
-                if (local.toLocalDate().equals(rawDate) && local.getHour() < 6) return rawDate.minusDays(1);
-            } catch (Exception ignoredAgain) { }
-        }
+        ZonedDateTime detected = localDateTime(firstDetectedAt);
+        if (detected != null && detected.toLocalDate().equals(rawDate)
+                && detected.toLocalTime().isBefore(LocalTime.of(6, 10))) return rawDate.minusDays(1);
         return rawDate;
+    }
+
+    /** Turno efetivo considerando os dez minutos de tolerância da troca. */
+    public static String effectiveShift(String recordedShift, Object detectedAt) {
+        String fallback = token(recordedShift);
+        ZonedDateTime detected = localDateTime(detectedAt);
+        if (detected == null) return fallback;
+        LocalTime time = detected.toLocalTime();
+        if (time.isBefore(LocalTime.of(6, 10))) return "C";
+        if (time.isBefore(LocalTime.of(14, 10))) return "A";
+        if (time.isBefore(LocalTime.of(22, 10))) return "B";
+        return "C";
+    }
+
+    public static String effectiveShift(String recordedShift, Object detectedAt, LocalDate rawDate) {
+        ZonedDateTime detected = localDateTime(detectedAt);
+        if (rawDate == null || detected == null || !rawDate.equals(detected.toLocalDate())) {
+            return token(recordedShift);
+        }
+        return effectiveShift(recordedShift, detectedAt);
+    }
+
+    private static ZonedDateTime localDateTime(Object value) {
+        String text = text(value);
+        if (text.isBlank()) return null;
+        try { return ZonedDateTime.parse(text).withZoneSameInstant(AppConfig.ZONE); }
+        catch (Exception ignored) {
+            try { return OffsetDateTime.parse(text).atZoneSameInstant(AppConfig.ZONE); }
+            catch (Exception ignoredAgain) { return null; }
+        }
     }
 
     public static LocalDate productiveToday() {
         ZonedDateTime now = ZonedDateTime.now(AppConfig.ZONE);
-        if (now.getHour() < 6) now = now.minusDays(1);
+        if (now.toLocalTime().isBefore(LocalTime.of(6, 10))) now = now.minusDays(1);
         return now.toLocalDate();
     }
 

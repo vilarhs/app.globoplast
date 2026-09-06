@@ -2,6 +2,7 @@ package br.com.globoplast.oee.view;
 
 import br.com.globoplast.oee.model.RefugoRecord;
 import br.com.globoplast.oee.service.RefugoService;
+import br.com.globoplast.oee.util.DisplayFormat;
 import br.com.globoplast.oee.util.Norm;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.button.Button;
@@ -34,6 +35,7 @@ import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.DoubleFunction;
 import java.util.function.Function;
+import java.util.function.IntConsumer;
 import java.util.function.LongFunction;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -176,6 +178,49 @@ final class ScrapAnalysisPage extends Div {
                 kpi(t("Total de Lançamentos"), formatInteger.apply(rows.size())),
                 periodCaption == null ? kpi(t("Período"), periodValue)
                         : kpiWithCaption(t("Período"), periodValue, periodCaption));
+    }
+
+    int renderDimension(List<RefugoRecord> rows, String dimension, int requestedPage,
+                        String selectedKey, Collection<String> filteredSectors,
+                        Consumer<String> selectionChanged, Consumer<String> contextSelected,
+                        Consumer<InteractiveBarChart> contextMenuInstaller, IntConsumer pageChanged) {
+        chart.removeAll();
+        Map<String, Double> aggregate = scraps.aggregate(rows, dimension);
+        if (aggregate.isEmpty()) {
+            chart.add(emptyState(t("Nenhum dado encontrado para os filtros selecionados.")));
+            return 1;
+        }
+
+        List<Map.Entry<String, Double>> all = new ArrayList<>(aggregate.entrySet());
+        int pageSize = 15;
+        int totalPages = Math.max(1, (int) Math.ceil(all.size() / (double) pageSize));
+        int page = Math.max(1, Math.min(requestedPage, totalPages));
+        int start = (page - 1) * pageSize;
+        int end = Math.min(start + pageSize, all.size());
+        Map<String, Double> pageValues = new LinkedHashMap<>();
+        Map<String, String> labels = new LinkedHashMap<>();
+        for (int index = start; index < end; index++) {
+            var entry = all.get(index);
+            pageValues.put(entry.getKey(), entry.getValue());
+            labels.put(entry.getKey(), displayLabel(entry.getKey(), dimension));
+        }
+
+        Div chartLine = new Div();
+        chartLine.addClassName("gp-refugo-chart-line");
+        InteractiveBarChart barChart = new InteractiveBarChart(t("Análise por " + dimension),
+                pageValues, labels, selectedKey, locale.get(), selectionChanged, contextSelected);
+        if ("Setor".equals(dimension)) {
+            barChart.addClassNames("gp-refugo-sector-chart-v064", "gp-refugo-sector-chart-v068",
+                    "gp-refugo-sector-chart-v069");
+        }
+        alignChartTitle(barChart);
+        contextMenuInstaller.accept(barChart);
+        chartLine.add(barChart);
+        chart.add(chartLine, pagination(page, totalPages, pageChanged));
+        if ("Setor".equals(dimension)) {
+            renderTopReasonsBySector(chart, rows, "Setor", selectedKey, filteredSectors);
+        }
+        return page;
     }
 
     void renderTopReasonsBySector(Div host, List<RefugoRecord> rows,
@@ -358,6 +403,110 @@ final class ScrapAnalysisPage extends Div {
         details.add(title, grid);
     }
 
+    void renderDescriptionDetails(List<RefugoRecord> rows, String key, LocalDate start, LocalDate end) {
+        List<RefugoRecord> selected = rows.stream()
+                .filter(row -> Objects.equals(scraps.analysisKey(row, "Descrição"), key))
+                .toList();
+        if (selected.isEmpty()) return;
+
+        H3 title = new H3(t("Detalhes do item"));
+        title.addClassName("gp-subsection-title");
+        Span description = new Span(nonBlank(selected.get(0).description()));
+        description.addClassName("gp-detail-main");
+        List<String> products = selected.stream().map(RefugoRecord::product)
+                .filter(value -> value != null && !value.isBlank()).distinct().toList();
+        List<String> clients = selected.stream().map(RefugoRecord::client)
+                .filter(value -> value != null && !value.isBlank()).distinct().toList();
+        Div captions = new Div();
+        captions.addClassName("gp-detail-captions");
+        if (!products.isEmpty()) captions.add(new Span(t("Produto(s)") + ": " + String.join(", ", products)));
+        if (!clients.isEmpty()) captions.add(new Span(t("Cliente(s)") + ": " + String.join(", ", clients)));
+        details.add(title, description, captions);
+
+        boolean multiDay = start != null && end != null && !start.equals(end);
+        boolean multiProducts = products.size() > 1;
+        List<String> sectors = selected.stream().map(RefugoRecord::sector)
+                .filter(Objects::nonNull).distinct().sorted().toList();
+        for (String sector : sectors) {
+            List<RefugoRecord> sectorRows = selected.stream()
+                    .filter(row -> Objects.equals(row.sector(), sector)).toList();
+            Span sectorTitle = new Span(t("SETOR") + ": " + sector + " ("
+                    + formatDecimal.apply(scraps.totalKg(sectorRows)) + " " + t("Kg") + ")");
+            sectorTitle.addClassName("gp-refugo-sector-detail-title");
+            details.add(sectorTitle);
+
+            Map<String, List<RefugoRecord>> grouped = new LinkedHashMap<>();
+            for (RefugoRecord row : sectorRows) {
+                StringBuilder groupKey = new StringBuilder();
+                if (multiDay) groupKey.append(row.productiveDate()).append('¦');
+                groupKey.append(row.orderNumber());
+                if (multiProducts) groupKey.append('¦').append(row.product());
+                grouped.computeIfAbsent(groupKey.toString(), ignored -> new ArrayList<>()).add(row);
+            }
+
+            List<ScrapDetailRow> detailRows = new ArrayList<>();
+            for (List<RefugoRecord> group : grouped.values()) {
+                RefugoRecord first = group.get(0);
+                double kg = group.stream().mapToDouble(RefugoRecord::scrapKg).sum();
+                int units = (int) Math.round(group.stream().mapToDouble(RefugoRecord::itemCount).sum());
+                double planned = group.stream().mapToDouble(RefugoRecord::plannedQty).max().orElse(0.0);
+                detailRows.add(new ScrapDetailRow(multiDay ? Norm.br(first.productiveDate()) : "",
+                        first.orderNumber(), multiProducts ? first.product() : "", planned, kg, units,
+                        planned > 0 ? units / planned * 100.0 : null));
+            }
+            if (multiDay) {
+                detailRows.sort(Comparator.comparing((ScrapDetailRow row) -> Norm.isoDate(row.date()),
+                                Comparator.nullsLast(Comparator.naturalOrder())).reversed()
+                        .thenComparing(ScrapDetailRow::order, Comparator.nullsLast(String::compareTo)));
+            }
+
+            Grid<ScrapDetailRow> grid = new Grid<>(ScrapDetailRow.class, false);
+            grid.addThemeVariants(GridVariant.LUMO_NO_BORDER, GridVariant.LUMO_ROW_STRIPES);
+            if (multiDay) grid.addColumn(ScrapDetailRow::date).setHeader(t("Data"))
+                    .setWidth("108px").setFlexGrow(0);
+            grid.addColumn(ScrapDetailRow::order).setHeader(t("Nº OP"))
+                    .setWidth("84px").setFlexGrow(0);
+            if (multiProducts) grid.addColumn(ScrapDetailRow::product).setHeader(t("Código Produto"))
+                    .setWidth("140px").setFlexGrow(0);
+            grid.addColumn(row -> formatInteger.apply((int) Math.round(row.planned())))
+                    .setHeader(t("Planejado (un)"));
+            grid.addColumn(row -> formatDecimal.apply(row.scrapKg())).setHeader(t("Refugo (Kg)"));
+            grid.addColumn(row -> formatInteger.apply(row.items())).setHeader(t("Refugo (un)"));
+            grid.addColumn(row -> row.lossPct() == null ? "-" : formatDecimal.apply(row.lossPct()) + "%")
+                    .setHeader(t("Perda (%)"));
+            grid.setItems(detailRows);
+            configureAdaptiveGridHeight(grid, detailRows.size(), 14, 500);
+            details.add(grid);
+        }
+
+        double totalKg = scraps.totalKg(selected);
+        int totalItems = (int) Math.round(selected.stream().mapToDouble(RefugoRecord::itemCount).sum());
+        Map<String, Double> plannedByOrder = new LinkedHashMap<>();
+        for (RefugoRecord row : selected) {
+            plannedByOrder.merge(row.orderNumber(), row.plannedQty(), Math::max);
+        }
+        double totalPlanned = plannedByOrder.values().stream().mapToDouble(Double::doubleValue).sum();
+        Double loss = totalPlanned > 0 ? totalItems / totalPlanned * 100.0 : null;
+        H3 summaryTitle = new H3(t("Resumo total do item"));
+        summaryTitle.addClassName("gp-subsection-title");
+        Div summary = new Div(
+                kpi(t("Refugo total"), formatDecimal.apply(totalKg) + " " + t("Kg")),
+                kpi(t("Unidades refugadas"), formatInteger.apply(totalItems)),
+                kpi(t("Planejado das OPs"), formatInteger.apply((int) Math.round(totalPlanned))),
+                kpi(t("Perda total"), loss == null ? "-" : formatDecimal.apply(loss) + "%"));
+        summary.addClassNames("gp-kpis", "gp-detail-kpis");
+        details.add(summaryTitle, summary);
+
+        List<Double> weights = selected.stream().map(RefugoRecord::unitWeightG)
+                .filter(value -> value != null && value > 0).distinct().toList();
+        String weightText = weights.size() == 1
+                ? DisplayFormat.decimal(weights.get(0), 3, locale.get()) + " g"
+                : weights.size() > 1 ? t("múltiplos pesos no agrupamento") : "-";
+        Span weight = new Span(t("Peso unitário") + ": " + weightText);
+        weight.addClassName("gp-caption");
+        details.add(weight);
+    }
+
     static String loadTime(RefugoRecord record) {
         String time = Norm.syncTime(record == null ? null : record.firstDetectedAt());
         return time == null || time.isBlank() ? "—" : time;
@@ -411,6 +560,23 @@ final class ScrapAnalysisPage extends Div {
                 this::t, formatOneDecimal, locale.get());
     }
 
+    private Div pagination(int page, int totalPages, IntConsumer pageChanged) {
+        Div holder = new Div();
+        holder.addClassName("gp-refugo-pagination");
+        if (totalPages <= 1) return holder;
+        Button previous = new Button(t("← Anterior"));
+        previous.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
+        previous.setEnabled(page > 1);
+        previous.addClickListener(event -> pageChanged.accept(page - 1));
+        Span label = new Span(t("Página") + " " + page + " " + t("de") + " " + totalPages);
+        Button next = new Button(t("Próximo →"));
+        next.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
+        next.setEnabled(page < totalPages);
+        next.addClickListener(event -> pageChanged.accept(page + 1));
+        holder.add(previous, label, next);
+        return holder;
+    }
+
     private Div emptyState(String message) {
         Div state = new Div(new Span(message));
         state.addClassName("gp-empty-state");
@@ -424,6 +590,9 @@ final class ScrapAnalysisPage extends Div {
     private static String nonBlank(String value) {
         return value == null || value.isBlank() ? "NÃO INFORMADO" : value;
     }
+
+    private record ScrapDetailRow(String date, String order, String product, double planned,
+                                  double scrapKg, int items, Double lossPct) { }
 
     private void rebuild(Popover dropdown) {
         removeAll();

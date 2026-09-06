@@ -70,17 +70,19 @@ public class RefugoService {
         // Mesmo mapa do Python: turnos válidos encontrados em Setor + OP.
         Map<String, LinkedHashSet<String>> validBySectorOrder = new LinkedHashMap<>();
         for (RawScrap row : rawRows) {
-            if (VALID_SHIFTS.contains(row.shift())) {
+            String effectiveShift = Norm.effectiveShift(row.shift(), row.firstDetectedAt(), row.rawDate());
+            if (VALID_SHIFTS.contains(effectiveShift)) {
                 validBySectorOrder
                         .computeIfAbsent(row.sector() + "¦" + row.orderNumber(), k -> new LinkedHashSet<>())
-                        .add(row.shift());
+                        .add(effectiveShift);
             }
         }
 
         List<RefugoRecord> out = new ArrayList<>();
         for (RawScrap row : rawRows) {
-            if (VALID_SHIFTS.contains(row.shift())) {
-                emit(out, row, row.shift(), row.scrapKg(), row.itemCount(), start, end);
+            String effectiveShift = Norm.effectiveShift(row.shift(), row.firstDetectedAt(), row.rawDate());
+            if (VALID_SHIFTS.contains(effectiveShift)) {
+                emit(out, row, effectiveShift, row.scrapKg(), row.itemCount(), start, end);
                 continue;
             }
 

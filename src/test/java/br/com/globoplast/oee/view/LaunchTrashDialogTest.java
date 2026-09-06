@@ -17,8 +17,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.ResourceLock;
 import static org.junit.jupiter.api.Assertions.*;
 
+@ResourceLock("vaadin-ui")
 class LaunchTrashDialogTest {
     @Test
     @SuppressWarnings("unchecked")
@@ -48,7 +50,8 @@ class LaunchTrashDialogTest {
         List<Dialog> dialogs = new ArrayList<>();
         AtomicInteger refreshed = new AtomicInteger();
         UI previous = UI.getCurrent();
-        UI.setCurrent(new UI());
+        UI testUi = new UI();
+        UI.setCurrent(testUi);
         try {
             new LaunchTrashDialog(service, user, "MANUAL", text -> text, title -> {
                 Dialog dialog = new Dialog();
@@ -63,14 +66,17 @@ class LaunchTrashDialogTest {
             ComponentRenderer<Component, LaunchService.TrashItem> renderer =
                     (ComponentRenderer<Component, LaunchService.TrashItem>) grid.getColumns().getLast().getRenderer();
             HorizontalLayout actions = (HorizontalLayout) renderer.createComponent(item);
+            UI.setCurrent(testUi);
             ((Button) actions.getComponentAt(0)).click();
             assertEquals(List.of("restore"), calls);
             assertEquals(1, refreshed.get());
+            UI.setCurrent(testUi);
             ((Button) actions.getComponentAt(1)).click();
             assertEquals(List.of("restore"), calls);
             Dialog confirmation = dialogs.getLast();
             Button delete = (Button) confirmation.getFooter().getElement().getChildren().flatMap(element -> element.getComponent().stream())
                     .filter(c -> c instanceof Button b && b.getText().equals("Apagar definitivamente")).findFirst().orElseThrow();
+            UI.setCurrent(testUi);
             delete.click();
             assertEquals(List.of("restore", "delete"), calls);
             assertFalse(confirmation.isOpened());

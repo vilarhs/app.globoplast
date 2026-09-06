@@ -4,21 +4,30 @@ Sistema web de acompanhamento de produção, OEE e Refugo da Globoplast.
 
 ## Estado atual
 
-- Versão: `0.1.279`
-- Sequência das próximas versões: `0.1.280`, `0.1.281` e seguintes.
+- Versão: `0.1.314`
+- Sequência das próximas versões: `0.1.315`, `0.1.316` e seguintes.
 - Java 21, Spring Boot, Vaadin e SQLite
 - Aplicação publicada em `globoplast.app`
 - Serviço da VPS: `globoplast.service`
 - Banco de produção: `/var/lib/globoplast/database.db`
-- Fuso e dia produtivo: `America/Sao_Paulo`, com virada às 06:00
+- Fuso e dia produtivo: `America/Sao_Paulo`, com virada às 06:10 (tolerância de 10 minutos)
 
 O código atual é a fonte de verdade. Documentos e ferramentas da migração inicial foram removidos para não impor regras antigas às próximas versões. O histórico anterior permanece disponível no Git.
 
+## Organização das telas
+
+`MainView` mantém a rota, autenticação, navegação, atualização e caches da sessão.
+A montagem e o estado das telas ficam em `LaunchesScreen` (listagem e filtros),
+`LaunchDialog` (formulário e ações), `ProductionSummaryScreen` (dia e mês) e
+`ScrapScreen` (análise e relatório de refugo). Os componentes `*Page` desenham
+as tabelas, indicadores e gráficos. Estoque, cadastro, usuários e senha têm
+componentes próprios. Regras de produção, OEE e persistência permanecem nos serviços.
+
 ## Regras essenciais atuais
 
-- O dia produtivo vira às 06:00.
+- O dia produtivo vira às 06:10; as trocas de turno são consideradas às 06:10, 14:10 e 22:10.
 - O turno C pertence ao dia produtivo anterior.
-- Refugos A/B detectados antes das 06:00, quando o ERP informa a data civil corrente, pertencem ao dia produtivo anterior.
+- Refugos detectados antes das 06:10, quando o ERP informa a data civil corrente, pertencem ao dia produtivo anterior.
 - A hora apresentada no Refugo usa a primeira detecção conhecida, preservada em `primeiro_sincronizado_em`.
 - Lançamentos exibe o progresso acumulado por OP após o percentual de Refugo; o submenu Produção consulta o `PLANEJAMENTO` do ERP separadamente para os processos 770, 771, 772, 773, 775 e 776.
 - O OEE é consolidado por máquina e dia produtivo em uma única janela de 24 horas.

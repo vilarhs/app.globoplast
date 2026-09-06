@@ -77,6 +77,18 @@ class ScrapAnalysisPageTest {
         page.renderSelectedLaunches(List.of(row), "Setor", "EXTRUSÃO");
         assertEquals(1, descendants(page.details()).filter(com.vaadin.flow.component.grid.Grid.class::isInstance)
                 .count());
+
+        page.details().removeAll();
+        page.renderDescriptionDetails(List.of(row), "PRODUTO", today, today);
+        assertEquals(1, descendants(page.details()).filter(com.vaadin.flow.component.grid.Grid.class::isInstance)
+                .count());
+        assertEquals(1, descendants(page.details()).filter(component -> component.getElement().getClassList()
+                .contains("gp-detail-kpis")).count());
+
+        int renderedPage = page.renderDimension(List.of(row), "Setor", 1, "EXTRUSÃO", List.of(),
+                key -> { }, key -> { }, chart -> { }, selectedPage -> { });
+        assertEquals(1, renderedPage);
+        assertEquals(1, descendants(page.chart()).filter(InteractiveBarChart.class::isInstance).count());
     }
 
     private static java.util.stream.Stream<com.vaadin.flow.component.Component> descendants(

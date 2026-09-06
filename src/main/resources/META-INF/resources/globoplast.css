@@ -5604,3 +5604,54 @@ html body .gp-filter-popover::part(overlay){
   border-radius:.55rem!important;
   box-shadow:0 8px 24px rgba(0,0,0,.20)!important;
 }
+
+/* Conteúdo real dos diálogos vive no overlay. Mantém todos os modais com a
+   mesma superfície dos campos do Novo Lançamento, inclusive o DatePicker. */
+html body vaadin-dialog-overlay[theme~="gp-modal-v053"]{
+  --lumo-base-color:var(--gp-modal-uniform-v058)!important;
+  --vaadin-dialog-background:var(--gp-modal-uniform-v058)!important;
+  color:var(--gp-text)!important;
+}
+html body vaadin-dialog-overlay[theme~="gp-modal-v053"]::part(overlay),
+html body vaadin-dialog-overlay[theme~="gp-modal-v053"]::part(header),
+html body vaadin-dialog-overlay[theme~="gp-modal-v053"]::part(content),
+html body vaadin-dialog-overlay[theme~="gp-modal-v053"]::part(footer){
+  background:var(--gp-modal-uniform-v058)!important;
+  background-color:var(--gp-modal-uniform-v058)!important;
+  color:var(--gp-text)!important;
+}
+html body vaadin-dialog-overlay[theme~="gp-modal-v053"]
+  :is(vaadin-text-field,vaadin-password-field,vaadin-integer-field,
+      vaadin-number-field,vaadin-date-picker,vaadin-select,
+      vaadin-combo-box,vaadin-multi-select-combo-box){
+  --vaadin-input-field-background:var(--gp-modal-uniform-v058)!important;
+  --lumo-base-color:var(--gp-modal-uniform-v058)!important;
+}
+html body vaadin-dialog-overlay[theme~="gp-modal-v053"]
+  :is(vaadin-text-field,vaadin-password-field,vaadin-integer-field,
+      vaadin-number-field,vaadin-date-picker,vaadin-select,
+      vaadin-combo-box,vaadin-multi-select-combo-box)::part(input-field),
+html body vaadin-dialog-overlay[theme~="gp-modal-v053"]
+  :is(vaadin-date-picker,vaadin-combo-box) input{
+  background:var(--gp-modal-uniform-v058)!important;
+  background-color:var(--gp-modal-uniform-v058)!important;
+  border-color:var(--gp-control-border)!important;
+  color:var(--gp-text)!important;
+}
+.gp-password-form{
+  display:flex;
+  flex-direction:column;
+  gap:.7rem;
+  width:100%;
+  box-sizing:border-box;
+}
+
+/* O campo de data do lançamento é um botão/calendário próprio, não um
+   vaadin-date-picker. Por isso a cor precisa ser aplicada ao botão interno. */
+html body .gp-launch-standard-field-v054 .gp-period-field,
+html body vaadin-dialog-overlay .gp-period-field{
+  background:var(--gp-modal-uniform-v058)!important;
+  background-color:var(--gp-modal-uniform-v058)!important;
+  color:var(--gp-text)!important;
+  border-color:var(--gp-control-border)!important;
+}

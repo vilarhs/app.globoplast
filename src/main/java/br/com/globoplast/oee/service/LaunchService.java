@@ -277,7 +277,7 @@ public class LaunchService {
                     if (!productionDate.equals(date)) continue;
                     if (!matchesManualScrapLookup(sector, launchProduct, r.getString("produto"), r.getString("maquina"))) continue;
                     double kg = Math.max(0, r.getDouble("qtd_refugo"));
-                    switch (Norm.token(r.getString("turno"))) {
+                    switch (Norm.effectiveShift(r.getString("turno"), r.getString("sincronizado_em"), Norm.isoDate(r.getString("data_apon")))) {
                         case "A" -> shiftA += kg;
                         case "B" -> shiftB += kg;
                         case "C" -> shiftC += kg;
@@ -443,7 +443,7 @@ public class LaunchService {
 
         for (R scrap : raw) {
             LocalDate date = Norm.productiveScrapDate(scrap.date, scrap.shift, scrap.sync);
-            String order = Norm.order(scrap.order), product = Norm.product(scrap.product), shift = Norm.token(scrap.shift);
+            String order = Norm.order(scrap.order), product = Norm.product(scrap.product), shift = Norm.effectiveShift(scrap.shift, scrap.sync, scrap.date);
             if (date == null || order.isBlank() || product.isBlank() || !("A".equals(shift) || "B".equals(shift) || "C".equals(shift))) continue;
             List<LaunchRecord> candidates = manual.stream().filter(record -> date.equals(record.getDate())
                     && order.equals(Norm.order(record.getOrderNumber()))
@@ -1045,7 +1045,7 @@ public class LaunchService {
             String rm=Norm.token(Norm.machine(r.machine));
             List<Integer> sameMachine=eligible.stream().filter(i->Norm.token(items.get(i).getMachine()).equals(rm)).toList();
             if(!sameMachine.isEmpty())eligible=new ArrayList<>(sameMachine);
-            final String shift=Norm.token(r.shift);
+            final String shift=Norm.effectiveShift(r.shift,r.sync,r.date);
             int target=eligible.stream().max(Comparator
                     .comparingInt((Integer i)->switch(shift){case"A"->items.get(i).getShiftA();case"B"->items.get(i).getShiftB();case"C"->items.get(i).getShiftC();default->0;})
                     .thenComparingInt(i->items.get(i).getTotalProduced())
@@ -1230,7 +1230,7 @@ public class LaunchService {
         for(R r:raw){
             LocalDate d=Norm.productiveScrapDate(r.date,r.shift,r.sync);
             if(d==null||d.isBefore(start)||d.isAfter(end)) continue;
-            String op=Norm.order(r.order),prod=Norm.product(r.product),shift=Norm.token(r.shift);
+            String op=Norm.order(r.order),prod=Norm.product(r.product),shift=Norm.effectiveShift(r.shift,r.sync,r.date);
             if(op.isBlank()||prod.isBlank()||!(shift.equals("A")||shift.equals("B")||shift.equals("C"))) continue;
 
             boolean hasAuto=auto.stream().anyMatch(x->Objects.equals(x.getDate(),d)

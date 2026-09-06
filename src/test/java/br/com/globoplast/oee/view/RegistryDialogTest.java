@@ -17,8 +17,10 @@ import com.vaadin.flow.data.renderer.ComponentRenderer;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.ResourceLock;
 import static org.junit.jupiter.api.Assertions.*;
 
+@ResourceLock("vaadin-ui")
 class RegistryDialogTest {
     @Test
     @SuppressWarnings("unchecked")
@@ -43,7 +45,8 @@ class RegistryDialogTest {
         List<Dialog> dialogs = new ArrayList<>();
         List<String> messages = new ArrayList<>();
         UI previous = UI.getCurrent();
-        UI.setCurrent(new UI());
+        UI testUi = new UI();
+        UI.setCurrent(testUi);
         try {
             new RegistryDialog(catalog, launches, text -> text, title -> {
                 Dialog dialog = ViewComponents.dialog(title, "Fechar");
@@ -58,6 +61,7 @@ class RegistryDialogTest {
             ComponentRenderer<Component, Machine> renderer =
                     (ComponentRenderer<Component, Machine>) grid.getColumns().getLast().getRenderer();
             HorizontalLayout actions = (HorizontalLayout) renderer.createComponent(machine);
+            UI.setCurrent(testUi);
             ((Button) actions.getComponentAt(0)).click();
             Dialog editor = dialogs.getLast();
             Div form = (Div) editor.getChildren().filter(Div.class::isInstance).findFirst().orElseThrow();
@@ -67,11 +71,13 @@ class RegistryDialogTest {
                     .flatMap(element -> element.getComponent().stream())
                     .filter(c -> c instanceof Button button && button.getText().equals("Salvar")).findFirst().orElseThrow();
             capacity.setValue(0);
+            UI.setCurrent(testUi);
             save.click();
             assertTrue(calls.isEmpty());
             assertEquals(List.of("Capacidade inválida"), messages);
             assertTrue(editor.isOpened());
             capacity.setValue(24000);
+            UI.setCurrent(testUi);
             save.click();
             assertEquals(List.of("save:24000", "recalculate", "invalidate"), calls);
             assertFalse(editor.isOpened());

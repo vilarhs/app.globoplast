@@ -14,8 +14,10 @@ import com.vaadin.flow.data.renderer.ComponentRenderer;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.ResourceLock;
 import static org.junit.jupiter.api.Assertions.*;
 
+@ResourceLock("vaadin-ui")
 class UsersDialogTest {
     @Test
     @SuppressWarnings("unchecked")
@@ -34,7 +36,8 @@ class UsersDialogTest {
         List<Dialog> dialogs = new ArrayList<>();
         List<String> messages = new ArrayList<>();
         UI previous = UI.getCurrent();
-        UI.setCurrent(new UI());
+        UI testUi = new UI();
+        UI.setCurrent(testUi);
         try {
             new UsersDialog(auth, current, () -> List.of("Extrusão"), text -> text, title -> {
                 Dialog dialog = ViewComponents.dialog(title, "Fechar");
@@ -47,6 +50,7 @@ class UsersDialogTest {
                     (ComponentRenderer<Component, User>) grid.getColumns().getLast().getRenderer();
             HorizontalLayout actions = (HorizontalLayout) renderer.createComponent(current);
             assertFalse(((Button) actions.getComponentAt(1)).isEnabled());
+            UI.setCurrent(testUi);
             ((Button) actions.getComponentAt(0)).click();
             Dialog editor = dialogs.getLast();
             Div form = (Div) editor.getChildren().filter(Div.class::isInstance).findFirst().orElseThrow();
@@ -57,11 +61,13 @@ class UsersDialogTest {
                     .filter(c -> c instanceof Button button && button.getText().equals("Salvar")).findFirst().orElseThrow();
             password.setValue("senha-simulada");
             confirmation.setValue("diferente");
+            UI.setCurrent(testUi);
             save.click();
             assertTrue(saves.isEmpty());
             assertEquals(List.of("A confirmação da nova senha não confere."), messages);
             assertTrue(editor.isOpened());
             confirmation.setValue("senha-simulada");
+            UI.setCurrent(testUi);
             save.click();
             assertEquals(List.of("senha-simulada"), saves);
             assertFalse(editor.isOpened());
