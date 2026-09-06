@@ -776,20 +776,6 @@ public class MainView extends VerticalLayout {
         return scrapBoundsCache.clone();
     }
 
-    private void configureAdaptiveGridHeight(Grid<?> grid, int rowCount, int inlineLimit, int maxHeightPx) {
-        if (rowCount <= inlineLimit) {
-            grid.setAllRowsVisible(true);
-            grid.getStyle().remove("height");
-            grid.removeClassName("gp-virtual-grid");
-            return;
-        }
-        // Para conjuntos grandes, mantém a virtualização do Vaadin em vez de
-        // criar centenas/milhares de linhas DOM de uma vez.
-        grid.setAllRowsVisible(false);
-        grid.setHeight(maxHeightPx + "px");
-        grid.addClassName("gp-virtual-grid");
-    }
-
     private Component byId(String id) {
         return content.getChildren().flatMap(this::deep)
                 .filter(c -> c.getId().orElse("").equals(id))
@@ -1953,7 +1939,7 @@ public class MainView extends VerticalLayout {
             renderDescriptionDetails(details, rows, scrapSelectedKey);
         }
         if (selected && scrapShowLaunches) {
-            renderScrapLaunches(details, rows, dimension, scrapSelectedKey);
+            scrapAnalysisPage.renderSelectedLaunches(rows, dimension, scrapSelectedKey);
         }
     }
 
@@ -2074,29 +2060,6 @@ public class MainView extends VerticalLayout {
                 chart -> attachScrapContextMenu(chart, rows, dimension));
     }
 
-    private void renderScrapLaunches(Div host, List<RefugoRecord> rows, String dimension, String key) {
-        List<RefugoRecord> selected = rows.stream().filter(r -> scraps.matches(r, dimension, key)).toList();
-        if (selected.isEmpty()) return;
-        H3 title = new H3(t("Lançamentos") + " · " + scrapAnalysisPage.displayLabel(key, dimension));
-        title.addClassName("gp-subsection-title");
-        Grid<RefugoRecord> grid = new Grid<>(RefugoRecord.class, false);
-        grid.addThemeVariants(GridVariant.LUMO_NO_BORDER, GridVariant.LUMO_ROW_STRIPES);
-        grid.addColumn(r -> Norm.br(r.productiveDate())).setHeader(t("Data")).setWidth("108px").setFlexGrow(0);
-        grid.addColumn(ScrapAnalysisPage::loadTime).setHeader(t("Hora"));
-        grid.addColumn(RefugoRecord::orderNumber).setHeader(t("Nº OP")).setWidth("84px").setFlexGrow(0);
-        grid.addColumn(RefugoRecord::sector).setHeader(t("Setor"));
-        grid.addColumn(RefugoRecord::machine).setHeader(t("Máquina"));
-        grid.addColumn(RefugoRecord::product).setHeader(t("Código Produto")).setWidth("140px").setFlexGrow(0);
-        grid.addColumn(RefugoRecord::description).setHeader(t("Descrição"));
-        grid.addColumn(RefugoRecord::shift).setHeader(t("Turno"));
-        grid.addColumn(RefugoRecord::motive).setHeader(t("Motivo"));
-        grid.addColumn(RefugoRecord::operator).setHeader(t("Lançado por"));
-        grid.addColumn(r -> format(r.scrapKg())).setHeader(t("Refugo (Kg)"));
-        grid.setItems(selected);
-        configureAdaptiveGridHeight(grid, selected.size(), 18, 560);
-        host.add(title, grid);
-    }
-
     private void renderDescriptionDetails(Div host, List<RefugoRecord> rows, String key) {
         List<RefugoRecord> selected = rows.stream()
                 .filter(r -> Objects.equals(scraps.analysisKey(r, "Descrição"), key))
@@ -2176,7 +2139,7 @@ public class MainView extends VerticalLayout {
             grid.addColumn(r -> formatInt(r.items())).setHeader(t("Refugo (un)"));
             grid.addColumn(r -> r.lossPct() == null ? "-" : format(r.lossPct()) + "%").setHeader(t("Perda (%)"));
             grid.setItems(detailRows);
-            configureAdaptiveGridHeight(grid, detailRows.size(), 14, 500);
+            ScrapAnalysisPage.configureAdaptiveGridHeight(grid, detailRows.size(), 14, 500);
             host.add(grid);
         }
 

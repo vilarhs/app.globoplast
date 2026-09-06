@@ -331,9 +331,48 @@ final class ScrapAnalysisPage extends Div {
         recent.add(expander);
     }
 
+    void renderSelectedLaunches(List<RefugoRecord> rows, String dimension, String key) {
+        List<RefugoRecord> selected = rows.stream()
+                .filter(row -> scraps.matches(row, dimension, key)).toList();
+        if (selected.isEmpty()) return;
+        H3 title = new H3(t("Lançamentos") + " · " + displayLabel(key, dimension));
+        title.addClassName("gp-subsection-title");
+        Grid<RefugoRecord> grid = new Grid<>(RefugoRecord.class, false);
+        grid.addThemeVariants(GridVariant.LUMO_NO_BORDER, GridVariant.LUMO_ROW_STRIPES);
+        grid.addColumn(row -> Norm.br(row.productiveDate())).setHeader(t("Data"))
+                .setWidth("108px").setFlexGrow(0);
+        grid.addColumn(ScrapAnalysisPage::loadTime).setHeader(t("Hora"));
+        grid.addColumn(RefugoRecord::orderNumber).setHeader(t("Nº OP"))
+                .setWidth("84px").setFlexGrow(0);
+        grid.addColumn(RefugoRecord::sector).setHeader(t("Setor"));
+        grid.addColumn(RefugoRecord::machine).setHeader(t("Máquina"));
+        grid.addColumn(RefugoRecord::product).setHeader(t("Código Produto"))
+                .setWidth("140px").setFlexGrow(0);
+        grid.addColumn(RefugoRecord::description).setHeader(t("Descrição"));
+        grid.addColumn(RefugoRecord::shift).setHeader(t("Turno"));
+        grid.addColumn(RefugoRecord::motive).setHeader(t("Motivo"));
+        grid.addColumn(RefugoRecord::operator).setHeader(t("Lançado por"));
+        grid.addColumn(row -> formatDecimal.apply(row.scrapKg())).setHeader(t("Refugo (Kg)"));
+        grid.setItems(selected);
+        configureAdaptiveGridHeight(grid, selected.size(), 18, 560);
+        details.add(title, grid);
+    }
+
     static String loadTime(RefugoRecord record) {
         String time = Norm.syncTime(record == null ? null : record.firstDetectedAt());
         return time == null || time.isBlank() ? "—" : time;
+    }
+
+    static void configureAdaptiveGridHeight(Grid<?> grid, int rowCount, int inlineLimit, int maxHeightPx) {
+        if (rowCount <= inlineLimit) {
+            grid.setAllRowsVisible(true);
+            grid.getStyle().remove("height");
+            grid.removeClassName("gp-virtual-grid");
+            return;
+        }
+        grid.setAllRowsVisible(false);
+        grid.setHeight(maxHeightPx + "px");
+        grid.addClassName("gp-virtual-grid");
     }
 
     void alignChartTitle(InteractiveBarChart chart) {

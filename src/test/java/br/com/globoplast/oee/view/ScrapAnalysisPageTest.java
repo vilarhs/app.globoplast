@@ -72,6 +72,11 @@ class ScrapAnalysisPageTest {
         page.renderRecent(List.of(row));
         assertEquals(1, descendants(page.recent()).filter(component -> component.getElement().getClassList()
                 .contains("gp-refugo-recent-expander")).count());
+
+        page.details().removeAll();
+        page.renderSelectedLaunches(List.of(row), "Setor", "EXTRUSÃO");
+        assertEquals(1, descendants(page.details()).filter(com.vaadin.flow.component.grid.Grid.class::isInstance)
+                .count());
     }
 
     private static java.util.stream.Stream<com.vaadin.flow.component.Component> descendants(
