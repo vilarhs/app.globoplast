@@ -21,7 +21,7 @@ public final class CachePolicyFilter implements Filter {
             throws IOException, ServletException {
         if (request instanceof HttpServletRequest http && response instanceof HttpServletResponse httpResponse) {
             String path = http.getRequestURI();
-            if ("/".equals(path) || "/index.html".equals(path) || "/health".equals(path)) {
+            if ("/".equals(path) || "/index.html".equals(path) || "/health".equals(path) || path.endsWith(".css")) {
                 httpResponse.setHeader("Cache-Control", NO_STORE);
                 httpResponse.setHeader("Pragma", "no-cache");
                 httpResponse.setDateHeader("Expires", 0);
