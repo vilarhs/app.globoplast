@@ -1763,7 +1763,7 @@ public class MainView extends VerticalLayout {
             LocalDate d=date.getValue(); if(d==null)return;
             summaryDayDate=d;
             List<LaunchRecord> source=cachedLaunchData(d,d);
-            List<LaunchRecord> sourceForShift = summaryRowsForShifts(source, summaryDayShifts);
+            List<LaunchRecord> sourceForShift = ProductionSummary.rowsForShifts(source, summaryDayShifts);
             List<String> sectors=sourceForShift.stream().map(LaunchRecord::getSector).filter(Objects::nonNull).filter(v->!v.isBlank()).distinct().sorted(String.CASE_INSENSITIVE_ORDER).toList();
             adjusting[0]=true;
             try{
@@ -1789,7 +1789,7 @@ public class MainView extends VerticalLayout {
             List<LaunchRecord> rows=sourceForShift;
             if(!summaryDaySectors.isEmpty())rows=rows.stream().filter(r->summaryDaySectors.contains(r.getSector())).toList();
             if(!summaryDayMachines.isEmpty())rows=rows.stream().filter(r->summaryDayMachines.contains(r.getMachine())).toList();
-            List<LaunchRecord> summary=summarizeDaily(rows);
+            List<LaunchRecord> summary=ProductionSummary.daily(rows);
             if(summary.isEmpty()){
                 currentSummary[0] = List.of();
                 currentEntries[0] = List.of();
@@ -1850,16 +1850,16 @@ public class MainView extends VerticalLayout {
     private void renderSummaryMetrics(Div metrics, List<LaunchRecord> summary, List<LaunchRecord> filteredRows) {
         int produced = summary.stream().mapToInt(LaunchRecord::getTotalProduced).sum();
         int scrapPieces = summary.stream().mapToInt(LaunchRecord::getScrapTotalPcs).sum();
-        long expected = capacityTargetByMachineDay(filteredRows);
+        long expected = ProductionSummary.capacityTargetByMachineDay(filteredRows);
         double scrapPct = produced > 0 ? Norm.round(scrapPieces * 100.0 / produced, 2) : 0;
         double performancePct = expected > 0 ? Norm.round((produced + scrapPieces) * 100.0 / expected, 2) : 0;
         double achievedPct = expected > 0 ? Norm.round(produced * 100.0 / expected, 2) : 0;
         metrics.removeAll();
         metrics.add(
-                kpi(t("🎯 OEE Geral"), format1(avg(summary, "oee")) + "%"),
-                kpi(t("⏱️ Disponibilidade"), format1(avg(summary, "availability")) + "%"),
+                kpi(t("🎯 OEE Geral"), format1(ProductionSummary.average(summary, ProductionSummary.Metric.OEE)) + "%"),
+                kpi(t("⏱️ Disponibilidade"), format1(ProductionSummary.average(summary, ProductionSummary.Metric.AVAILABILITY)) + "%"),
                 kpi(t("⚡ Desempenho"), format1(performancePct) + "%"),
-                kpi(t("✨ Qualidade"), format1(avg(summary, "quality")) + "%"),
+                kpi(t("✨ Qualidade"), format1(ProductionSummary.average(summary, ProductionSummary.Metric.QUALITY)) + "%"),
                 kpi(t("🔄 Trocas"), formatInt(summary.stream().mapToInt(LaunchRecord::getChangeovers).sum())),
                 kpi(t("♻️ Refugo (pçs)"), formatInt(scrapPieces) + " " + t("pçs")),
                 kpi(t("♻️ Refugo / Peças Boas"), format1(scrapPct) + "%"),
@@ -2020,141 +2020,6 @@ public class MainView extends VerticalLayout {
         return value;
     }
 
-    private boolean hasDataInShift(LaunchRecord record, String shift) {
-        if (record == null || shift == null || shift.isBlank()) return true;
-        return switch (shift.trim().toUpperCase(Locale.ROOT)) {
-            case "A" -> record.getShiftA() > 0 || record.getScrapAKg() > 0;
-            case "B" -> record.getShiftB() > 0 || record.getScrapBKg() > 0;
-            case "C" -> record.getShiftC() > 0 || record.getScrapCKg() > 0;
-            default -> true;
-        };
-    }
-
-    private List<LaunchRecord> summaryRowsForShifts(List<LaunchRecord> source, Set<String> shifts) {
-        if (source == null || source.isEmpty()) return List.of();
-        LinkedHashSet<String> selected = new LinkedHashSet<>();
-        if (shifts != null) {
-            for (String shift : List.of("A", "B", "C")) {
-                if (shifts.stream().anyMatch(value -> shift.equalsIgnoreCase(value))) selected.add(shift);
-            }
-        }
-        if (selected.isEmpty()) return source;
-        return source.stream()
-                .filter(record -> selected.stream().anyMatch(shift -> hasDataInShift(record, shift)))
-                .map(record -> summaryRecordForShifts(record, selected))
-                .toList();
-    }
-
-    private LaunchRecord summaryRecordForShifts(LaunchRecord original, Set<String> shifts) {
-        LinkedHashSet<String> selected = shifts == null ? new LinkedHashSet<>() : new LinkedHashSet<>(shifts);
-        if (selected.isEmpty()) return original.copy();
-
-        LaunchRecord record = original.copy();
-        int shiftA = selected.contains("A") ? Math.max(0, original.getShiftA()) : 0;
-        int shiftB = selected.contains("B") ? Math.max(0, original.getShiftB()) : 0;
-        int shiftC = selected.contains("C") ? Math.max(0, original.getShiftC()) : 0;
-        double scrapA = selected.contains("A") ? Math.max(0, original.getScrapAKg()) : 0;
-        double scrapB = selected.contains("B") ? Math.max(0, original.getScrapBKg()) : 0;
-        double scrapC = selected.contains("C") ? Math.max(0, original.getScrapCKg()) : 0;
-
-        record.setShiftA(shiftA);
-        record.setShiftB(shiftB);
-        record.setShiftC(shiftC);
-        record.setTotalProduced(shiftA + shiftB + shiftC);
-        record.setScrapAKg(scrapA);
-        record.setScrapBKg(scrapB);
-        record.setScrapCKg(scrapC);
-        record.setScrapTotalKg(Norm.round(scrapA + scrapB + scrapC, 3));
-
-        int scrapPcs = 0;
-        if (record.getUnitWeightG() > 0) {
-            scrapPcs = (int) Math.round(record.getScrapTotalKg() * 1000.0 / record.getUnitWeightG());
-        } else if (original.getScrapTotalKg() > 0 && original.getScrapTotalPcs() > 0) {
-            scrapPcs = (int) Math.round(original.getScrapTotalPcs()
-                    * record.getScrapTotalKg() / original.getScrapTotalKg());
-        }
-        record.setScrapTotalPcs(Math.max(0, scrapPcs));
-        int processed = record.getTotalProduced() + record.getScrapTotalPcs();
-        record.setScrapPct(processed > 0
-                ? Norm.round(record.getScrapTotalPcs() * 100.0 / processed, 2)
-                : 0.0);
-        return record;
-    }
-
-    private List<LaunchRecord> summaryRowsForShift(List<LaunchRecord> source, String shift) {
-        if (shift == null || shift.isBlank()) return source == null ? List.of() : source;
-        return summaryRowsForShifts(source, Set.of(shift));
-    }
-
-    private LaunchRecord summaryRecordForShift(LaunchRecord original, String shift) {
-        if (shift == null || shift.isBlank()) return original.copy();
-        return summaryRecordForShifts(original, Set.of(shift.trim().toUpperCase(Locale.ROOT)));
-    }
-
-    private List<LaunchRecord> summarizeDaily(List<LaunchRecord> rows) {
-        Map<String, List<LaunchRecord>> groups = rows.stream().collect(Collectors.groupingBy(
-                r -> r.getMachine() + "¦" + r.getSector(), LinkedHashMap::new, Collectors.toList()));
-        List<LaunchRecord> out = new ArrayList<>();
-        for (List<LaunchRecord> g : groups.values()) {
-            if (g.isEmpty()) continue;
-            g = g.stream().sorted(Comparator.comparingLong(LaunchRecord::getId)).toList();
-            LaunchRecord z = new LaunchRecord();
-            z.setId(g.stream().mapToLong(LaunchRecord::getId).max().orElse(0));
-            z.setDate(g.get(0).getDate());
-            z.setMachine(g.get(0).getMachine());
-            z.setSector(g.get(0).getSector());
-            z.setProduct(combineUnique(g.stream().map(LaunchRecord::getProduct).toList(), " / "));
-            z.setOrderNumber(combineOrders(g.stream().map(LaunchRecord::getOrderNumber).toList()));
-            z.setScheduledHours(g.stream().mapToDouble(LaunchRecord::getScheduledHours).sum());
-            z.setCapacity24h(g.stream().mapToInt(LaunchRecord::getCapacity24h).max().orElse(0));
-            z.setShiftA(g.stream().mapToInt(LaunchRecord::getShiftA).sum());
-            z.setShiftB(g.stream().mapToInt(LaunchRecord::getShiftB).sum());
-            z.setShiftC(g.stream().mapToInt(LaunchRecord::getShiftC).sum());
-            z.setTotalProduced(g.stream().mapToInt(LaunchRecord::getTotalProduced).sum());
-            z.setScrapAKg(g.stream().mapToDouble(LaunchRecord::getScrapAKg).sum());
-            z.setScrapBKg(g.stream().mapToDouble(LaunchRecord::getScrapBKg).sum());
-            z.setScrapCKg(g.stream().mapToDouble(LaunchRecord::getScrapCKg).sum());
-            z.setScrapTotalKg(Norm.round(g.stream().mapToDouble(LaunchRecord::getScrapTotalKg).sum(), 3));
-            z.setScrapTotalPcs(g.stream().mapToInt(LaunchRecord::getScrapTotalPcs).sum());
-            int processed = Math.max(0,z.getTotalProduced()) + Math.max(0,z.getScrapTotalPcs());
-            z.setScrapPct(processed>0 ? Norm.round(z.getScrapTotalPcs()*100.0/processed,2) : 0.0);
-            z.setChangeovers(g.stream().mapToInt(LaunchRecord::getChangeovers).sum());
-            z.setSetupHours(g.stream().mapToDouble(LaunchRecord::getSetupHours).sum());
-            z.setBreakdownHours(g.stream().mapToDouble(LaunchRecord::getBreakdownHours).sum());
-            z.setProblem(combineObservations(g));
-            // OEE já foi recalculado pela mesma máquina/dia; todos os registros do grupo carregam o mesmo indicador.
-            z.setOeePct(avg(g, "oee"));
-            z.setAvailabilityPct(avg(g, "availability"));
-            z.setPerformancePct(avg(g, "performance"));
-            z.setQualityPct(avg(g, "quality"));
-            z.setLaunchCount(g.size());
-            out.add(z);
-        }
-        out.sort(Comparator.comparing(LaunchRecord::getMachine, String.CASE_INSENSITIVE_ORDER));
-        return out;
-    }
-
-    private String combineUnique(List<String> values, String separator) {
-        LinkedHashSet<String> unique = new LinkedHashSet<>();
-        for(String v: values){ String x=v==null?"":v.trim(); if(!x.isBlank()&&!x.equalsIgnoreCase("nan")&&!x.equalsIgnoreCase("none")&&!x.equals("-")) unique.add(x); }
-        return String.join(separator, unique);
-    }
-
-    private String combineOrders(List<String> values) {
-        LinkedHashSet<String> ops = new LinkedHashSet<>();
-        for(String value: values) for(String op: extractOps(value)) if(!op.isBlank()) ops.add(op);
-        return String.join("/", ops);
-    }
-
-    private double avg(List<LaunchRecord> rows, String metric) {
-        return Norm.round(rows.stream().mapToDouble(r -> switch (metric) {
-            case "availability" -> r.getAvailabilityPct();
-            case "performance" -> r.getPerformancePct();
-            case "quality" -> r.getQualityPct();
-            default -> r.getOeePct();
-        }).average().orElse(0), 2);
-    }
-
     private void renderMonth() {
         content.removeAll();
         Div page=new Div();
@@ -2228,7 +2093,7 @@ public class MainView extends VerticalLayout {
             YearMonth ym=month.getValue(); if(ym==null)return;
             summaryMonth=ym;
             List<LaunchRecord> source=cachedLaunchData(ym.atDay(1),ym.atEndOfMonth());
-            List<LaunchRecord> sourceForShift=summaryRowsForShifts(source,summaryMonthShifts);
+            List<LaunchRecord> sourceForShift=ProductionSummary.rowsForShifts(source,summaryMonthShifts);
             List<String> sectors=sourceForShift.stream().map(LaunchRecord::getSector).filter(Objects::nonNull).filter(v->!v.isBlank()).distinct().sorted(String.CASE_INSENSITIVE_ORDER).toList();
             adjusting[0]=true;
             try{
@@ -2252,7 +2117,7 @@ public class MainView extends VerticalLayout {
             if(!summaryMonthSectors.isEmpty())filtered=filtered.stream().filter(r->summaryMonthSectors.contains(r.getSector())).toList();
             if(!summaryMonthMachines.isEmpty())filtered=filtered.stream().filter(r->summaryMonthMachines.contains(r.getMachine())).toList();
             filtered=launches.newestFirst(filtered);
-            List<LaunchRecord> summary=summarizeMonthly(filtered);
+            List<LaunchRecord> summary=ProductionSummary.monthly(filtered);
             if(filtered.isEmpty()){
                 currentMonthRows[0]=List.of();
                 currentMonthSummary[0]=List.of();
@@ -2300,70 +2165,6 @@ public class MainView extends VerticalLayout {
         page.add(titleRow,filterDropdown,result);
         content.add(page,entriesMore);
         refreshRef[0].run();
-    }
-
-    private long capacityTargetByMachineDay(List<LaunchRecord> rows) {
-        Map<String, Integer> caps = new LinkedHashMap<>();
-        for (LaunchRecord r : rows) {
-            if (r.getDate() == null || r.getMachine() == null) continue;
-            String key = r.getDate() + "¦" + r.getMachine();
-            caps.merge(key, Math.max(0, r.getCapacity24h()), Math::max);
-        }
-        return caps.values().stream().mapToLong(Integer::longValue).sum();
-    }
-
-    private void refreshMonthView(Select<YearMonth> month, Select<String> sector, Grid<LaunchRecord> summaryGrid,
-                                  Grid<LaunchRecord> entriesGrid, Div chartBox, Div moreHolder) {
-        YearMonth ym = month.getValue();
-        if (ym == null) return;
-        List<LaunchRecord> filtered = cachedLaunchData(ym.atDay(1), ym.atEndOfMonth());
-        if (sector.getValue() != null) filtered = filtered.stream().filter(r -> sector.getValue().equals(r.getSector())).toList();
-        filtered = launches.newestFirst(filtered);
-        List<LaunchRecord> summary = summarizeMonthly(filtered);
-        summaryGrid.setItems(summary);
-        chartBox.removeAll();
-        Map<String, Double> bars = new LinkedHashMap<>();
-        summary.stream().sorted(Comparator.comparingDouble(LaunchRecord::getOeePct).reversed()).forEach(r -> bars.put(r.getMachine(), r.getOeePct()));
-        chartBox.add(new OeeRankingChart(bars, locale()));
-        int limit = Math.min(Math.max(AppConfig.PAGE_SIZE, monthLimit), filtered.size());
-        entriesGrid.setItems(filtered.stream().limit(limit).toList());
-        moreHolder.removeAll();
-        if (limit < filtered.size()) {
-            Button more = new Button(t("Mostrar mais"));
-            more.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
-            more.addClassName("gp-show-more");
-            more.addClickListener(e -> { monthLimit += AppConfig.PAGE_SIZE; refreshMonthView(month, sector, summaryGrid, entriesGrid, chartBox, moreHolder); });
-            moreHolder.add(more);
-        }
-    }
-
-    private List<LaunchRecord> summarizeMonthly(List<LaunchRecord> rows) {
-        Map<String, List<LaunchRecord>> groups = rows.stream().collect(Collectors.groupingBy(
-                r -> r.getMachine() + "¦" + r.getSector(), LinkedHashMap::new, Collectors.toList()));
-        List<LaunchRecord> out = new ArrayList<>();
-        for (List<LaunchRecord> g : groups.values()) {
-            if (g.isEmpty()) continue;
-            LaunchRecord z = new LaunchRecord();
-            z.setMachine(g.get(0).getMachine());
-            z.setSector(g.get(0).getSector());
-            z.setCapacity24h(g.stream().mapToInt(LaunchRecord::getCapacity24h).max().orElse(0));
-            z.setTotalProduced(g.stream().mapToInt(LaunchRecord::getTotalProduced).sum());
-            z.setScrapTotalKg(Norm.round(g.stream().mapToDouble(LaunchRecord::getScrapTotalKg).sum(), 3));
-            z.setScrapTotalPcs(g.stream().mapToInt(LaunchRecord::getScrapTotalPcs).sum());
-            z.setChangeovers(g.stream().mapToInt(LaunchRecord::getChangeovers).sum());
-            z.setProblem(combineObservations(g));
-
-            Map<LocalDate, LaunchRecord> daily = new LinkedHashMap<>();
-            for (LaunchRecord r : g) daily.putIfAbsent(r.getDate(), r);
-            List<LaunchRecord> indicators = new ArrayList<>(daily.values());
-            z.setOeePct(avg(indicators, "oee"));
-            z.setAvailabilityPct(avg(indicators, "availability"));
-            z.setPerformancePct(avg(indicators, "performance"));
-            z.setQualityPct(avg(indicators, "quality"));
-            out.add(z);
-        }
-        out.sort(Comparator.comparingDouble(LaunchRecord::getOeePct).reversed());
-        return out;
     }
 
     private void renderScrap() {
@@ -3454,15 +3255,6 @@ public class MainView extends VerticalLayout {
         if (value.isBlank() || value.equalsIgnoreCase("Nenhum") || value.equalsIgnoreCase("None")
                 || value.equalsIgnoreCase("Nan") || value.equals("-")) return "";
         return value;
-    }
-
-    private String combineObservations(List<LaunchRecord> rows) {
-        LinkedHashSet<String> unique = new LinkedHashSet<>();
-        for (LaunchRecord row : rows) {
-            String value = meaningfulObservation(row.getProblem());
-            if (!value.isBlank()) unique.add(value);
-        }
-        return String.join(" / ", unique);
     }
 
     private void showRegistry() {
