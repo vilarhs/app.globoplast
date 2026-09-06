@@ -1705,57 +1705,11 @@ public class MainView extends VerticalLayout {
         Div filterFields = new Div(date, sector, machine, shift);
         filterFields.addClassNames("gp-filter-dropdown-grid", "gp-summary-filter-fields-v047");
 
-        Div result = new Div();
-        result.addClassName("gp-summary-result");
-
-        // Mantém a estrutura da página estável. Assim, "Mostrar mais" altera
-        // apenas os itens da grade, como já acontece em Lançamentos.
-        Div metrics = new Div();
-        H3 tableTitle = new H3(t("Tabela Consolidada por Máquina"));
-        tableTitle.addClassName("gp-original-subtitle");
-        Grid<LaunchRecord> summaryGrid = dailySummaryGrid();
-        Button summaryMore = new Button(t("Mostrar mais"));
-        summaryMore.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
-        summaryMore.addClassName("gp-show-more");
-        H3 chartTitle = new H3(t("OEE por Máquina no Dia"));
-        chartTitle.addClassName("gp-original-subtitle");
-        Div rankingHolder = new Div();
-        H3 allTitle = new H3(t("Todos os Apontamentos do Dia"));
-        allTitle.addClassNames("gp-original-subtitle", "gp-summary-all-title");
-        Grid<LaunchRecord> entriesGrid = launchGrid();
-        Button entriesMore = new Button(t("Mostrar mais"));
-        entriesMore.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
-        entriesMore.addClassName("gp-show-more");
-        result.add(metrics, tableTitle, summaryGrid, summaryMore, chartTitle,
-                rankingHolder, allTitle, entriesGrid);
-
         boolean[] adjusting={false};
-        int[] summaryLimit={AppConfig.PAGE_SIZE};
-        int[] entriesLimit={AppConfig.PAGE_SIZE};
-        @SuppressWarnings("unchecked")
-        List<LaunchRecord>[] currentSummary = new List[]{List.of()};
-        @SuppressWarnings("unchecked")
-        List<LaunchRecord>[] currentEntries = new List[]{List.of()};
-        Runnable[] refreshSummaryRows = new Runnable[1];
-        Runnable[] refreshEntryRows = new Runnable[1];
-        refreshSummaryRows[0] = () -> {
-            int visible = Math.min(summaryLimit[0], currentSummary[0].size());
-            summaryGrid.setItems(currentSummary[0].stream().limit(visible).toList());
-            summaryMore.setVisible(visible < currentSummary[0].size());
-        };
-        refreshEntryRows[0] = () -> {
-            int visible = Math.min(entriesLimit[0], currentEntries[0].size());
-            entriesGrid.setItems(currentEntries[0].stream().limit(visible).toList());
-            entriesMore.setVisible(visible < currentEntries[0].size());
-        };
-        summaryMore.addClickListener(event -> {
-            summaryLimit[0] += AppConfig.PAGE_SIZE;
-            refreshSummaryRows[0].run();
-        });
-        entriesMore.addClickListener(event -> {
-            entriesLimit[0] += AppConfig.PAGE_SIZE;
-            refreshEntryRows[0].run();
-        });
+        ProductionSummaryPage summaryPage = new ProductionSummaryPage(
+                ProductionSummaryPage.Period.DAY, this::t, this::formatInt, this::format,
+                this::format1, this::locale, record -> oeeCell(record, 1), this::launchGrid,
+                AppConfig.PAGE_SIZE, ignored -> { });
 
         Runnable[] refreshRef=new Runnable[1];
         refreshRef[0]=()->{
@@ -1791,39 +1745,21 @@ public class MainView extends VerticalLayout {
             if(!summaryDayMachines.isEmpty())rows=rows.stream().filter(r->summaryDayMachines.contains(r.getMachine())).toList();
             List<LaunchRecord> summary=ProductionSummary.daily(rows);
             if(summary.isEmpty()){
-                currentSummary[0] = List.of();
-                currentEntries[0] = List.of();
-                entriesMore.setVisible(false);
-                result.removeAll();
-                result.add(emptyState(t("Nenhum lançamento encontrado para os filtros selecionados.")));
+                summaryPage.showEmpty(t("Nenhum lançamento encontrado para os filtros selecionados."));
                 return;
             }
-            if (result.getChildren().noneMatch(component -> component == tableTitle)) {
-                result.removeAll();
-                result.add(metrics, tableTitle, summaryGrid, summaryMore, chartTitle,
-                        rankingHolder, allTitle, entriesGrid);
-            }
-            renderSummaryMetrics(metrics, summary, rows);
-            Map<String,Double> bars=new LinkedHashMap<>();
-            summary.stream().sorted(Comparator.comparingDouble(LaunchRecord::getOeePct).reversed()).forEach(record -> bars.put(record.getMachine(), record.getOeePct()));
-            rankingHolder.removeAll();
-            rankingHolder.add(new OeeRankingChart(bars,locale()));
-            currentSummary[0] = summary;
-            currentEntries[0] = launches.newestFirst(rows);
-            refreshSummaryRows[0].run();
-            refreshEntryRows[0].run();
+            summaryPage.show(summary, launches.newestFirst(rows));
         };
         date.setChangeListener(() -> {
             if (!adjusting[0]) {
                 summaryDayDate = date.getValue();
-                summaryLimit[0]=AppConfig.PAGE_SIZE;
-                entriesLimit[0]=AppConfig.PAGE_SIZE;
+                summaryPage.resetLimits();
                 refreshRef[0].run();
             }
         });
-        sector.addValueChangeListener(e->{if(!adjusting[0]){replace(summaryDaySectors,e.getValue());summaryLimit[0]=AppConfig.PAGE_SIZE;entriesLimit[0]=AppConfig.PAGE_SIZE;refreshRef[0].run();}});
-        machine.addValueChangeListener(e->{if(!adjusting[0]){replace(summaryDayMachines,e.getValue());summaryLimit[0]=AppConfig.PAGE_SIZE;entriesLimit[0]=AppConfig.PAGE_SIZE;refreshRef[0].run();}});
-        shift.addValueChangeListener(e->{if(!adjusting[0]){replace(summaryDayShifts,e.getValue());summaryLimit[0]=AppConfig.PAGE_SIZE;entriesLimit[0]=AppConfig.PAGE_SIZE;refreshRef[0].run();}});
+        sector.addValueChangeListener(e->{if(!adjusting[0]){replace(summaryDaySectors,e.getValue());summaryPage.resetLimits();refreshRef[0].run();}});
+        machine.addValueChangeListener(e->{if(!adjusting[0]){replace(summaryDayMachines,e.getValue());summaryPage.resetLimits();refreshRef[0].run();}});
+        shift.addValueChangeListener(e->{if(!adjusting[0]){replace(summaryDayShifts,e.getValue());summaryPage.resetLimits();refreshRef[0].run();}});
 
         Popover filterDropdown = summaryFilterDropdown(filter, filterFields, () -> {
             adjusting[0]=true;
@@ -1832,8 +1768,7 @@ public class MainView extends VerticalLayout {
                 summaryDaySectors.clear();
                 summaryDayMachines.clear();
                 summaryDayShifts.clear();
-                summaryLimit[0]=AppConfig.PAGE_SIZE;
-                entriesLimit[0]=AppConfig.PAGE_SIZE;
+                summaryPage.resetLimits();
                 date.setValue(defaultDate);
                 sector.clear();
                 machine.clear();
@@ -1842,95 +1777,9 @@ public class MainView extends VerticalLayout {
             refreshRef[0].run();
         });
 
-        page.add(titleRow,filterDropdown,result);
-        content.add(page, entriesMore);
+        page.add(titleRow,filterDropdown,summaryPage.result());
+        content.add(page, summaryPage.entriesMore());
         refreshRef[0].run();
-    }
-
-    private void renderSummaryMetrics(Div metrics, List<LaunchRecord> summary, List<LaunchRecord> filteredRows) {
-        int produced = summary.stream().mapToInt(LaunchRecord::getTotalProduced).sum();
-        int scrapPieces = summary.stream().mapToInt(LaunchRecord::getScrapTotalPcs).sum();
-        long expected = ProductionSummary.capacityTargetByMachineDay(filteredRows);
-        double scrapPct = produced > 0 ? Norm.round(scrapPieces * 100.0 / produced, 2) : 0;
-        double performancePct = expected > 0 ? Norm.round((produced + scrapPieces) * 100.0 / expected, 2) : 0;
-        double achievedPct = expected > 0 ? Norm.round(produced * 100.0 / expected, 2) : 0;
-        metrics.removeAll();
-        metrics.add(
-                kpi(t("🎯 OEE Geral"), format1(ProductionSummary.average(summary, ProductionSummary.Metric.OEE)) + "%"),
-                kpi(t("⏱️ Disponibilidade"), format1(ProductionSummary.average(summary, ProductionSummary.Metric.AVAILABILITY)) + "%"),
-                kpi(t("⚡ Desempenho"), format1(performancePct) + "%"),
-                kpi(t("✨ Qualidade"), format1(ProductionSummary.average(summary, ProductionSummary.Metric.QUALITY)) + "%"),
-                kpi(t("🔄 Trocas"), formatInt(summary.stream().mapToInt(LaunchRecord::getChangeovers).sum())),
-                kpi(t("♻️ Refugo (pçs)"), formatInt(scrapPieces) + " " + t("pçs")),
-                kpi(t("♻️ Refugo / Peças Boas"), format1(scrapPct) + "%"),
-                kpi(t("📦 Peças Boas Produzidas"), formatInt(produced) + " " + t("pçs")),
-                kpi(t("🎯 Produção Esperada (24h)"), formatInt(expected) + " " + t("pçs")),
-                kpi(t("📊 Realizado / Esperado"), format1(achievedPct) + "%")
-        );
-        metrics.addClassNames("gp-original-metrics", "gp-original-metrics-10");
-    }
-
-    private Grid<LaunchRecord> summaryGrid() {
-        Grid<LaunchRecord> grid = new Grid<>(LaunchRecord.class, false);
-        grid.addThemeVariants(GridVariant.LUMO_NO_BORDER, GridVariant.LUMO_ROW_STRIPES);
-        grid.addColumn(LaunchRecord::getMachine).setHeader(t("Máquina"));
-        grid.addColumn(LaunchRecord::getSector).setHeader(t("Setor"));
-        grid.addColumn(r -> formatInt(r.getCapacity24h())).setHeader(t("Capacidade 24h"));
-        grid.addColumn(r -> formatInt(r.getTotalProduced())).setHeader(t("Total Produzido (pçs)"));
-        grid.addColumn(r -> format(r.getScrapTotalKg())).setHeader(t("Refugo Total (kg)"));
-        grid.addColumn(r -> formatInt(r.getScrapTotalPcs())).setHeader(t("Refugo Total (pçs)"));
-        grid.addColumn(r -> formatInt(r.getChangeovers())).setHeader(t("Qtd. Trocas"));
-        grid.addColumn(r -> format1(r.getAvailabilityPct()) + "%").setHeader(t("Disponibilidade (%)"));
-        grid.addColumn(r -> format1(r.getPerformancePct()) + "%").setHeader(t("Desempenho (%)"));
-        grid.addColumn(r -> format1(r.getQualityPct()) + "%").setHeader(t("Qualidade (%)"));
-        grid.addColumn(new ComponentRenderer<>(r -> oeeCell(r, 1))).setHeader("OEE (%)").setWidth("120px").setFlexGrow(0);
-        grid.setAllRowsVisible(true);
-        grid.addClassName("gp-summary-grid");
-        return grid;
-    }
-
-    private Grid<LaunchRecord> dailySummaryGrid() {
-        Grid<LaunchRecord> grid = new Grid<>(LaunchRecord.class, false);
-        grid.addThemeVariants(GridVariant.LUMO_NO_BORDER, GridVariant.LUMO_ROW_STRIPES);
-        grid.addColumn(r -> Norm.br(r.getDate())).setHeader(t("Data")).setWidth("108px").setFlexGrow(0);
-        grid.addColumn(LaunchRecord::getMachine).setHeader(t("Máquina")).setFlexGrow(2);
-        grid.addColumn(new ComponentRenderer<>(r -> summaryCompactCell(r.getProduct()))).setHeader(t("Código Produto")).setWidth("140px").setFlexGrow(0);
-        grid.addColumn(new ComponentRenderer<>(r -> summaryCompactCell(r.getOrderNumber()))).setHeader(t("Nº OP")).setWidth("84px").setFlexGrow(0);
-        grid.addColumn(r -> formatInt(r.getTotalProduced())).setHeader(t("Total Produzido")).setAutoWidth(true);
-        grid.addColumn(r -> format(r.getScrapTotalKg())).setHeader(t("Refugo (kg)")).setAutoWidth(true);
-        grid.addColumn(r -> formatInt(r.getScrapTotalPcs())).setHeader(t("Refugo (pçs)")).setAutoWidth(true);
-        grid.addColumn(r -> format1(r.getScrapPct()) + "%").setHeader(t("Refugo (%)")).setAutoWidth(true);
-        grid.addColumn(r -> formatInt(r.getChangeovers())).setHeader(t("Trocas")).setAutoWidth(true);
-        grid.addColumn(r -> formatInt(r.getLaunchCount())).setHeader(t("Lançamentos")).setAutoWidth(true);
-        grid.addColumn(new ComponentRenderer<>(r -> oeeCell(r, 1))).setHeader("OEE").setWidth("120px").setFlexGrow(0);
-        grid.setAllRowsVisible(true);
-        grid.addClassNames("gp-summary-grid", "gp-summary-day-grid-v083");
-        return grid;
-    }
-
-    private Component summaryCompactCell(String consolidated) {
-        LinkedHashSet<String> unique = new LinkedHashSet<>();
-        if (consolidated != null) {
-            for (String item : consolidated.split("\\s*/\\s*")) {
-                String clean = item == null ? "" : item.trim();
-                if (!clean.isBlank()) unique.add(clean);
-            }
-        }
-        if (unique.isEmpty()) return new Span("—");
-        List<String> items = new ArrayList<>(unique);
-        Span value = new Span(items.get(0) + (items.size() > 1 ? "..." : ""));
-        value.addClassName("gp-summary-compact-value-v082");
-        if (items.size() > 1) {
-            String all = String.join("\n", items);
-            value.getElement().setAttribute("tabindex", "0");
-            value.getElement().setAttribute("aria-label", all);
-            value.getElement().setAttribute("data-gp-tooltip", "true");
-            Tooltip.forComponent(value)
-                    .withText(all)
-                    .withPosition(Tooltip.TooltipPosition.TOP)
-                    .withHoverDelay(150);
-        }
-        return value;
     }
 
     private Component fullTextCell(String text) {
@@ -2048,45 +1897,11 @@ public class MainView extends VerticalLayout {
         MultiSelectComboBox<String> shift=multiSelect(t("Filtrar por Turno"),List.of("A","B","C"),summaryMonthShifts,t("Todos"));
         Div filterFields=new Div(month,sector,machine,shift);
         filterFields.addClassNames("gp-filter-dropdown-grid", "gp-summary-filter-fields-v047");
-        Div result=new Div(); result.addClassName("gp-summary-result");
-
-        // A estrutura pesada da aba é criada uma vez. Filtros apenas trocam os
-        // dados; "Mostrar mais" atualiza somente a grade de apontamentos.
-        Div metrics=new Div();
-        int[] summaryLimit={AppConfig.PAGE_SIZE};
-        H3 rankingTitle=new H3(t("OEE por Máquina no Mês"));rankingTitle.addClassName("gp-original-subtitle");
-        Div rankingHolder=new Div();rankingHolder.addClassName("gp-month-ranking-holder-v054");
-        H3 tableTitle=new H3(t("Tabela Consolidada por Equipamento"));tableTitle.addClassName("gp-original-subtitle");
-        Grid<LaunchRecord> summaryGrid=summaryGrid();
-        Button summaryMore=new Button(t("Mostrar mais"));
-        summaryMore.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);summaryMore.addClassName("gp-show-more");
-        H3 allTitle=new H3(t("Todos os Apontamentos do Mês"));allTitle.addClassNames("gp-original-subtitle","gp-summary-all-title");
-        Grid<LaunchRecord> entries=launchGrid();
-        Button entriesMore=new Button(t("Mostrar mais"));
-        entriesMore.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);entriesMore.addClassName("gp-show-more");
-        result.add(metrics,tableTitle,summaryGrid,summaryMore,rankingTitle,rankingHolder,allTitle,entries);
-
         boolean[] adjusting={false};
-        @SuppressWarnings("unchecked")
-        List<LaunchRecord>[] currentMonthRows=new List[]{List.of()};
-        @SuppressWarnings("unchecked")
-        List<LaunchRecord>[] currentMonthSummary=new List[]{List.of()};
-        Runnable[] refreshSummaryRowsRef=new Runnable[1];
-        Runnable[] refreshEntriesRef=new Runnable[1];
-        refreshSummaryRowsRef[0]=()->{
-            int visible=Math.min(summaryLimit[0],currentMonthSummary[0].size());
-            summaryGrid.setItems(currentMonthSummary[0].stream().limit(visible).toList());
-            summaryMore.setVisible(visible<currentMonthSummary[0].size());
-        };
-        refreshEntriesRef[0]=()->{
-            List<LaunchRecord> rows=currentMonthRows[0];
-            int limit=Math.min(Math.max(AppConfig.PAGE_SIZE,monthLimit),rows.size());
-            List<LaunchRecord> visible=rows.stream().limit(limit).toList();
-            entries.setItems(visible);
-            entriesMore.setVisible(limit<rows.size());
-        };
-        summaryMore.addClickListener(event->{summaryLimit[0]+=AppConfig.PAGE_SIZE;refreshSummaryRowsRef[0].run();});
-        entriesMore.addClickListener(event->{monthLimit+=AppConfig.PAGE_SIZE;refreshEntriesRef[0].run();});
+        ProductionSummaryPage summaryPage = new ProductionSummaryPage(
+                ProductionSummaryPage.Period.MONTH, this::t, this::formatInt, this::format,
+                this::format1, this::locale, record -> oeeCell(record, 1), this::launchGrid,
+                monthLimit, value -> monthLimit = value);
         Runnable[] refreshRef=new Runnable[1];
         refreshRef[0]=()->{
             if(adjusting[0])return;
@@ -2119,31 +1934,15 @@ public class MainView extends VerticalLayout {
             filtered=launches.newestFirst(filtered);
             List<LaunchRecord> summary=ProductionSummary.monthly(filtered);
             if(filtered.isEmpty()){
-                currentMonthRows[0]=List.of();
-                currentMonthSummary[0]=List.of();
-                entriesMore.setVisible(false);
-                result.removeAll();
-                result.add(emptyState(t("Nenhum lançamento encontrado para o mês com os filtros selecionados.")));
+                summaryPage.showEmpty(t("Nenhum lançamento encontrado para o mês com os filtros selecionados."));
                 return;
             }
-            if(result.getChildren().noneMatch(component->component==rankingTitle)){
-                result.removeAll();
-                result.add(metrics,tableTitle,summaryGrid,summaryMore,rankingTitle,rankingHolder,allTitle,entries);
-            }
-            renderSummaryMetrics(metrics, summary, filtered);
-            Map<String,Double> bars=new LinkedHashMap<>();
-            summary.stream().sorted(Comparator.comparingDouble(LaunchRecord::getOeePct).reversed()).forEach(r->bars.put(r.getMachine(),r.getOeePct()));
-            rankingHolder.removeAll();
-            rankingHolder.add(new OeeRankingChart(bars,locale()));
-            currentMonthSummary[0]=summary;
-            refreshSummaryRowsRef[0].run();
-            currentMonthRows[0]=filtered;
-            refreshEntriesRef[0].run();
+            summaryPage.show(summary, filtered);
         };
-        month.addValueChangeListener(e->{if(!adjusting[0]){summaryMonth=e.getValue();monthLimit=AppConfig.PAGE_SIZE;summaryLimit[0]=AppConfig.PAGE_SIZE;refreshRef[0].run();}});
-        sector.addValueChangeListener(e->{if(!adjusting[0]){replace(summaryMonthSectors,e.getValue());monthLimit=AppConfig.PAGE_SIZE;summaryLimit[0]=AppConfig.PAGE_SIZE;refreshRef[0].run();}});
-        machine.addValueChangeListener(e->{if(!adjusting[0]){replace(summaryMonthMachines,e.getValue());monthLimit=AppConfig.PAGE_SIZE;summaryLimit[0]=AppConfig.PAGE_SIZE;refreshRef[0].run();}});
-        shift.addValueChangeListener(e->{if(!adjusting[0]){replace(summaryMonthShifts,e.getValue());monthLimit=AppConfig.PAGE_SIZE;summaryLimit[0]=AppConfig.PAGE_SIZE;refreshRef[0].run();}});
+        month.addValueChangeListener(e->{if(!adjusting[0]){summaryMonth=e.getValue();summaryPage.resetLimits();refreshRef[0].run();}});
+        sector.addValueChangeListener(e->{if(!adjusting[0]){replace(summaryMonthSectors,e.getValue());summaryPage.resetLimits();refreshRef[0].run();}});
+        machine.addValueChangeListener(e->{if(!adjusting[0]){replace(summaryMonthMachines,e.getValue());summaryPage.resetLimits();refreshRef[0].run();}});
+        shift.addValueChangeListener(e->{if(!adjusting[0]){replace(summaryMonthShifts,e.getValue());summaryPage.resetLimits();refreshRef[0].run();}});
 
         Popover filterDropdown = summaryFilterDropdown(filter, filterFields, () -> {
             adjusting[0]=true;
@@ -2152,8 +1951,7 @@ public class MainView extends VerticalLayout {
                 summaryMonthSectors.clear();
                 summaryMonthMachines.clear();
                 summaryMonthShifts.clear();
-                monthLimit=AppConfig.PAGE_SIZE;
-                summaryLimit[0]=AppConfig.PAGE_SIZE;
+                summaryPage.resetLimits();
                 month.setValue(maxMonth);
                 sector.clear();
                 machine.clear();
@@ -2162,8 +1960,8 @@ public class MainView extends VerticalLayout {
             refreshRef[0].run();
         });
 
-        page.add(titleRow,filterDropdown,result);
-        content.add(page,entriesMore);
+        page.add(titleRow,filterDropdown,summaryPage.result());
+        content.add(page,summaryPage.entriesMore());
         refreshRef[0].run();
     }
 
