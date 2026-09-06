@@ -48,8 +48,6 @@ import com.vaadin.flow.component.popover.Popover;
 import com.vaadin.flow.component.popover.PopoverPosition;
 import com.vaadin.flow.component.select.Select;
 import com.vaadin.flow.component.shared.Tooltip;
-import com.vaadin.flow.component.tabs.Tab;
-import com.vaadin.flow.component.tabs.Tabs;
 import com.vaadin.flow.component.textfield.IntegerField;
 import com.vaadin.flow.component.textfield.PasswordField;
 import com.vaadin.flow.component.textfield.TextField;
@@ -1768,116 +1766,15 @@ public class MainView extends VerticalLayout {
 
     private void renderScrap() {
         content.removeAll();
-        H2 title = new H2(t("Análise de Refugo"));
-        title.addClassName("gp-section-title");
-        Div titleRow = new Div(title);
-        titleRow.addClassNames("gp-title-row", "gp-title-row-static");
-
-        TextField search = new TextField(t("Pesquisar refugo"));
-        search.setPlaceholder(t("Ordem, produto ou descrição"));
-        search.setClearButtonVisible(true);
-        search.setValue(scrapSearch);
-        Button filter = searchFilterButton();
-        filter.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
-        filter.addClassName("gp-filter-button");
-        filter.setAriaLabel(t("Filtros"));
-        filter.setTooltipText(t("Filtros")).withPosition(Tooltip.TooltipPosition.TOP);
-        Div toolbar = new Div(search, filter);
-        toolbar.addClassNames("gp-toolbar", "gp-tab-controls", "gp-search-filter-toolbar-v044", "gp-refugo-search-toolbar-v071", "gp-refugo-search-toolbar-v072", "gp-refugo-search-toolbar-v073", "gp-refugo-search-toolbar-v074");
-
-        Div kpis = new Div();
-        kpis.setId("scrap-kpis");
-        kpis.addClassNames("gp-kpis", "gp-refugo-kpis-v056");
-
-        Map<Tab, String> dimensions = new LinkedHashMap<>();
-        List<Tab> tabsList = new ArrayList<>();
-        Tab yearlyComparisonTab = new Tab(t("Anual"));
-        dimensions.put(yearlyComparisonTab, "Comparativo Anual");
-        Tab monthlyComparisonTab = new Tab(t("Mensal"));
-        dimensions.put(monthlyComparisonTab, "Comparativo Mensal");
-        monthlyComparisonTab.setVisible(scrapHasMonthlyComparison());
-        yearlyComparisonTab.setVisible(scrapHasYearlyComparison());
-        tabsList.add(yearlyComparisonTab);
-        tabsList.add(monthlyComparisonTab);
-        tabsList.add(dimensionTab(dimensions, "Setor"));
-        tabsList.add(dimensionTab(dimensions, "Máquina"));
-        tabsList.add(dimensionTab(dimensions, "Turno"));
-        tabsList.add(dimensionTab(dimensions, "Descrição"));
-        tabsList.add(dimensionTab(dimensions, "Motivo"));
-        Tabs dims = new Tabs(tabsList.toArray(Tab[]::new));
-        dims.addClassName("gp-inner-tabs");
-        dims.addAttachListener(e -> dims.getElement().executeJs("""
-            if(!this.__gpKeepPageV065){
-              this.__gpKeepPageV065=true;
-              const capture=()=>{
-                window.__gpScrapScrollV065=window.scrollY;
-                window.__gpScrapTabsTopV065=this.getBoundingClientRect().top;
-              };
-              this.addEventListener('pointerdown',capture,{capture:true});
-              this.addEventListener('selected-changed',capture,{capture:true});
-            }
-        """));
-        for (var e : dimensions.entrySet()) {
-            if (Objects.equals(e.getValue(), scrapActiveDimension)) {
-                dims.setSelectedTab(e.getKey());
-                break;
-            }
-        }
-        if (dimensions.get(dims.getSelectedTab()) == null) scrapActiveDimension = "Setor";
-
-        Div chart = new Div();
-        chart.setId("scrap-chart");
-        chart.addClassName("gp-refugo-analysis");
-        Div details = new Div();
-        details.setId("scrap-details");
-        details.addClassName("gp-refugo-details");
-
-        Div recent = new Div();
-        recent.setId("scrap-recent");
-        recent.addClassName("gp-refugo-recent");
-
-        Runnable refreshSelected = () -> {
-            monthlyComparisonTab.setVisible(scrapHasMonthlyComparison());
-            yearlyComparisonTab.setVisible(scrapHasYearlyComparison());
-            String selected = dimensions.getOrDefault(dims.getSelectedTab(), "Setor");
-            if (("Comparativo Mensal".equals(selected) && !monthlyComparisonTab.isVisible())
-                    || ("Comparativo Anual".equals(selected) && !yearlyComparisonTab.isVisible())) {
-                Tab sectorTab = dimensions.entrySet().stream()
-                        .filter(entry -> "Setor".equals(entry.getValue()))
-                        .map(Map.Entry::getKey)
-                        .findFirst()
-                        .orElse(null);
-                if (sectorTab != null) dims.setSelectedTab(sectorTab);
-                selected = "Setor";
-            }
-            scrapActiveDimension = selected;
-            refreshScrap(selected);
-        };
-        Popover filterDropdown = scrapFilterDropdown(filter, refreshSelected, this::renderScrap);
-        Div page = new Div(titleRow, toolbar, filterDropdown, kpis, dims, chart, details, recent);
-        page.addClassNames("gp-refugo-page", "gp-refugo-page-v065", "gp-refugo-page-v066", "gp-refugo-page-v067", "gp-refugo-page-v068", "gp-refugo-page-v069", "gp-refugo-page-v070");
+        ScrapAnalysisPage page = new ScrapAnalysisPage(this::t, scrapSearch, scrapActiveDimension,
+                searchFilterButton(), this::scrapHasMonthlyComparison, this::scrapHasYearlyComparison,
+                value -> { scrapSearch = value; resetScrapInteraction(); },
+                () -> scrapShowLaunches = false,
+                dimension -> { scrapActiveDimension = dimension; refreshScrap(dimension); });
+        Popover filterDropdown = scrapFilterDropdown(page.filterButton(), page::refreshSelected, this::renderScrap);
+        page.setFilterDropdown(filterDropdown);
         content.add(page);
-
-        search.addValueChangeListener(e -> {
-            scrapSearch = e.getValue();
-            resetScrapInteraction();
-            refreshSelected.run();
-        });
-        dims.addSelectedChangeListener(e -> {
-            scrapActiveDimension = dimensions.getOrDefault(e.getSelectedTab(), "Setor");
-            scrapShowLaunches = false;
-            refreshSelected.run();
-            dims.getElement().executeJs("""
-                const restore=()=>{
-                  const y=Number(window.__gpScrapScrollV065);
-                  if(Number.isFinite(y)) window.scrollTo(window.scrollX,y);
-                };
-                restore();
-                requestAnimationFrame(()=>{restore();requestAnimationFrame(restore);});
-                setTimeout(restore,60);
-            """);
-        });
-        refreshSelected.run();
+        page.refreshSelected();
     }
 
     private void renderScrapReport() {
@@ -1909,12 +1806,6 @@ public class MainView extends VerticalLayout {
         List<RefugoRecord> base = cachedScrapData(scrapStart, scrapEnd);
         return scraps.filter(base, scrapSearch, scrapSectors, scrapOrders, scrapMachines, scrapProducts,
                 scrapDescriptions, scrapClients, scrapShifts, scrapOperators, scrapMotives);
-    }
-
-    private Tab dimensionTab(Map<Tab, String> dimensions, String canonical) {
-        Tab tab = new Tab(t(canonical));
-        dimensions.put(tab, canonical);
-        return tab;
     }
 
     private boolean scrapHasMonthlyComparison() {
