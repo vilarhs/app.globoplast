@@ -1,5 +1,8 @@
 package br.com.globoplast.oee.view;
 
+import static br.com.globoplast.oee.view.ViewComponents.actionIcon;
+import static br.com.globoplast.oee.view.ViewComponents.actionIcons;
+
 import br.com.globoplast.oee.config.AppConfig;
 import br.com.globoplast.oee.model.LaunchRecord;
 import br.com.globoplast.oee.model.Machine;
@@ -1650,7 +1653,7 @@ public class MainView extends VerticalLayout {
     private void showLaunchTrash(String type) {
         new LaunchTrashDialog(launches, user, type, this::t, this::dialog,
                 this::launchProductCell, this::launchOrderCell, this::formatTrashDate,
-                this::actionIcon, this::actionIcons, () -> {
+                () -> {
                     invalidateDataCaches();
                     refreshLaunchGrid();
                 }, this::notify).open();
@@ -3714,29 +3717,6 @@ public class MainView extends VerticalLayout {
         d.open();
     }
 
-    private Button actionIcon(VaadinIcon icon, String aria) {
-        Button b = new Button(icon.create());
-        b.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
-        b.getElement().setAttribute("aria-label", aria);
-        b.setTooltipText(aria).withPosition(Tooltip.TooltipPosition.TOP);
-        b.addClassName("gp-action-icon");
-        if (icon == VaadinIcon.TRASH) {
-            b.addThemeVariants(ButtonVariant.ERROR);
-            b.addClassName("gp-action-icon-danger");
-        }
-        return b;
-    }
-
-    private HorizontalLayout actionIcons(Button... buttons) {
-        HorizontalLayout actions = new HorizontalLayout(buttons);
-        actions.setPadding(false);
-        actions.setSpacing(false);
-        actions.setWidthFull();
-        actions.setAlignItems(FlexComponent.Alignment.CENTER);
-        actions.setJustifyContentMode(FlexComponent.JustifyContentMode.CENTER);
-        actions.addClassName("gp-action-buttons");
-        return actions;
-    }
 
     private void showOwnPassword() {
         Dialog d = dialog(t("Alterar Senha"));
@@ -3755,28 +3735,7 @@ public class MainView extends VerticalLayout {
     }
 
     private Dialog dialog(String title) {
-        Dialog d = new Dialog();
-        d.addThemeName("gp-modal-v053");
-        d.addClassName("gp-modal-v053");
-        d.setHeaderTitle(title);
-        d.setModal(true);
-        d.setCloseOnEsc(true);
-        d.setCloseOnOutsideClick(false);
-        d.addOpenedChangeListener(event -> d.getElement().executeJs("""
-            requestAnimationFrame(()=>{
-              const open=Boolean(document.querySelector('vaadin-dialog-overlay[opened]'));
-              document.documentElement.classList.toggle('gp-modal-open-v061',open);
-              document.body.classList.toggle('gp-modal-open-v061',open);
-            });
-        """));
-
-        Button close = new Button(VaadinIcon.CLOSE.create(), e -> d.close());
-        close.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
-        close.addClassName("gp-dialog-close");
-        close.setTooltipText(t("Fechar")).withPosition(Tooltip.TooltipPosition.TOP);
-        close.getElement().setAttribute("aria-label", t("Fechar"));
-        d.getHeader().add(close);
-        return d;
+        return ViewComponents.dialog(title, t("Fechar"));
     }
 
     private List<String> launchMachineOptions(List<Machine> machines, java.util.Collection<String> sectors) {

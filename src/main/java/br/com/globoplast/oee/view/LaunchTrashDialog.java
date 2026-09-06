@@ -1,5 +1,8 @@
 package br.com.globoplast.oee.view;
 
+import static br.com.globoplast.oee.view.ViewComponents.actionIcon;
+import static br.com.globoplast.oee.view.ViewComponents.actionIcons;
+
 import br.com.globoplast.oee.model.LaunchRecord;
 import br.com.globoplast.oee.model.User;
 import br.com.globoplast.oee.service.LaunchService;
@@ -26,16 +29,13 @@ final class LaunchTrashDialog {
     private final Function<LaunchRecord, Component> productCell;
     private final Function<LaunchRecord, Component> orderCell;
     private final Function<String, String> formatDate;
-    private final BiFunction<VaadinIcon, String, Button> actionIcon;
-    private final Function<Button[], Component> actionIcons;
     private final Runnable restored;
     private final Consumer<String> notification;
 
     LaunchTrashDialog(LaunchService launches, User user, String type,
                       Function<String, String> translate, Function<String, Dialog> dialogs,
                       Function<LaunchRecord, Component> productCell, Function<LaunchRecord, Component> orderCell,
-                      Function<String, String> formatDate, BiFunction<VaadinIcon, String, Button> actionIcon,
-                      Function<Button[], Component> actionIcons, Runnable restored, Consumer<String> message) {
+                      Function<String, String> formatDate, Runnable restored, Consumer<String> message) {
         this.launches = launches;
         this.user = user;
         this.type = type;
@@ -44,8 +44,6 @@ final class LaunchTrashDialog {
         this.productCell = productCell;
         this.orderCell = orderCell;
         this.formatDate = formatDate;
-        this.actionIcon = actionIcon;
-        this.actionIcons = actionIcons;
         this.restored = restored;
         this.notification = message;
     }
@@ -67,7 +65,7 @@ final class LaunchTrashDialog {
         grid.addColumn(item -> formatDate.apply(item.deletedAt())).setHeader(t("Excluído em")).setWidth("155px").setFlexGrow(1);
         grid.addColumn(item -> formatDate.apply(item.expiresAt())).setHeader(t("Exclusão definitiva")).setWidth("155px").setFlexGrow(1);
         grid.addColumn(new ComponentRenderer<>(item -> {
-            Button restore = actionIcon.apply(VaadinIcon.ROTATE_LEFT, t("Recuperar"));
+            Button restore = actionIcon(VaadinIcon.ROTATE_LEFT, t("Recuperar"));
             restore.addClickListener(e -> {
                 try {
                     launches.restoreTrash(item.id(), user);
@@ -79,9 +77,9 @@ final class LaunchTrashDialog {
                     notification.accept(message == null || message.isBlank() ? t("Não foi possível restaurar o lançamento.") : t(message));
                 }
             });
-            Button remove = actionIcon.apply(VaadinIcon.TRASH, t("Apagar"));
+            Button remove = actionIcon(VaadinIcon.TRASH, t("Apagar"));
             remove.addClickListener(e -> confirmTrashDeletion(item, grid, type));
-            return actionIcons.apply(new Button[]{restore, remove});
+            return actionIcons(restore, remove);
         })).setHeader(t("Ações")).setWidth("90px").setFlexGrow(0).setTextAlign(ColumnTextAlign.CENTER);
         grid.setHeight("420px");
         grid.setItems(launches.trash(user, type));

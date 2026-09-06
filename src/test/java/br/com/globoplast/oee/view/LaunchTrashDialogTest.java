@@ -10,6 +10,7 @@ import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.Span;
+import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.data.renderer.ComponentRenderer;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -55,14 +56,13 @@ class LaunchTrashDialogTest {
                 dialogs.add(dialog);
                 return dialog;
             }, r -> new Span(), r -> new Span(), text -> text,
-                    (icon, label) -> new Button(label), buttons -> new Div(buttons),
                     refreshed::incrementAndGet, text -> {}).open();
             Div body = (Div) dialogs.getFirst().getChildren().filter(Div.class::isInstance).findFirst().orElseThrow();
             Grid<LaunchService.TrashItem> grid = (Grid<LaunchService.TrashItem>) body.getComponentAt(1);
             assertEquals(1, grid.getListDataView().getItemCount());
             ComponentRenderer<Component, LaunchService.TrashItem> renderer =
                     (ComponentRenderer<Component, LaunchService.TrashItem>) grid.getColumns().getLast().getRenderer();
-            Div actions = (Div) renderer.createComponent(item);
+            HorizontalLayout actions = (HorizontalLayout) renderer.createComponent(item);
             ((Button) actions.getComponentAt(0)).click();
             assertEquals(List.of("restore"), calls);
             assertEquals(1, refreshed.get());
