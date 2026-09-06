@@ -5734,3 +5734,15 @@ html body vaadin-popover-overlay.gp-period-popover
   background:var(--gp-overlay-surface-v315)!important;
   background-color:var(--gp-overlay-surface-v315)!important;
 }
+
+/* Os campos vivem em componentes com Shadow DOM: aplica diretamente neles. */
+html body .gp-filter-multiselect{
+  --vaadin-input-field-background:var(--gp-overlay-surface-v315)!important;
+}
+html body .gp-filter-multiselect::part(input-field),
+html body .gp-filter-dropdown .gp-period-field,
+html body .gp-period-month::part(input-field),
+html body .gp-period-year::part(input-field){
+  background:var(--gp-overlay-surface-v315)!important;
+  background-color:var(--gp-overlay-surface-v315)!important;
+}
