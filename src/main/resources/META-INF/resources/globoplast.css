@@ -5712,3 +5712,25 @@ html body vaadin-dialog.gp-launch-dialog .gp-period-field{min-height:36px!import
 /* A alteração de senha cabe lado a lado no desktop e mantém leitura no celular. */
 .gp-password-form{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:.7rem!important}
 @media(max-width:520px){.gp-password-form{grid-template-columns:1fr!important}}
+
+/* Filtros e calendário: o conteúdo interno usa a mesma superfície do popup. */
+html body vaadin-popover-overlay.gp-filter-popover,
+html body vaadin-popover-overlay.gp-period-popover,
+html body vaadin-popover-overlay.gp-filter-popover::part(overlay),
+html body vaadin-popover-overlay.gp-filter-popover::part(content),
+html body vaadin-popover-overlay.gp-period-popover::part(overlay),
+html body vaadin-popover-overlay.gp-period-popover::part(content),
+html body .gp-filter-dropdown,
+html body .gp-filter-dropdown-actions,
+html body .gp-period-panel{
+  background:var(--gp-overlay-surface-v315)!important;
+  background-color:var(--gp-overlay-surface-v315)!important;
+}
+html body vaadin-popover-overlay.gp-filter-popover
+  :is(vaadin-text-field,vaadin-select,vaadin-combo-box,vaadin-multi-select-combo-box)::part(input-field),
+html body vaadin-popover-overlay.gp-filter-popover .gp-period-field,
+html body vaadin-popover-overlay.gp-period-popover
+  :is(vaadin-select,vaadin-combo-box)::part(input-field){
+  background:var(--gp-overlay-surface-v315)!important;
+  background-color:var(--gp-overlay-surface-v315)!important;
+}
