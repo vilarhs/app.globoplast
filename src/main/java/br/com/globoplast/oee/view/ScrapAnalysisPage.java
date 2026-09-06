@@ -1,24 +1,37 @@
 package br.com.globoplast.oee.view;
 
+import br.com.globoplast.oee.model.RefugoRecord;
+import br.com.globoplast.oee.service.RefugoService;
+import br.com.globoplast.oee.util.Norm;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H2;
+import com.vaadin.flow.component.html.H3;
+import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.popover.Popover;
 import com.vaadin.flow.component.shared.Tooltip;
 import com.vaadin.flow.component.tabs.Tab;
 import com.vaadin.flow.component.tabs.Tabs;
 import com.vaadin.flow.component.textfield.TextField;
 
+import java.time.LocalDate;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
+import java.util.function.DoubleFunction;
 import java.util.function.Function;
+import java.util.function.LongFunction;
 
 final class ScrapAnalysisPage extends Div {
     private final Function<String, String> translate;
+    private final RefugoService scraps;
+    private final LongFunction<String> formatInteger;
+    private final DoubleFunction<String> formatDecimal;
+    private final DoubleFunction<String> formatOneDecimal;
     private final BooleanSupplier hasMonthlyComparison;
     private final BooleanSupplier hasYearlyComparison;
     private final Consumer<String> dimensionSelected;
@@ -34,11 +47,17 @@ final class ScrapAnalysisPage extends Div {
     private final Tabs tabs;
     private final Button filter;
 
-    ScrapAnalysisPage(Function<String, String> translate, String initialSearch, String initialDimension,
+    ScrapAnalysisPage(Function<String, String> translate, RefugoService scraps,
+                      LongFunction<String> formatInteger, DoubleFunction<String> formatDecimal,
+                      DoubleFunction<String> formatOneDecimal, String initialSearch, String initialDimension,
                       Button filter, BooleanSupplier hasMonthlyComparison,
                       BooleanSupplier hasYearlyComparison, Consumer<String> searchChanged,
                       Runnable tabChanged, Consumer<String> dimensionSelected) {
         this.translate = translate;
+        this.scraps = scraps;
+        this.formatInteger = formatInteger;
+        this.formatDecimal = formatDecimal;
+        this.formatOneDecimal = formatOneDecimal;
         this.filter = filter;
         this.hasMonthlyComparison = hasMonthlyComparison;
         this.hasYearlyComparison = hasYearlyComparison;
@@ -94,6 +113,9 @@ final class ScrapAnalysisPage extends Div {
     }
 
     Button filterButton() { return filter; }
+    Div chart() { return chart; }
+    Div details() { return details; }
+    Div recent() { return recent; }
 
     void setFilterDropdown(Popover dropdown) { rebuild(dropdown); }
 
@@ -108,6 +130,37 @@ final class ScrapAnalysisPage extends Div {
             selected = "Setor";
         }
         dimensionSelected.accept(selected);
+    }
+
+    void renderKpis(List<RefugoRecord> rows, String dimension,
+                    String selectedDimension, String selectedKey,
+                    LocalDate start, LocalDate end) {
+        kpis.removeAll();
+        double total = scraps.totalKg(rows);
+        String selectedPct = "—";
+        if (Objects.equals(selectedDimension, dimension) && selectedKey != null && !selectedKey.isBlank() && total > 0) {
+            double selected = rows.stream().filter(row -> scraps.matches(row, dimension, selectedKey))
+                    .mapToDouble(RefugoRecord::scrapKg).sum();
+            if (selected > 0) selectedPct = formatOneDecimal.apply(selected * 100.0 / total) + "%";
+        }
+        Div totalKpi = kpiWithCaption(t("Total Refugo"), formatDecimal.apply(total) + " kg",
+                t("{percentual}% do total").replace("{percentual}", formatOneDecimal.apply(total > 0 ? 100.0 : 0.0)));
+
+        LocalDate today = Norm.productiveToday();
+        String periodValue;
+        String periodCaption = null;
+        if (Objects.equals(start, today) && Objects.equals(end, today)) {
+            periodValue = t("Hoje");
+            periodCaption = Norm.br(today);
+        } else if (Objects.equals(start, end)) periodValue = Norm.br(start);
+        else periodValue = Norm.br(start) + " – " + Norm.br(end);
+
+        kpis.add(totalKpi,
+                kpi(t("Item Selecionado (%)"), selectedPct),
+                kpi(t("Ordens Afetadas"), formatInteger.apply(scraps.orders(rows))),
+                kpi(t("Total de Lançamentos"), formatInteger.apply(rows.size())),
+                periodCaption == null ? kpi(t("Período"), periodValue)
+                        : kpiWithCaption(t("Período"), periodValue, periodCaption));
     }
 
     private void rebuild(Popover dropdown) {
@@ -157,6 +210,22 @@ final class ScrapAnalysisPage extends Div {
             requestAnimationFrame(()=>{restore();requestAnimationFrame(restore);});
             setTimeout(restore,60);
         """);
+    }
+
+    private Div kpi(String label, String value) {
+        Div item = new Div(new Span(label), new H3(value));
+        item.addClassName("gp-kpi");
+        return item;
+    }
+
+    private Div kpiWithCaption(String label, String value, String caption) {
+        Div item = kpi(label, value);
+        if (caption != null && !caption.isBlank()) {
+            Span note = new Span(caption);
+            note.addClassName("gp-kpi-caption");
+            item.add(note);
+        }
+        return item;
     }
 
     private String t(String text) { return translate.apply(text); }

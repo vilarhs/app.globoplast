@@ -128,6 +128,7 @@ public class MainView extends VerticalLayout {
     private String scrapSearch = "";
     private int monthLimit = AppConfig.PAGE_SIZE;
     private ScrapReportPage scrapReportPage;
+    private ScrapAnalysisPage scrapAnalysisPage;
     private LocalDate summaryDayDate = LocalDate.now(AppConfig.ZONE).minusDays(1);
     private final Set<String> summaryDaySectors = new LinkedHashSet<>();
     private final Set<String> summaryDayMachines = new LinkedHashSet<>();
@@ -1766,13 +1767,15 @@ public class MainView extends VerticalLayout {
 
     private void renderScrap() {
         content.removeAll();
-        ScrapAnalysisPage page = new ScrapAnalysisPage(this::t, scrapSearch, scrapActiveDimension,
+        ScrapAnalysisPage page = new ScrapAnalysisPage(this::t, scraps, this::formatInt, this::format,
+                this::format1, scrapSearch, scrapActiveDimension,
                 searchFilterButton(), this::scrapHasMonthlyComparison, this::scrapHasYearlyComparison,
                 value -> { scrapSearch = value; resetScrapInteraction(); },
                 () -> scrapShowLaunches = false,
                 dimension -> { scrapActiveDimension = dimension; refreshScrap(dimension); });
         Popover filterDropdown = scrapFilterDropdown(page.filterButton(), page::refreshSelected, this::renderScrap);
         page.setFilterDropdown(filterDropdown);
+        scrapAnalysisPage = page;
         content.add(page);
         page.refreshSelected();
     }
@@ -1785,7 +1788,7 @@ public class MainView extends VerticalLayout {
                     scrapSearch = value;
                     refreshScrapReport();
                 },
-                (rows, sector) -> rankingTable(aggregateScrap(rows, "Motivo"),
+                (rows, sector) -> rankingTable(scraps.aggregate(rows, "Motivo"),
                         rows.stream().mapToDouble(RefugoRecord::scrapKg).sum(), sector));
         content.add(scrapReportPage);
         refreshScrapReport();
@@ -1840,7 +1843,7 @@ public class MainView extends VerticalLayout {
 
     private void refreshScrap(String dimension) {
         List<RefugoRecord> rows = currentScrapRows();
-        Div chart = (Div) byId("scrap-chart");
+        Div chart = scrapAnalysisPage == null ? null : scrapAnalysisPage.chart();
         if (chart != null) {
             chart.removeAll();
             if (rows.isEmpty()) {
@@ -1856,7 +1859,7 @@ public class MainView extends VerticalLayout {
 
         refreshScrapSelectionPanels(rows, dimension);
 
-        Div recent = (Div) byId("scrap-recent");
+        Div recent = scrapAnalysisPage == null ? null : scrapAnalysisPage.recent();
         if (recent != null) {
             recent.removeAll();
             LocalDate productiveToday = Norm.productiveToday();
@@ -1866,46 +1869,8 @@ public class MainView extends VerticalLayout {
         }
     }
 
-    private void renderScrapKpis(Div kpis, List<RefugoRecord> rows, String dimension) {
-        kpis.removeAll();
-        double total = scraps.totalKg(rows);
-        String selectedPct = "—";
-        if (Objects.equals(scrapSelectedDimension, dimension) && !scrapSelectedKey.isBlank() && total > 0) {
-            double selected = rows.stream().filter(r -> scrapMatches(r, dimension, scrapSelectedKey)).mapToDouble(RefugoRecord::scrapKg).sum();
-            if (selected > 0) selectedPct = format1(selected * 100.0 / total) + "%";
-        }
-        double totalPct = total > 0 ? 100.0 : 0.0;
-        Div totalKpi = kpiWithCaption(
-                t("Total Refugo"),
-                format(total) + " kg",
-                t("{percentual}% do total").replace("{percentual}", format1(totalPct))
-        );
-
-        LocalDate productiveToday = Norm.productiveToday();
-        String periodValue;
-        String periodCaption = null;
-        if (Objects.equals(scrapStart, productiveToday) && Objects.equals(scrapEnd, productiveToday)) {
-            periodValue = t("Hoje");
-            periodCaption = Norm.br(productiveToday);
-        } else if (Objects.equals(scrapStart, scrapEnd)) {
-            periodValue = Norm.br(scrapStart);
-        } else {
-            periodValue = Norm.br(scrapStart) + " – " + Norm.br(scrapEnd);
-        }
-
-        kpis.add(
-                totalKpi,
-                kpi(t("Item Selecionado (%)"), selectedPct),
-                kpi(t("Ordens Afetadas"), formatInt(scraps.orders(rows))),
-                kpi(t("Total de Lançamentos"), formatInt(rows.size())),
-                periodCaption == null
-                        ? kpi(t("Período"), periodValue)
-                        : kpiWithCaption(t("Período"), periodValue, periodCaption)
-        );
-    }
-
     private void renderScrapDimension(Div host, List<RefugoRecord> rows, String dimension) {
-        Map<String, Double> aggregate = aggregateScrap(rows, dimension);
+        Map<String, Double> aggregate = scraps.aggregate(rows, dimension);
         if (aggregate.isEmpty()) {
             host.add(emptyState(t("Nenhum dado encontrado para os filtros selecionados.")));
             return;
@@ -1945,26 +1910,6 @@ public class MainView extends VerticalLayout {
         if ("Setor".equals(dimension)) renderTopReasonsBySector(host, rows);
     }
 
-    private Map<String, Double> aggregateScrap(List<RefugoRecord> rows, String dimension) {
-        Map<String, Double> raw = new LinkedHashMap<>();
-        for (RefugoRecord r : rows) raw.merge(scrapKey(r, dimension), r.scrapKg(), Double::sum);
-        return raw.entrySet().stream()
-                .sorted(Map.Entry.<String, Double>comparingByValue().reversed())
-                .collect(Collectors.toMap(Map.Entry::getKey, e -> Norm.round(e.getValue(), 3), (a, b) -> a, LinkedHashMap::new));
-    }
-
-    private String scrapKey(RefugoRecord r, String dimension) {
-        return switch (dimension) {
-            case "Máquina" -> nonBlank(r.machine());
-            case "Turno" -> nonBlank(r.shift());
-            case "Descrição" -> nonBlank(r.description());
-            case "Motivo" -> Norm.scrapMotiveUid(r.product(), r.motive());
-            case "Comparativo Mensal" -> YearMonth.from(r.productiveDate()).toString();
-            case "Comparativo Anual" -> String.valueOf(r.productiveDate().getYear());
-            default -> uppercaseSector(nonBlank(r.sector()));
-        };
-    }
-
     private void alignScrapChartTitleV070(InteractiveBarChart chart) {
         chart.addClassName("gp-refugo-chart-title-aligned-v070");
         chart.addAttachListener(e -> chart.getElement().executeJs("""
@@ -1996,10 +1941,6 @@ public class MainView extends VerticalLayout {
         return value == null || value.isBlank() ? "NÃO INFORMADO" : value;
     }
 
-    private boolean scrapMatches(RefugoRecord r, String dimension, String key) {
-        return Objects.equals(scrapKey(r, dimension), key);
-    }
-
     private void toggleScrapSelection(String dimension, String key) {
         if (Objects.equals(scrapSelectedDimension, dimension) && Objects.equals(scrapSelectedKey, key)) {
             scrapSelectedDimension = "";
@@ -2025,10 +1966,12 @@ public class MainView extends VerticalLayout {
     }
 
     private void refreshScrapSelectionPanels(List<RefugoRecord> rows, String dimension) {
-        Div kpis = (Div) byId("scrap-kpis");
-        if (kpis != null) renderScrapKpis(kpis, rows, dimension);
+        if (scrapAnalysisPage != null) {
+            scrapAnalysisPage.renderKpis(rows, dimension, scrapSelectedDimension,
+                    scrapSelectedKey, scrapStart, scrapEnd);
+        }
 
-        Div details = (Div) byId("scrap-details");
+        Div details = scrapAnalysisPage == null ? null : scrapAnalysisPage.details();
         if (details == null) return;
         details.removeAll();
 
@@ -2077,7 +2020,7 @@ public class MainView extends VerticalLayout {
                 notify(t("Selecione um item no gráfico"));
                 return;
             }
-            rows.stream().filter(r -> scrapMatches(r, dimension, scrapSelectedKey)).map(RefugoRecord::analysisId).forEach(scrapExcludedIds::add);
+            rows.stream().filter(r -> scraps.matches(r, dimension, scrapSelectedKey)).map(RefugoRecord::analysisId).forEach(scrapExcludedIds::add);
             scrapSelectedDimension = "";
             scrapSelectedKey = "";
             scrapShowLaunches = false;
@@ -2111,7 +2054,7 @@ public class MainView extends VerticalLayout {
         }
 
         List<RefugoRecord> selectedRows = currentScrapRows().stream()
-                .filter(r -> scrapMatches(r, dimension, scrapSelectedKey))
+                .filter(r -> scraps.matches(r, dimension, scrapSelectedKey))
                 .toList();
         if (selectedRows.isEmpty()) {
             notify(t("Selecione um item no gráfico"));
@@ -2153,7 +2096,7 @@ public class MainView extends VerticalLayout {
     private void renderScrapComparison(Div host, List<RefugoRecord> rows, boolean monthly) {
         String dimension = monthly ? "Comparativo Mensal" : "Comparativo Anual";
         Map<String, Double> totals = new LinkedHashMap<>();
-        for (RefugoRecord r : rows) totals.merge(scrapKey(r, dimension), r.scrapKg(), Double::sum);
+        for (RefugoRecord r : rows) totals.merge(scraps.analysisKey(r, dimension), r.scrapKg(), Double::sum);
         totals = totals.entrySet().stream().sorted(Map.Entry.comparingByKey())
                 .collect(Collectors.toMap(Map.Entry::getKey, e -> Norm.round(e.getValue(), 3), (a, b) -> a, LinkedHashMap::new));
         if (totals.size() < 2) {
@@ -2201,7 +2144,7 @@ public class MainView extends VerticalLayout {
         else if (scrapSectors.size() == 1) selectedSector = scrapSectors.iterator().next();
         final String sector = selectedSector;
         List<RefugoRecord> scope = sector == null ? rows : rows.stream().filter(r -> sector.equalsIgnoreCase(r.sector())).toList();
-        Map<String, Double> ranking = aggregateScrap(scope, "Motivo");
+        Map<String, Double> ranking = scraps.aggregate(scope, "Motivo");
         H3 title = new H3(t("Top 5 Motivos"));
         title.addClassName("gp-subsection-title");
         Span caption = new Span(sector == null
@@ -2239,7 +2182,7 @@ public class MainView extends VerticalLayout {
 
     private void renderTopReasonsByPeriod(Div host, List<RefugoRecord> rows, boolean monthly) {
         String dimension = monthly ? "Comparativo Mensal" : "Comparativo Anual";
-        List<String> periods = rows.stream().map(r -> scrapKey(r, dimension)).distinct().sorted().toList();
+        List<String> periods = rows.stream().map(r -> scraps.analysisKey(r, dimension)).distinct().sorted().toList();
         H3 title = new H3(t("Top 5 motivos por " + (monthly ? "mês" : "ano")));
         title.addClassName("gp-subsection-title");
         Span caption = new Span(t("Ranking independente em cada período • valor em Kg e participação no total do período"));
@@ -2254,8 +2197,8 @@ public class MainView extends VerticalLayout {
         Map<String, Map<String, Double>> byPeriod = new LinkedHashMap<>();
         Map<String, Double> totals = new LinkedHashMap<>();
         for (String period : periods) {
-            List<RefugoRecord> scope = rows.stream().filter(r -> Objects.equals(scrapKey(r, dimension), period)).toList();
-            byPeriod.put(period, aggregateScrap(scope, "Motivo"));
+            List<RefugoRecord> scope = rows.stream().filter(r -> Objects.equals(scraps.analysisKey(r, dimension), period)).toList();
+            byPeriod.put(period, scraps.aggregate(scope, "Motivo"));
             totals.put(period, scope.stream().mapToDouble(RefugoRecord::scrapKg).sum());
         }
         for (int rank = 1; rank <= 5; rank++) {
@@ -2310,7 +2253,7 @@ public class MainView extends VerticalLayout {
     }
 
     private void renderScrapLaunches(Div host, List<RefugoRecord> rows, String dimension, String key) {
-        List<RefugoRecord> selected = rows.stream().filter(r -> scrapMatches(r, dimension, key)).toList();
+        List<RefugoRecord> selected = rows.stream().filter(r -> scraps.matches(r, dimension, key)).toList();
         if (selected.isEmpty()) return;
         H3 title = new H3(t("Lançamentos") + " · " + scrapDisplayLabel(key, dimension));
         title.addClassName("gp-subsection-title");
@@ -2334,7 +2277,7 @@ public class MainView extends VerticalLayout {
 
     private void renderDescriptionDetails(Div host, List<RefugoRecord> rows, String key) {
         List<RefugoRecord> selected = rows.stream()
-                .filter(r -> Objects.equals(scrapKey(r, "Descrição"), key))
+                .filter(r -> Objects.equals(scraps.analysisKey(r, "Descrição"), key))
                 .toList();
         if (selected.isEmpty()) return;
 

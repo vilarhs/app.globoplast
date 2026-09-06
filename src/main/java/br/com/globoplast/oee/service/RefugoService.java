@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 
 import java.sql.*;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.*;
 
 /**
@@ -308,23 +309,28 @@ public class RefugoService {
     }
 
     public Map<String, Double> aggregate(List<RefugoRecord> rows, String dimension) {
-        Map<String, Double> m = new HashMap<>();
-        for (RefugoRecord r : rows) {
-            String k = switch (dimension) {
-                case "Máquina" -> r.machine();
-                case "Turno" -> r.shift();
-                case "Descrição" -> r.description();
-                case "Motivo" -> r.motive();
-                default -> r.sector();
-            };
-            if (k == null || k.isBlank()) k = "NÃO INFORMADO";
-            m.merge(k, r.scrapKg(), Double::sum);
-        }
-        List<Map.Entry<String, Double>> sorted = m.entrySet().stream()
-                .sorted(Map.Entry.<String, Double>comparingByValue().reversed()).toList();
-        Map<String, Double> out = new LinkedHashMap<>();
-        for (var e : sorted) out.put(e.getKey(), Norm.round(e.getValue(), 3));
-        return out;
+        Map<String, Double> raw = new LinkedHashMap<>();
+        for (RefugoRecord row : rows) raw.merge(analysisKey(row, dimension), row.scrapKg(), Double::sum);
+        Map<String, Double> sorted = new LinkedHashMap<>();
+        raw.entrySet().stream().sorted(Map.Entry.<String, Double>comparingByValue().reversed())
+                .forEach(entry -> sorted.put(entry.getKey(), Norm.round(entry.getValue(), 3)));
+        return sorted;
+    }
+
+    public String analysisKey(RefugoRecord row, String dimension) {
+        return switch (dimension) {
+            case "Máquina" -> nonBlank(row.machine());
+            case "Turno" -> nonBlank(row.shift());
+            case "Descrição" -> nonBlank(row.description());
+            case "Motivo" -> Norm.scrapMotiveUid(row.product(), row.motive());
+            case "Comparativo Mensal" -> YearMonth.from(row.productiveDate()).toString();
+            case "Comparativo Anual" -> String.valueOf(row.productiveDate().getYear());
+            default -> nonBlank(row.sector()).toUpperCase(Locale.ROOT);
+        };
+    }
+
+    public boolean matches(RefugoRecord row, String dimension, String key) {
+        return Objects.equals(analysisKey(row, dimension), key);
     }
 
     public double totalKg(List<RefugoRecord> rows) {
@@ -333,6 +339,10 @@ public class RefugoService {
 
     public long orders(List<RefugoRecord> rows) {
         return rows.stream().map(RefugoRecord::orderNumber).filter(s -> s != null && !s.isBlank()).distinct().count();
+    }
+
+    private static String nonBlank(String value) {
+        return value == null || value.isBlank() ? "NÃO INFORMADO" : value;
     }
 
     private record RawScrap(

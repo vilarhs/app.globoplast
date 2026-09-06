@@ -13,7 +13,7 @@
 
     <groupId>br.com.globoplast</groupId>
     <artifactId>globoplast</artifactId>
-    <version>0.1.274</version>
+    <version>0.1.275</version>
     <name>Globoplast OEE Java</name>
 
     <properties>
