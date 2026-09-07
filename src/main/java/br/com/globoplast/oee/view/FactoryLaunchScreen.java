@@ -84,6 +84,7 @@ final class FactoryLaunchScreen {
         grid.addColumn(row -> formatInteger.apply(row.getShiftA())).setHeader(t("Produção A (pçs)")).setAutoWidth(true);
         grid.addColumn(row -> formatInteger.apply(row.getShiftB())).setHeader(t("Produção B (pçs)")).setAutoWidth(true);
         grid.addColumn(row -> formatInteger.apply(row.getShiftC())).setHeader(t("Produção C (pçs)")).setAutoWidth(true);
+        grid.addColumn(row -> formatInteger.apply(row.getTotalProduced())).setHeader(t("Total Lançamento")).setAutoWidth(true);
         grid.addColumn(new ComponentRenderer<>(this::actions)).setHeader(t("Ações"))
                 .setWidth("116px").setFlexGrow(0).setTextAlign(ColumnTextAlign.CENTER);
         grid.setAllRowsVisible(true);
@@ -266,7 +267,6 @@ final class FactoryLaunchScreen {
         LaunchService.ProductMetadata metadata = launches.productMetadata(productCode);
         record.setDescriptionErp(metadata.description());
         record.setClientErp(metadata.client());
-        record.setProblem("LANÇAMENTO FÁBRICA");
         record.setOrigin("FABRICA");
     }
 

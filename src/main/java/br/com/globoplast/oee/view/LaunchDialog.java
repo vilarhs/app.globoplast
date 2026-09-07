@@ -351,7 +351,7 @@ final class LaunchDialog {
         record.setBreakdownHours(Norm.round(LaunchValueParser.hours(f.breakdown.getValue(), 0), 2));
 
         String obs = f.observations.getValue() == null ? "" : f.observations.getValue().trim();
-        record.setProblem(obs.isBlank() ? "Nenhum" : obs.toUpperCase(locale()));
+        record.setProblem(obs.toUpperCase(locale()));
     }
 
     private void configureInputMode(TextField field, String mode) {

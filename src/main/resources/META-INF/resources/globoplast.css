@@ -143,7 +143,7 @@ vaadin-dialog-overlay::part(header),vaadin-dialog-overlay::part(content),vaadin-
 .gp-filter-popover-refugo::part(overlay){max-height:min(74dvh,600px)}
 .gp-filter-popover-refugo::part(content){max-height:min(74dvh,600px);overflow:hidden}
 .gp-filter-dropdown-refugo{max-height:min(68dvh,560px);overflow-y:auto}
-.gp-filter-clear{width:100%}
+.gp-filter-clear{width:100%;background:var(--gp-modal-uniform-v058)!important;color:var(--gp-text)!important}
 .gp-filter-multiselect{--vaadin-input-field-background:var(--gp-surface);--vaadin-input-field-border-color:var(--gp-control-border)}
 .gp-filter-multiselect::part(input-field){min-height:40px;border:1px solid var(--gp-control-border);border-radius:.5rem;background:var(--gp-surface)}
 vaadin-multi-select-combo-box-chip{--lumo-primary-color:var(--gp-red);font-size:.78rem}
@@ -185,7 +185,7 @@ vaadin-multi-select-combo-box-chip{--lumo-primary-color:var(--gp-red);font-size:
 .gp-period-picker.gp-period-readonly .gp-period-field[disabled]{
   opacity:1!important;
   cursor:default!important;
-  background:var(--gp-surface)!important;
+  background:var(--gp-modal-uniform-v058)!important;
   color:var(--gp-text)!important;
   border-color:var(--gp-control-border)!important;
 }
@@ -4161,7 +4161,7 @@ html body vaadin-dialog.gp-modal-v053 .gp-dialog-close{
 /* DatePicker, Select e TextField do lançamento recebem a mesma caixa visual.
    O Select de Máquina conserva apenas a seta funcional do seletor. */
 html body vaadin-dialog.gp-modal-v053 .gp-launch-standard-field-v054{
-  --vaadin-input-field-background:var(--gp-modal-bg-v053)!important;
+  --vaadin-input-field-background:var(--gp-modal-uniform-v058)!important;
   --vaadin-input-field-border-color:var(--gp-control-border)!important;
   --vaadin-input-field-value-color:var(--gp-text)!important;
   --vaadin-input-field-label-color:var(--gp-text)!important;
@@ -4181,14 +4181,14 @@ html body vaadin-dialog.gp-modal-v053 .gp-launch-standard-field-v054::part(value
 }
 html body vaadin-dialog.gp-modal-v053 .gp-launch-standard-field-v054::part(input-field){
   width:100%!important;
-  height:40px!important;
-  min-height:40px!important;
-  max-height:40px!important;
+  height:36px!important;
+  min-height:36px!important;
+  max-height:36px!important;
   box-sizing:border-box!important;
   border:1px solid var(--gp-control-border)!important;
   border-radius:.25rem!important;
-  background:var(--gp-modal-bg-v053)!important;
-  background-color:var(--gp-modal-bg-v053)!important;
+  background:var(--gp-modal-uniform-v058)!important;
+  background-color:var(--gp-modal-uniform-v058)!important;
   color:var(--gp-text)!important;
   box-shadow:none!important;
 }
@@ -4223,19 +4223,19 @@ html body vaadin-dialog.gp-modal-v053 .gp-launch-standard-field-v054[focused]::p
    mais o value-button exclusivo do Select que causava a diferença visual. */
 html body vaadin-dialog.gp-modal-v053 vaadin-combo-box.gp-launch-machine-field-v055::part(input-field){
   width:100%!important;
-  height:40px!important;
-  min-height:40px!important;
-  max-height:40px!important;
+  height:36px!important;
+  min-height:36px!important;
+  max-height:36px!important;
   box-sizing:border-box!important;
   padding-inline:var(--lumo-space-s)!important;
   border:1px solid var(--gp-control-border)!important;
   border-radius:.25rem!important;
-  background:var(--gp-modal-bg-v053)!important;
-  background-color:var(--gp-modal-bg-v053)!important;
+  background:var(--gp-modal-uniform-v058)!important;
+  background-color:var(--gp-modal-uniform-v058)!important;
   color:var(--gp-text)!important;
   box-shadow:none!important;
   font-family:"Source Sans 3","Source Sans Pro",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
-  font-size:.92rem!important;
+  font-size:1rem!important;
 }
 html body vaadin-dialog.gp-modal-v053 vaadin-combo-box.gp-launch-machine-field-v055::part(toggle-button){
   width:var(--lumo-size-m)!important;
@@ -5677,7 +5677,8 @@ html body :is(vaadin-text-field,vaadin-password-field,vaadin-integer-field,
               vaadin-text-area)::part(label),
 html body .gp-period-label{
   margin:0!important;
-  padding:3.5px 0 7px .875px!important;
+  padding:1.75px 0 7px .875px!important;
+  text-transform:none!important;
   min-height:auto!important;
   font-family:"Source Sans 3","Source Sans Pro","Source Sans",sans-serif!important;
   font-size:16px!important;
@@ -5693,11 +5694,11 @@ html body vaadin-dialog.gp-launch-dialog::part(content){
 }
 html body vaadin-dialog.gp-launch-dialog .gp-launch-form-python,
 html body vaadin-dialog.gp-launch-dialog .gp-launch-shift-column{
-  gap:.15rem!important;
+  gap:.075rem!important;
 }
 html body vaadin-dialog.gp-launch-dialog .gp-launch-row{
   column-gap:.3rem!important;
-  row-gap:.15rem!important;
+  row-gap:.075rem!important;
 }
 html body vaadin-dialog.gp-launch-dialog .gp-launch-row
   :is(vaadin-text-field,vaadin-combo-box)::part(input-field),
