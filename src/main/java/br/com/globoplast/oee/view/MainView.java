@@ -304,10 +304,7 @@ public class MainView extends VerticalLayout {
             }
             addTabMenuItem(onlineProductionTab.getSubMenu(), t("Refugo"), () -> openProductionSubPage("refugo"));
             if (user.canModifyLaunches()) {
-                addTabMenuItem(onlineProductionTab.getSubMenu(), t("Lixeira"), () -> {
-                    selectTab("lancamentos");
-                    showLaunchTrash("ERP");
-                });
+                addTabMenuItem(onlineProductionTab.getSubMenu(), t("Lixeira"), () -> showLaunchTrash("ERP"));
             }
         }
 
@@ -322,10 +319,7 @@ public class MainView extends VerticalLayout {
         }
         addTabMenuItem(manualProductionTab.getSubMenu(), t("Refugo"), () -> openProductionSubPage("refugo"));
         if (user.canModifyLaunches()) {
-            addTabMenuItem(manualProductionTab.getSubMenu(), t("Lixeira"), () -> {
-                selectTab("manual_lancamentos");
-                showLaunchTrash("MANUAL");
-            });
+            addTabMenuItem(manualProductionTab.getSubMenu(), t("Lixeira"), () -> showLaunchTrash("MANUAL"));
         }
 
         MenuItem stockTab = mainTabs.addItem("📦 " + t("Estoque"));
@@ -665,8 +659,8 @@ public class MainView extends VerticalLayout {
                     if ("factory_lancamentos".equals(renderedTabKey)
                             && "FABRICA".equalsIgnoreCase(record.getOrigin())) {
                         factoryLaunchScreen.showRecordDate(record.getDate());
-                    } else {
-                        launchesScreen.refreshLaunchGrid();
+                    } else if (Set.of("lancamentos", "manual_lancamentos").contains(renderedTabKey)) {
+                        launchesScreen.showRecordDate(record.getDate());
                     }
                 }, this::notify).open();
     }

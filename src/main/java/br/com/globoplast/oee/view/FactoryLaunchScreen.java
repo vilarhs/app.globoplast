@@ -177,7 +177,6 @@ final class FactoryLaunchScreen {
         TextField order = field(t("Nº da OP"), record.getOrderNumber());
         order.setAllowedCharPattern("[0-9]");
         TextField product = field(t("Código Produto"), record.getProduct());
-        product.setReadOnly(true);
         ComboBox<String> machine = new ComboBox<>(t("Máquina"));
         machine.addClassNames("gp-launch-standard-field-v054", "gp-launch-machine-field-v055");
         List<Machine> allowed = user.get().isAdmin() ? catalog.machines() : catalog.allowedMachines(user.get());

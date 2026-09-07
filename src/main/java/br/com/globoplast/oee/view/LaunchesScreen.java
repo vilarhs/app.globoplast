@@ -109,6 +109,14 @@ final class LaunchesScreen {
         launchLimit = Math.max(AppConfig.PAGE_SIZE, state.limit());
     }
 
+    void showRecordDate(LocalDate date) {
+        if (date == null) return;
+        launchStart = date;
+        launchEnd = date;
+        launchLimit = AppConfig.PAGE_SIZE;
+        renderLaunches();
+    }
+
     private Popover launchFilterDropdown(Button target) {
         Popover p = new Popover();
         p.setTarget(target);
