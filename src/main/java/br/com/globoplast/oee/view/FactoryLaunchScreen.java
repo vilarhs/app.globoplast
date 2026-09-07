@@ -96,6 +96,13 @@ final class FactoryLaunchScreen {
         if (grid != null) grid.setItems(launches.factoryLaunches(user.get(), filterStart, filterEnd));
     }
 
+    void showRecordDate(LocalDate date) {
+        if (date == null) return;
+        filterStart = date;
+        filterEnd = date;
+        refresh();
+    }
+
     private Popover filterDropdown(Button target) {
         Popover popover = new Popover();
         popover.setTarget(target);
@@ -209,7 +216,7 @@ final class FactoryLaunchScreen {
                 else launches.saveFactoryLaunch(record, user.get());
                 dialog.close();
                 afterChange.run();
-                refresh();
+                showRecordDate(record.getDate());
                 notification.accept(t(editing ? "Lançamento atualizado no Banco de Dados!" : "Lançamento salvo no Banco de Dados!"));
             } catch (Exception ex) {
                 notification.accept(ex.getMessage() == null ? t("Não foi possível salvar o lançamento.") : t(ex.getMessage()));

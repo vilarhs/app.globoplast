@@ -29,13 +29,13 @@ final class LaunchTrashDialog {
     private final Function<LaunchRecord, Component> productCell;
     private final Function<LaunchRecord, Component> orderCell;
     private final Function<String, String> formatDate;
-    private final Runnable restored;
+    private final Consumer<LaunchRecord> restored;
     private final Consumer<String> notification;
 
     LaunchTrashDialog(LaunchService launches, User user, String type,
                       Function<String, String> translate, Function<String, Dialog> dialogs,
                       Function<LaunchRecord, Component> productCell, Function<LaunchRecord, Component> orderCell,
-                      Function<String, String> formatDate, Runnable restored, Consumer<String> message) {
+                      Function<String, String> formatDate, Consumer<LaunchRecord> restored, Consumer<String> message) {
         this.launches = launches;
         this.user = user;
         this.type = type;
@@ -70,7 +70,7 @@ final class LaunchTrashDialog {
                 try {
                     launches.restoreTrash(item.id(), user);
                     grid.setItems(launches.trash(user, type));
-                    restored.run();
+                    restored.accept(item.record());
                     notification.accept(t("Lançamento restaurado com sucesso!"));
                 } catch (Exception ex) {
                     String message = ex.getMessage();

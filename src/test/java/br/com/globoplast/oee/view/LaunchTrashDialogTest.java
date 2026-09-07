@@ -16,6 +16,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.ResourceLock;
 import static org.junit.jupiter.api.Assertions.*;
@@ -49,6 +50,7 @@ class LaunchTrashDialogTest {
         };
         List<Dialog> dialogs = new ArrayList<>();
         AtomicInteger refreshed = new AtomicInteger();
+        AtomicReference<LaunchRecord> restoredRecord = new AtomicReference<>();
         UI previous = UI.getCurrent();
         UI testUi = new UI();
         UI.setCurrent(testUi);
@@ -59,7 +61,7 @@ class LaunchTrashDialogTest {
                 dialogs.add(dialog);
                 return dialog;
             }, r -> new Span(), r -> new Span(), text -> text,
-                    refreshed::incrementAndGet, text -> {}).open();
+                    restored -> { restoredRecord.set(restored); refreshed.incrementAndGet(); }, text -> {}).open();
             Div body = (Div) dialogs.getFirst().getChildren().filter(Div.class::isInstance).findFirst().orElseThrow();
             Grid<LaunchService.TrashItem> grid = (Grid<LaunchService.TrashItem>) body.getComponentAt(1);
             assertEquals(1, grid.getListDataView().getItemCount());
@@ -70,6 +72,7 @@ class LaunchTrashDialogTest {
             ((Button) actions.getComponentAt(0)).click();
             assertEquals(List.of("restore"), calls);
             assertEquals(1, refreshed.get());
+            assertSame(record, restoredRecord.get());
             UI.setCurrent(testUi);
             ((Button) actions.getComponentAt(1)).click();
             assertEquals(List.of("restore"), calls);

@@ -660,9 +660,14 @@ public class MainView extends VerticalLayout {
     private void showLaunchTrash(String type) {
         new LaunchTrashDialog(launches, user, type, this::t, this::dialog,
                 launchCells::product, launchCells::order, LaunchDateFormat::trash,
-                () -> {
+                record -> {
                     invalidateDataCaches();
-                    launchesScreen.refreshLaunchGrid();
+                    if ("factory_lancamentos".equals(renderedTabKey)
+                            && "FABRICA".equalsIgnoreCase(record.getOrigin())) {
+                        factoryLaunchScreen.showRecordDate(record.getDate());
+                    } else {
+                        launchesScreen.refreshLaunchGrid();
+                    }
                 }, this::notify).open();
     }
 
