@@ -101,7 +101,7 @@ final class LaunchesPage {
         return grid;
     }
 
-    private static Button filterButton(Function<String, String> translate) {
+    static Button filterButton(Function<String, String> translate) {
         Button button = new Button();
         Span glyph = new Span();
         glyph.addClassName("gp-search-filter-funnel-v044");

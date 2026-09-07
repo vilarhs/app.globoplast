@@ -1,6 +1,5 @@
 package br.com.globoplast.oee.view;
 
-import br.com.globoplast.oee.config.AppConfig;
 import br.com.globoplast.oee.model.LaunchRecord;
 import br.com.globoplast.oee.model.Machine;
 import br.com.globoplast.oee.model.User;
@@ -19,6 +18,8 @@ import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
+import com.vaadin.flow.component.popover.Popover;
+import com.vaadin.flow.component.popover.PopoverPosition;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.renderer.ComponentRenderer;
 import com.vaadin.flow.data.value.ValueChangeMode;
@@ -39,6 +40,8 @@ final class FactoryLaunchScreen {
     private final LongFunction<String> formatInteger;
     private final Runnable afterChange;
     private final Consumer<String> notification;
+    private LocalDate filterStart = Norm.productiveToday();
+    private LocalDate filterEnd = Norm.productiveToday();
     private Grid<LaunchRecord> grid;
 
     FactoryLaunchScreen(CatalogService catalog, LaunchService launches, Supplier<User> user,
@@ -66,9 +69,15 @@ final class FactoryLaunchScreen {
         Div title = new Div(heading, add);
         title.addClassNames("gp-title-row", "gp-title-row-static", "gp-factory-title-row");
 
+        Button filter = LaunchesPage.filterButton(this::t);
+        Popover filterDropdown = filterDropdown(filter);
+        Div toolbar = new Div(filter);
+        toolbar.addClassNames("gp-toolbar", "gp-tab-controls", "gp-factory-filter-toolbar");
+
         grid = new Grid<>(LaunchRecord.class, false);
         grid.addClassNames("gp-launch-grid-v059", "gp-factory-launch-grid");
         grid.addThemeVariants(GridVariant.LUMO_NO_BORDER, GridVariant.LUMO_ROW_STRIPES);
+        grid.addColumn(row -> Norm.br(row.getDate())).setHeader(t("Data")).setWidth("108px").setFlexGrow(0);
         grid.addColumn(LaunchRecord::getOrderNumber).setHeader(t("Nº OP")).setAutoWidth(true);
         grid.addColumn(LaunchRecord::getProduct).setHeader(t("Código Produto")).setAutoWidth(true);
         grid.addColumn(LaunchRecord::getMachine).setHeader(t("Máquina")).setFlexGrow(1);
@@ -78,12 +87,61 @@ final class FactoryLaunchScreen {
         grid.addColumn(new ComponentRenderer<>(this::actions)).setHeader(t("Ações"))
                 .setWidth("116px").setFlexGrow(0).setTextAlign(ColumnTextAlign.CENTER);
         grid.setAllRowsVisible(true);
-        content.add(title, grid);
+        content.add(title, toolbar, filterDropdown, grid);
         refresh();
     }
 
     private void refresh() {
-        if (grid != null) grid.setItems(launches.factoryLaunches(user.get()));
+        if (grid != null) grid.setItems(launches.factoryLaunches(user.get(), filterStart, filterEnd));
+    }
+
+    private Popover filterDropdown(Button target) {
+        Popover popover = new Popover();
+        popover.setTarget(target);
+        popover.setPosition(PopoverPosition.BOTTOM_END);
+        popover.setWidth("min(300px, calc(100vw - 24px))");
+        popover.setModal(false);
+        popover.setBackdropVisible(false);
+        popover.setCloseOnOutsideClick(true);
+        popover.setCloseOnEsc(true);
+        popover.setAriaLabel(t("Filtros"));
+        popover.addClassName("gp-filter-popover");
+
+        LocalDate[] bounds = launches.factoryDateBounds();
+        DateRangePicker period = new DateRangePicker(
+                t("Período"), filterStart, filterEnd,
+                bounds[0], bounds[1], language.get(), this::t, null
+        );
+        period.setChangeListener(() -> {
+            filterStart = period.getStart();
+            filterEnd = period.getEnd();
+            updateFilterButton(target);
+            refresh();
+        });
+
+        Button clear = new Button(t("Limpar filtros"), event -> {
+            filterStart = Norm.productiveToday();
+            filterEnd = filterStart;
+            updateFilterButton(target);
+            popover.setOpened(false);
+            refresh();
+        });
+        clear.setWidthFull();
+        clear.addClassName("gp-filter-clear");
+        Div fields = new Div(period);
+        fields.addClassName("gp-filter-dropdown-grid");
+        Div actions = new Div(clear);
+        actions.addClassName("gp-filter-dropdown-actions");
+        Div body = new Div(fields, actions);
+        body.addClassName("gp-filter-dropdown");
+        popover.add(body);
+        updateFilterButton(target);
+        return popover;
+    }
+
+    private void updateFilterButton(Button target) {
+        LocalDate today = Norm.productiveToday();
+        FilterControls.updateButton(target, !today.equals(filterStart) || !today.equals(filterEnd));
     }
 
     private HorizontalLayout actions(LaunchRecord record) {
@@ -102,6 +160,11 @@ final class FactoryLaunchScreen {
         dialog.addClassName("gp-factory-launch-dialog");
         dialog.setWidth("min(820px, calc(100vw - 32px))");
 
+        LocalDate[] bounds = launches.manualDateBounds();
+        DateRangePicker date = new DateRangePicker(
+                t("Data da Produção"), record.getDate(), record.getDate(),
+                bounds[0], bounds[1], language.get(), this::t, null, true
+        );
         TextField order = field(t("Nº da OP"), record.getOrderNumber());
         order.setAllowedCharPattern("[0-9]");
         TextField product = field(t("Código Produto"), record.getProduct());
@@ -120,9 +183,11 @@ final class FactoryLaunchScreen {
 
         order.setValueChangeMode(ValueChangeMode.LAZY);
         order.setValueChangeTimeout(300);
-        order.addValueChangeListener(event -> resolveOrder(order, product, machine, record.getDate(), allowed));
+        Runnable resolve = () -> resolveOrder(order, product, machine, date.getValue(), allowed);
+        order.addValueChangeListener(event -> resolve.run());
+        date.setChangeListener(resolve);
 
-        Div form = new Div(order, product, machine, shiftA, shiftB, shiftC);
+        Div form = new Div(date, order, product, machine, shiftA, shiftB, shiftC);
         form.addClassName("gp-factory-launch-form");
         dialog.add(form);
 
@@ -130,7 +195,7 @@ final class FactoryLaunchScreen {
         save.addThemeVariants(ButtonVariant.PRIMARY);
         save.addClickListener(event -> {
             try {
-                apply(record, order, product, machine, shiftA, shiftB, shiftC);
+                apply(record, date, order, product, machine, shiftA, shiftB, shiftC);
                 if (editing) launches.updateManual(record, user.get());
                 else launches.saveFactoryLaunch(record, user.get());
                 dialog.close();
@@ -166,8 +231,10 @@ final class FactoryLaunchScreen {
         else machine.clear();
     }
 
-    private void apply(LaunchRecord record, TextField order, TextField product, ComboBox<String> machine,
+    private void apply(LaunchRecord record, DateRangePicker date, TextField order, TextField product, ComboBox<String> machine,
                        TextField shiftA, TextField shiftB, TextField shiftC) {
+        LocalDate productionDate = date.getValue();
+        if (productionDate == null) throw new IllegalArgumentException(t("Informe a data da produção."));
         String orderNumber = Norm.order(order.getValue());
         if (!orderNumber.matches("\\d+")) throw new IllegalArgumentException(t("Informe uma única OP usando apenas números."));
         String productCode = Norm.product(product.getValue());
@@ -175,6 +242,7 @@ final class FactoryLaunchScreen {
         Machine selected = CatalogMachineResolver.find(catalog, machine.getValue());
         if (selected == null) throw new IllegalArgumentException(t("Selecione uma máquina."));
 
+        record.setDate(productionDate);
         record.setOrderNumber(orderNumber);
         record.setProduct(productCode);
         record.setMachine(selected.name());

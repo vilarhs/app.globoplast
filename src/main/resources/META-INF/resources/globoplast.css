@@ -137,7 +137,7 @@ vaadin-dialog-overlay::part(header),vaadin-dialog-overlay::part(content),vaadin-
 .gp-filter-popover::part(content){padding:0}
 .gp-filter-popover::part(overlay){border:1px solid var(--gp-border);border-radius:.65rem;background:var(--gp-surface);box-shadow:0 8px 26px rgba(0,0,0,.18);overflow:hidden}
 .gp-filter-dropdown{box-sizing:border-box;width:100%;max-height:min(72dvh,620px);min-height:0;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;-webkit-overflow-scrolling:touch;padding:.72rem;background:var(--gp-surface);color:var(--gp-text);scrollbar-width:thin;scrollbar-gutter:stable}
-.gp-filter-dropdown-grid{display:grid;grid-template-columns:1fr;gap:.48rem;width:100%;box-sizing:border-box}
+.gp-filter-dropdown-grid{display:grid;grid-template-columns:1fr;gap:.24rem;width:100%;box-sizing:border-box}
 .gp-filter-dropdown-grid>*{width:100%;min-width:0;box-sizing:border-box}
 .gp-filter-dropdown-actions{position:sticky;bottom:0;z-index:8;margin-top:.66rem;padding:.58rem 0 .08rem;border-top:1px solid var(--gp-border);background:var(--gp-surface);box-shadow:0 -8px 12px var(--gp-surface)}
 .gp-filter-popover-refugo::part(overlay){max-height:min(74dvh,600px)}
@@ -4170,7 +4170,8 @@ html body vaadin-dialog.gp-modal-v053 .gp-launch-standard-field-v054{
 }
 html body vaadin-dialog.gp-modal-v053 .gp-launch-standard-field-v054::part(label){
   font-family:"Source Sans 3","Source Sans Pro",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
-  font-size:.875rem!important;
+  font-size:1rem!important;
+  line-height:20px!important;
 }
 html body vaadin-dialog.gp-modal-v053 .gp-launch-standard-field-v054::part(input-field),
 html body vaadin-dialog.gp-modal-v053 .gp-launch-standard-field-v054 input,
@@ -4247,7 +4248,8 @@ html body vaadin-dialog.gp-modal-v053 vaadin-combo-box.gp-launch-machine-field-v
 html body vaadin-dialog.gp-modal-v053 vaadin-combo-box.gp-launch-machine-field-v055::part(label){
   color:var(--gp-text)!important;
   font-family:"Source Sans 3","Source Sans Pro",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
-  font-size:.92rem!important;
+  font-size:1rem!important;
+  line-height:20px!important;
 }
 
 /* ==========================================================================
@@ -5691,11 +5693,11 @@ html body vaadin-dialog.gp-launch-dialog::part(content){
 }
 html body vaadin-dialog.gp-launch-dialog .gp-launch-form-python,
 html body vaadin-dialog.gp-launch-dialog .gp-launch-shift-column{
-  gap:.3rem!important;
+  gap:.15rem!important;
 }
 html body vaadin-dialog.gp-launch-dialog .gp-launch-row{
-  column-gap:.6rem!important;
-  row-gap:.3rem!important;
+  column-gap:.3rem!important;
+  row-gap:.15rem!important;
 }
 html body vaadin-dialog.gp-launch-dialog .gp-launch-row
   :is(vaadin-text-field,vaadin-combo-box)::part(input-field),
@@ -5732,7 +5734,7 @@ html body .gp-dialog-close :is(vaadin-icon,svg){width:20px!important;height:20px
 .gp-factory-launch-form{
   display:grid;
   grid-template-columns:repeat(3,minmax(0,1fr));
-  gap:.3rem .6rem;
+  gap:.15rem .3rem;
   width:100%;
   box-sizing:border-box;
 }

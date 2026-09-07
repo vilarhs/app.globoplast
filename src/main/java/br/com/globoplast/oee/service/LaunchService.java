@@ -58,6 +58,10 @@ public class LaunchService {
         return dateBounds("SELECT MIN(substr(data,1,10)) min_d, MAX(substr(data,1,10)) max_d FROM historico_oee");
     }
 
+    public LocalDate[] factoryDateBounds(){
+        return dateBounds("SELECT MIN(substr(data,1,10)) min_d, MAX(substr(data,1,10)) max_d FROM historico_oee WHERE origem='FABRICA'");
+    }
+
     private LocalDate[] dateBounds(String sql){
         LocalDate today=Norm.productiveToday(),min=today,max=today;
         try(Connection c=db.open();PreparedStatement p=c.prepareStatement(sql);ResultSet r=p.executeQuery()){
@@ -148,11 +152,20 @@ public class LaunchService {
     }
 
     public List<LaunchRecord> factoryLaunches(User user){
+        return factoryLaunches(user,LocalDate.of(2000,1,1),LocalDate.of(2999,12,31));
+    }
+
+    public List<LaunchRecord> factoryLaunches(User user,LocalDate start,LocalDate end){
         if(user==null)return List.of();
+        if(start==null)start=Norm.productiveToday();
+        if(end==null)end=start;
+        if(end.isBefore(start)){LocalDate swap=start;start=end;end=swap;}
         List<LaunchRecord> rows=new ArrayList<>();
         Map<String,Machine> machines=catalog.machineMap();
         try(Connection c=db.open();PreparedStatement p=c.prepareStatement(
-                "SELECT * FROM historico_oee WHERE origem='FABRICA' ORDER BY id DESC")){
+                "SELECT * FROM historico_oee WHERE origem='FABRICA' AND substr(data,1,10) BETWEEN ? AND ? ORDER BY data DESC,id DESC")){
+            p.setString(1,start.toString());
+            p.setString(2,end.toString());
             ResultSet r=p.executeQuery();
             while(r.next()){
                 LaunchRecord item=mapManual(r);

@@ -157,7 +157,10 @@ class ProductionLifecycleIntegrationTest {
         assertTrue(factory.getId() > 0);
         LaunchRecord saved = assertSingle(launches.factoryLaunches(admin));
         assertEquals("FABRICA", saved.getOrigin());
+        assertEquals(productionDate, saved.getDate());
         assertEquals(4_000, saved.getShiftB());
+        assertEquals(1, launches.factoryLaunches(admin, productionDate, productionDate).size());
+        assertTrue(launches.factoryLaunches(admin, productionDate.plusDays(1), productionDate.plusDays(1)).isEmpty());
         assertEquals(1, launches.manualOnly(productionDate, productionDate).size());
 
         saved.setShiftB(5_000);
