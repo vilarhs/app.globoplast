@@ -52,6 +52,14 @@ bash deploy/preflight.sh
 
 O JAR final será criado em `target/globoplast.jar`.
 
+## Rodar localmente
+
+```bash
+mvn spring-boot:run -Dspring-boot.run.jvmArguments='-Dgloboplast.db=target/local/database.db'
+```
+
+Abra `http://127.0.0.1:8080`. Esse comando cria e usa somente o banco local em `target/local`.
+
 ## Deploy
 
 ```bash
