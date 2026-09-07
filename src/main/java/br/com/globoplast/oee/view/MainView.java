@@ -63,6 +63,7 @@ public class MainView extends VerticalLayout {
     private final ProductionSummaryScreen productionSummary;
     private final ScrapScreen scrapScreen;
     private final LaunchesScreen launchesScreen;
+    private final FactoryLaunchScreen factoryLaunchScreen;
 
     private User user;
     private String language = "pt-BR";
@@ -108,6 +109,8 @@ public class MainView extends VerticalLayout {
                 () -> user.canModifyLaunches() && productionSource == ProductionSource.MANUAL,
                 content, this::cachedLaunchBounds, this::cachedLaunchData, this::launchGrid,
                 () -> launchDialogs().open(null), this::refreshMenuSyncStatus);
+        this.factoryLaunchScreen = new FactoryLaunchScreen(catalog, launches, () -> user, () -> language,
+                content, this::formatInt, this::invalidateDataCaches, this::notify);
         setWidthFull();
         getStyle().set("min-height", "100vh");
         getStyle().set("height", "auto");
@@ -312,6 +315,7 @@ public class MainView extends VerticalLayout {
         manualProductionTab.addClassName("gp-main-navigation-root");
         tabKeys.put(manualProductionTab, "manual_lancamentos");
         addTabMenuItem(manualProductionTab.getSubMenu(), t("Lançamentos"), () -> selectTab("manual_lancamentos"));
+        addTabMenuItem(manualProductionTab.getSubMenu(), t("Lançamentos Fábrica"), () -> selectTab("factory_lancamentos"));
         if (user.canSeeSummaries()) {
             addTabMenuItem(manualProductionTab.getSubMenu(), t("Resumo do Dia"), () -> selectTab("manual_dia"));
             addTabMenuItem(manualProductionTab.getSubMenu(), t("Resumo do Mês"), () -> selectTab("manual_mes"));
@@ -353,7 +357,7 @@ public class MainView extends VerticalLayout {
         String normalizedKey = "producao".equals(key) ? "estoque" : key;
         String selectedKey = Set.of("lancamentos", "dia", "mes", "refugo").contains(normalizedKey)
                 ? "lancamentos"
-                : Set.of("manual_lancamentos", "manual_dia", "manual_mes").contains(normalizedKey)
+                : Set.of("manual_lancamentos", "manual_dia", "manual_mes", "factory_lancamentos").contains(normalizedKey)
                 ? "manual_lancamentos"
                 : normalizedKey;
         for (var e : tabKeys.entrySet()) {
@@ -528,6 +532,7 @@ public class MainView extends VerticalLayout {
             case SCRAP_REPORT_KEY -> scrapScreen.renderScrapReport();
             case "estoque", "producao" -> renderOrderProduction();
             case "manual_lancamentos" -> { productionSource = ProductionSource.MANUAL; launchesScreen.renderLaunches(); }
+            case "factory_lancamentos" -> { productionSource = ProductionSource.MANUAL; factoryLaunchScreen.render(); }
             default -> { productionSource = ProductionSource.AUTOMATIC; launchesScreen.renderLaunches(); }
         }
     }

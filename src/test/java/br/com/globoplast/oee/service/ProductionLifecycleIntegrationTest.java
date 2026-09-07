@@ -149,6 +149,28 @@ class ProductionLifecycleIntegrationTest {
         assertEquals(0, count("lancamentos_lixeira"));
     }
 
+    @Test
+    void factoryLaunchComplementsManualProductionAndKeepsItsOrigin() {
+        LaunchRecord factory = manualLaunch("990003", "7761234567", 4_000, 0);
+        launches.saveFactoryLaunch(factory, admin);
+
+        assertTrue(factory.getId() > 0);
+        LaunchRecord saved = assertSingle(launches.factoryLaunches(admin));
+        assertEquals("FABRICA", saved.getOrigin());
+        assertEquals(4_000, saved.getShiftB());
+        assertEquals(1, launches.manualOnly(productionDate, productionDate).size());
+
+        saved.setShiftB(5_000);
+        launches.updateManual(saved, admin);
+        assertEquals(5_000, assertSingle(launches.factoryLaunches(admin)).getShiftB());
+
+        launches.deleteManual(saved.getId(), admin);
+        assertTrue(launches.factoryLaunches(admin).isEmpty());
+        LaunchService.TrashItem trash = assertSingle(launches.trash(admin, "MANUAL"));
+        launches.restoreTrash(trash.id(), admin);
+        assertEquals("FABRICA", assertSingle(launches.factoryLaunches(admin)).getOrigin());
+    }
+
     private LaunchRecord manualLaunch(String order, String product, int shiftB, double scrapBKg) {
         LaunchRecord record = new LaunchRecord();
         record.setDate(productionDate);

@@ -5646,7 +5646,7 @@ html body .gp-filter-dropdown-refugo>.gp-filter-dropdown-actions{
   box-shadow:none!important;
 }
 
-/* Campos, rótulos e distâncias seguem o mesmo padrão em modais e filtros. */
+/* Campos, rótulos e distâncias seguem o mesmo padrão em todo o sistema. */
 html body :is(vaadin-dialog-overlay[theme~="gp-modal-v053"],
               .gp-filter-dropdown,.gp-period-panel)
   :is(vaadin-text-field,vaadin-password-field,vaadin-integer-field,
@@ -5669,14 +5669,18 @@ html body .gp-period-year::part(input-field){
   color:var(--gp-text)!important;
   box-shadow:none!important;
 }
+html body :is(vaadin-text-field,vaadin-password-field,vaadin-integer-field,
+              vaadin-number-field,vaadin-date-picker,vaadin-time-picker,
+              vaadin-select,vaadin-combo-box,vaadin-multi-select-combo-box,
+              vaadin-text-area)::part(label),
 html body .gp-period-label{
   margin:0!important;
   padding:3.5px 0 7px .875px!important;
   min-height:auto!important;
   font-family:"Source Sans 3","Source Sans Pro","Source Sans",sans-serif!important;
-  font-size:.875rem!important;
+  font-size:20px!important;
   font-weight:500!important;
-  line-height:.875rem!important;
+  line-height:20px!important;
   color:var(--gp-text)!important;
 }
 
@@ -5723,3 +5727,16 @@ html body .gp-dialog-close :is(vaadin-icon,svg){width:20px!important;height:20px
   box-sizing:border-box;
 }
 @media(max-width:520px){.gp-password-form{grid-template-columns:1fr!important}}
+
+/* Lançamento Fábrica mantém formulário e tabela fora da MainView. */
+.gp-factory-launch-form{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:.3rem .6rem;
+  width:100%;
+  box-sizing:border-box;
+}
+.gp-factory-launch-grid{margin-top:.65rem}
+@media(max-width:700px){
+  .gp-factory-launch-form{grid-template-columns:1fr}
+}

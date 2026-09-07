@@ -147,6 +147,28 @@ public class LaunchService {
         return rows;
     }
 
+    public List<LaunchRecord> factoryLaunches(User user){
+        if(user==null)return List.of();
+        List<LaunchRecord> rows=new ArrayList<>();
+        Map<String,Machine> machines=catalog.machineMap();
+        try(Connection c=db.open();PreparedStatement p=c.prepareStatement(
+                "SELECT * FROM historico_oee WHERE origem='FABRICA' ORDER BY id DESC")){
+            ResultSet r=p.executeQuery();
+            while(r.next()){
+                LaunchRecord item=mapManual(r);
+                Machine machine=resolveMachine(machines,item.getMachine());
+                if(machine!=null)item.setSector(machine.sector());
+                if(user.isAdmin()||(machine!=null&&user.sector()!=null&&user.sector().equalsIgnoreCase(machine.sector())))rows.add(item);
+            }
+        }catch(SQLException e){throw new IllegalStateException(e);}
+        return rows;
+    }
+
+    public void saveFactoryLaunch(LaunchRecord record,User user){
+        record.setOrigin("FABRICA");
+        saveManual(record,user);
+    }
+
     public ProductMetadata productMetadata(String productCode) {
         String product = Norm.product(productCode);
         if (product.isBlank()) return new ProductMetadata("", "");
@@ -768,8 +790,9 @@ public class LaunchService {
         r.setLaunchTime(now.format(DateTimeFormatter.ofPattern("HH:mm:ss")));
         r.setMovementAt(now.toString());
         finalizeManual(r);
-        try(Connection c=db.open();PreparedStatement p=c.prepareStatement("INSERT INTO historico_oee(data,data_br,maquina,produto,numero_op,op_producao_detalhe,horas_programadas,capacidade_24h,turno_a_pcs,turno_b_pcs,turno_c_pcs,total_produzido_pcs,peso_unitario_g,refugo_a_kg,refugo_b_kg,refugo_c_kg,refugo_total_kg,refugo_total_pcs,refugo_pct,qtd_trocas,tempo_setup_hrs,horas_paradas_quebra,tempo_produzindo_hrs,disponibilidade_pct,desempenho_pct,qualidade_pct,oee_pct,problema,acao_tomada,hora_lancamento,movimentado_em,editado_em) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")){
-            bindManual(p,r);p.setString(31,r.getMovementAt());p.setString(32,r.getEditedAt());p.executeUpdate();
+        try(Connection c=db.open();PreparedStatement p=c.prepareStatement("INSERT INTO historico_oee(data,data_br,maquina,produto,numero_op,op_producao_detalhe,horas_programadas,capacidade_24h,turno_a_pcs,turno_b_pcs,turno_c_pcs,total_produzido_pcs,peso_unitario_g,refugo_a_kg,refugo_b_kg,refugo_c_kg,refugo_total_kg,refugo_total_pcs,refugo_pct,qtd_trocas,tempo_setup_hrs,horas_paradas_quebra,tempo_produzindo_hrs,disponibilidade_pct,desempenho_pct,qualidade_pct,oee_pct,problema,acao_tomada,hora_lancamento,movimentado_em,editado_em,origem) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",Statement.RETURN_GENERATED_KEYS)){
+            bindManual(p,r);p.setString(31,r.getMovementAt());p.setString(32,r.getEditedAt());p.setString(33,r.getOrigin());p.executeUpdate();
+            try(ResultSet keys=p.getGeneratedKeys()){if(keys.next())r.setId(keys.getLong(1));}
         }catch(SQLException e){throw new IllegalStateException(e);}
         recalculateManualDay(r.getDate(),r.getMachine());
     }
@@ -951,8 +974,8 @@ public class LaunchService {
                 }else if("MANUAL".equalsIgnoreCase(type)){
                     ensureUserCanActOnMachine(user,record.getMachine());
                     manualDate=record.getDate();manualMachine=record.getMachine();
-                    try(PreparedStatement p=c.prepareStatement("INSERT INTO historico_oee(data,data_br,maquina,produto,numero_op,op_producao_detalhe,horas_programadas,capacidade_24h,turno_a_pcs,turno_b_pcs,turno_c_pcs,total_produzido_pcs,peso_unitario_g,refugo_a_kg,refugo_b_kg,refugo_c_kg,refugo_total_kg,refugo_total_pcs,refugo_pct,qtd_trocas,tempo_setup_hrs,horas_paradas_quebra,tempo_produzindo_hrs,disponibilidade_pct,desempenho_pct,qualidade_pct,oee_pct,problema,acao_tomada,hora_lancamento,movimentado_em,editado_em) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")){
-                        bindManual(p,record);p.setString(31,record.getMovementAt());p.setString(32,record.getEditedAt());p.executeUpdate();
+                    try(PreparedStatement p=c.prepareStatement("INSERT INTO historico_oee(data,data_br,maquina,produto,numero_op,op_producao_detalhe,horas_programadas,capacidade_24h,turno_a_pcs,turno_b_pcs,turno_c_pcs,total_produzido_pcs,peso_unitario_g,refugo_a_kg,refugo_b_kg,refugo_c_kg,refugo_total_kg,refugo_total_pcs,refugo_pct,qtd_trocas,tempo_setup_hrs,horas_paradas_quebra,tempo_produzindo_hrs,disponibilidade_pct,desempenho_pct,qualidade_pct,oee_pct,problema,acao_tomada,hora_lancamento,movimentado_em,editado_em,origem) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")){
+                        bindManual(p,record);p.setString(31,record.getMovementAt());p.setString(32,record.getEditedAt());p.setString(33,record.getOrigin());p.executeUpdate();
                     }
                 }else throw new IllegalArgumentException("Tipo de lançamento inválido na lixeira.");
                 try(PreparedStatement p=c.prepareStatement("DELETE FROM lancamentos_lixeira WHERE id=?")){p.setLong(1,trashId);p.executeUpdate();}
@@ -1298,7 +1321,7 @@ public class LaunchService {
         m.put("scheduledHours",x.getScheduledHours());m.put("capacity24h",x.getCapacity24h());m.put("shiftA",x.getShiftA());m.put("shiftB",x.getShiftB());m.put("shiftC",x.getShiftC());m.put("totalProduced",x.getTotalProduced());
         m.put("unitWeightG",x.getUnitWeightG());m.put("scrapAKg",x.getScrapAKg());m.put("scrapBKg",x.getScrapBKg());m.put("scrapCKg",x.getScrapCKg());m.put("scrapTotalKg",x.getScrapTotalKg());m.put("scrapTotalPcs",x.getScrapTotalPcs());m.put("scrapPct",x.getScrapPct());
         m.put("changeovers",x.getChangeovers());m.put("setupHours",x.getSetupHours());m.put("breakdownHours",x.getBreakdownHours());m.put("producingHours",x.getProducingHours());m.put("availabilityPct",x.getAvailabilityPct());m.put("performancePct",x.getPerformancePct());m.put("qualityPct",x.getQualityPct());m.put("oeePct",x.getOeePct());
-        m.put("problem",x.getProblem());m.put("actionTaken",x.getActionTaken());m.put("launchTime",x.getLaunchTime());m.put("movementAt",x.getMovementAt());m.put("editedAt",x.getEditedAt());m.put("operatorErp",x.getOperatorErp());m.put("descriptionErp",x.getDescriptionErp());m.put("clientErp",x.getClientErp());m.put("launchCount",x.getLaunchCount());
+        m.put("problem",x.getProblem());m.put("actionTaken",x.getActionTaken());m.put("launchTime",x.getLaunchTime());m.put("movementAt",x.getMovementAt());m.put("editedAt",x.getEditedAt());m.put("origin",x.getOrigin());m.put("operatorErp",x.getOperatorErp());m.put("descriptionErp",x.getDescriptionErp());m.put("clientErp",x.getClientErp());m.put("launchCount",x.getLaunchCount());
         return json.writeValueAsString(m);
     }
 
@@ -1311,7 +1334,7 @@ public class LaunchService {
             x.setScheduledHours(Norm.dbl(m.get("scheduledHours"),0));x.setCapacity24h(Norm.integer(m.get("capacity24h"),0));x.setShiftA(Norm.integer(m.get("shiftA"),0));x.setShiftB(Norm.integer(m.get("shiftB"),0));x.setShiftC(Norm.integer(m.get("shiftC"),0));x.setTotalProduced(Norm.integer(m.get("totalProduced"),0));
             x.setUnitWeightG(Norm.dbl(m.get("unitWeightG"),0));x.setScrapAKg(Norm.dbl(m.get("scrapAKg"),0));x.setScrapBKg(Norm.dbl(m.get("scrapBKg"),0));x.setScrapCKg(Norm.dbl(m.get("scrapCKg"),0));x.setScrapTotalKg(Norm.dbl(m.get("scrapTotalKg"),0));x.setScrapTotalPcs(Norm.integer(m.get("scrapTotalPcs"),0));x.setScrapPct(Norm.dbl(m.get("scrapPct"),0));
             x.setChangeovers(Norm.integer(m.get("changeovers"),0));x.setSetupHours(Norm.dbl(m.get("setupHours"),0));x.setBreakdownHours(Norm.dbl(m.get("breakdownHours"),0));x.setProducingHours(Norm.dbl(m.get("producingHours"),0));x.setAvailabilityPct(Norm.dbl(m.get("availabilityPct"),0));x.setPerformancePct(Norm.dbl(m.get("performancePct"),0));x.setQualityPct(Norm.dbl(m.get("qualityPct"),0));x.setOeePct(Norm.dbl(m.get("oeePct"),0));
-            x.setProblem(Norm.text(m.get("problem")));x.setActionTaken(Norm.text(m.get("actionTaken")));x.setLaunchTime(Norm.text(m.get("launchTime")));x.setMovementAt(Norm.text(m.get("movementAt")));x.setEditedAt(Norm.text(m.get("editedAt")));x.setOperatorErp(Norm.text(m.get("operatorErp")));x.setDescriptionErp(Norm.text(m.get("descriptionErp")));x.setClientErp(Norm.text(m.get("clientErp")));x.setLaunchCount(Norm.integer(m.get("launchCount"),1));
+            x.setProblem(Norm.text(m.get("problem")));x.setActionTaken(Norm.text(m.get("actionTaken")));x.setLaunchTime(Norm.text(m.get("launchTime")));x.setMovementAt(Norm.text(m.get("movementAt")));x.setEditedAt(Norm.text(m.get("editedAt")));x.setOrigin(Norm.text(m.get("origin")));x.setOperatorErp(Norm.text(m.get("operatorErp")));x.setDescriptionErp(Norm.text(m.get("descriptionErp")));x.setClientErp(Norm.text(m.get("clientErp")));x.setLaunchCount(Norm.integer(m.get("launchCount"),1));
             return x;
         }catch(Exception e){return null;}
     }
@@ -1321,7 +1344,7 @@ public class LaunchService {
 
     private void finalizeManual(LaunchRecord r){r.setTotalProduced(Math.max(0,r.getShiftA())+Math.max(0,r.getShiftB())+Math.max(0,r.getShiftC()));r.setScrapTotalKg(Norm.round(Math.max(0,r.getScrapAKg())+Math.max(0,r.getScrapBKg())+Math.max(0,r.getScrapCKg()),2));r.setScrapTotalPcs(r.getUnitWeightG()>0?(int)(r.getScrapTotalKg()*1000.0/r.getUnitWeightG()):0);if(r.getScheduledHours()<=0)r.setScheduledHours(24.0);if(r.getLaunchTime()==null||r.getLaunchTime().isBlank())r.setLaunchTime(LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss")));oee.recalculate(List.of(r));}
     private void recalculateManualDay(LocalDate d,String machine){if(d==null||machine==null)return;List<LaunchRecord>g=new ArrayList<>();try(Connection c=db.open();PreparedStatement p=c.prepareStatement("SELECT * FROM historico_oee WHERE data=? AND maquina=?")){p.setString(1,d.toString());p.setString(2,machine);ResultSet r=p.executeQuery();while(r.next())g.add(mapManual(r));oee.recalculate(g);try(PreparedStatement u=c.prepareStatement("UPDATE historico_oee SET refugo_pct=?,tempo_produzindo_hrs=?,disponibilidade_pct=?,desempenho_pct=?,qualidade_pct=?,oee_pct=? WHERE id=?")){for(LaunchRecord x:g){u.setDouble(1,x.getScrapPct());u.setDouble(2,x.getProducingHours());u.setDouble(3,x.getAvailabilityPct());u.setDouble(4,x.getPerformancePct());u.setDouble(5,x.getQualityPct());u.setDouble(6,x.getOeePct());u.setLong(7,x.getId());u.addBatch();}u.executeBatch();}}catch(SQLException e){throw new IllegalStateException(e);}}
-    private static LaunchRecord mapManual(ResultSet r)throws SQLException{LaunchRecord x=new LaunchRecord();x.setId(r.getLong("id"));x.setErp(false);x.setDate(LocalDate.parse(r.getString("data")));x.setMachine(r.getString("maquina"));x.setProduct(r.getString("produto"));x.setOrderNumber(r.getString("numero_op"));x.setProductionDetail(r.getString("op_producao_detalhe"));x.setScheduledHours(r.getDouble("horas_programadas"));x.setCapacity24h(r.getInt("capacidade_24h"));x.setShiftA(r.getInt("turno_a_pcs"));x.setShiftB(r.getInt("turno_b_pcs"));x.setShiftC(r.getInt("turno_c_pcs"));x.setTotalProduced(r.getInt("total_produzido_pcs"));x.setUnitWeightG(r.getDouble("peso_unitario_g"));x.setScrapAKg(r.getDouble("refugo_a_kg"));x.setScrapBKg(r.getDouble("refugo_b_kg"));x.setScrapCKg(r.getDouble("refugo_c_kg"));x.setScrapTotalKg(r.getDouble("refugo_total_kg"));x.setScrapTotalPcs(r.getInt("refugo_total_pcs"));x.setScrapPct(r.getDouble("refugo_pct"));x.setChangeovers(r.getInt("qtd_trocas"));x.setSetupHours(r.getDouble("tempo_setup_hrs"));x.setBreakdownHours(r.getDouble("horas_paradas_quebra"));x.setProducingHours(r.getDouble("tempo_produzindo_hrs"));x.setAvailabilityPct(r.getDouble("disponibilidade_pct"));x.setPerformancePct(r.getDouble("desempenho_pct"));x.setQualityPct(r.getDouble("qualidade_pct"));x.setOeePct(r.getDouble("oee_pct"));x.setProblem(r.getString("problema"));x.setActionTaken(r.getString("acao_tomada"));x.setLaunchTime(r.getString("hora_lancamento"));x.setMovementAt(r.getString("movimentado_em"));x.setEditedAt(r.getString("editado_em"));return x;}
+    private static LaunchRecord mapManual(ResultSet r)throws SQLException{LaunchRecord x=new LaunchRecord();x.setId(r.getLong("id"));x.setErp(false);x.setDate(LocalDate.parse(r.getString("data")));x.setMachine(r.getString("maquina"));x.setProduct(r.getString("produto"));x.setOrderNumber(r.getString("numero_op"));x.setProductionDetail(r.getString("op_producao_detalhe"));x.setScheduledHours(r.getDouble("horas_programadas"));x.setCapacity24h(r.getInt("capacidade_24h"));x.setShiftA(r.getInt("turno_a_pcs"));x.setShiftB(r.getInt("turno_b_pcs"));x.setShiftC(r.getInt("turno_c_pcs"));x.setTotalProduced(r.getInt("total_produzido_pcs"));x.setUnitWeightG(r.getDouble("peso_unitario_g"));x.setScrapAKg(r.getDouble("refugo_a_kg"));x.setScrapBKg(r.getDouble("refugo_b_kg"));x.setScrapCKg(r.getDouble("refugo_c_kg"));x.setScrapTotalKg(r.getDouble("refugo_total_kg"));x.setScrapTotalPcs(r.getInt("refugo_total_pcs"));x.setScrapPct(r.getDouble("refugo_pct"));x.setChangeovers(r.getInt("qtd_trocas"));x.setSetupHours(r.getDouble("tempo_setup_hrs"));x.setBreakdownHours(r.getDouble("horas_paradas_quebra"));x.setProducingHours(r.getDouble("tempo_produzindo_hrs"));x.setAvailabilityPct(r.getDouble("disponibilidade_pct"));x.setPerformancePct(r.getDouble("desempenho_pct"));x.setQualityPct(r.getDouble("qualidade_pct"));x.setOeePct(r.getDouble("oee_pct"));x.setProblem(r.getString("problema"));x.setActionTaken(r.getString("acao_tomada"));x.setLaunchTime(r.getString("hora_lancamento"));x.setMovementAt(r.getString("movimentado_em"));x.setEditedAt(r.getString("editado_em"));x.setOrigin(r.getString("origem"));return x;}
     private static void bindManual(PreparedStatement p,LaunchRecord r)throws SQLException{int i=1;p.setString(i++,r.getDate().toString());p.setString(i++,Norm.br(r.getDate()));p.setString(i++,r.getMachine());p.setString(i++,r.getProduct());p.setString(i++,r.getOrderNumber());p.setString(i++,r.getProductionDetail());p.setDouble(i++,r.getScheduledHours());p.setInt(i++,r.getCapacity24h());p.setInt(i++,r.getShiftA());p.setInt(i++,r.getShiftB());p.setInt(i++,r.getShiftC());p.setInt(i++,r.getTotalProduced());p.setDouble(i++,r.getUnitWeightG());p.setDouble(i++,r.getScrapAKg());p.setDouble(i++,r.getScrapBKg());p.setDouble(i++,r.getScrapCKg());p.setDouble(i++,r.getScrapTotalKg());p.setInt(i++,r.getScrapTotalPcs());p.setDouble(i++,r.getScrapPct());p.setInt(i++,r.getChangeovers());p.setDouble(i++,r.getSetupHours());p.setDouble(i++,r.getBreakdownHours());p.setDouble(i++,r.getProducingHours());p.setDouble(i++,r.getAvailabilityPct());p.setDouble(i++,r.getPerformancePct());p.setDouble(i++,r.getQualityPct());p.setDouble(i++,r.getOeePct());p.setString(i++,r.getProblem());p.setString(i++,r.getActionTaken());p.setString(i,r.getLaunchTime());}
     private static String erpKey(LocalDate d,String op,String machine,String product){return d+"|"+Norm.order(op)+"|"+Norm.token(machine)+"|"+Norm.product(product);}
     private static long erpId(String key){try{byte[]b=MessageDigest.getInstance("SHA-1").digest(key.getBytes(StandardCharsets.UTF_8));long v=0;for(int i=0;i<7;i++)v=(v<<8)|(b[i]&255);return 8_000_000_000_000L+(Math.abs(v)%900_000_000_000L);}catch(Exception e){return 8_000_000_000_000L+Math.abs(key.hashCode());}}
