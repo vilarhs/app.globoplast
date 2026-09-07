@@ -137,7 +137,7 @@ vaadin-dialog-overlay::part(header),vaadin-dialog-overlay::part(content),vaadin-
 .gp-filter-popover::part(content){padding:0}
 .gp-filter-popover::part(overlay){border:1px solid var(--gp-border);border-radius:.65rem;background:var(--gp-surface);box-shadow:0 8px 26px rgba(0,0,0,.18);overflow:hidden}
 .gp-filter-dropdown{box-sizing:border-box;width:100%;max-height:min(72dvh,620px);min-height:0;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;-webkit-overflow-scrolling:touch;padding:.72rem;background:var(--gp-surface);color:var(--gp-text);scrollbar-width:thin;scrollbar-gutter:stable}
-.gp-filter-dropdown-grid{display:grid;grid-template-columns:1fr;gap:.24rem;width:100%;box-sizing:border-box}
+.gp-filter-dropdown-grid{display:grid;grid-template-columns:1fr;gap:.12rem;width:100%;box-sizing:border-box}
 .gp-filter-dropdown-grid>*{width:100%;min-width:0;box-sizing:border-box}
 .gp-filter-dropdown-actions{position:sticky;bottom:0;z-index:8;margin-top:.66rem;padding:.58rem 0 .08rem;border-top:1px solid var(--gp-border);background:var(--gp-surface);box-shadow:0 -8px 12px var(--gp-surface)}
 .gp-filter-popover-refugo::part(overlay){max-height:min(74dvh,600px)}
