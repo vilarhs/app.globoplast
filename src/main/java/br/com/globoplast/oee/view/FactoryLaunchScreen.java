@@ -100,7 +100,7 @@ final class FactoryLaunchScreen {
         if (date == null) return;
         filterStart = date;
         filterEnd = date;
-        refresh();
+        render();
     }
 
     private Popover filterDropdown(Button target) {
