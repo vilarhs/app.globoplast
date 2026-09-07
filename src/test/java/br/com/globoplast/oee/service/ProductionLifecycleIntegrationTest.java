@@ -150,7 +150,11 @@ class ProductionLifecycleIntegrationTest {
     }
 
     @Test
-    void factoryLaunchComplementsManualProductionAndKeepsItsOrigin() {
+    void factoryLaunchComplementsManualProductionAndKeepsItsOrigin() throws Exception {
+        sync.importBatch("refugo", List.of(values(
+                "erp_id", 2002L, "data_apon", productionDate.toString(), "ordem", "990003",
+                "maquina", "HOT AIR 1", "produto", "7751234567", "turno", "B",
+                "qtd_refugo", 2.0, "peso_br", 10.0, "qtd_itens", 200)), "test", "test");
         LaunchRecord factory = manualLaunch("990003", "7761234567", 4_000, 0);
         launches.saveFactoryLaunch(factory, admin);
 
@@ -159,13 +163,17 @@ class ProductionLifecycleIntegrationTest {
         assertEquals("FABRICA", saved.getOrigin());
         assertEquals(productionDate, saved.getDate());
         assertEquals(4_000, saved.getShiftB());
+        assertEquals(2.0, saved.getScrapBKg(), 0.001);
+        assertEquals(200, saved.getScrapTotalPcs());
         assertEquals(1, launches.factoryLaunches(admin, productionDate, productionDate).size());
         assertTrue(launches.factoryLaunches(admin, productionDate.plusDays(1), productionDate.plusDays(1)).isEmpty());
         assertEquals(1, launches.manualOnly(productionDate, productionDate).size());
 
         saved.setShiftB(5_000);
-        launches.updateManual(saved, admin);
+        launches.updateFactoryLaunch(saved, admin);
         assertEquals(5_000, assertSingle(launches.factoryLaunches(admin)).getShiftB());
+        assertEquals(2.0, assertSingle(launches.manualOnly(productionDate, productionDate)).getScrapBKg(), 0.001);
+        assertEquals(1, count("historico_oee"), "Editar a fábrica deve atualizar o mesmo lançamento");
 
         launches.deleteManual(saved.getId(), admin);
         assertTrue(launches.factoryLaunches(admin).isEmpty());

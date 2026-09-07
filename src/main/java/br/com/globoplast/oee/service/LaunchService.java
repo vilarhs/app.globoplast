@@ -178,8 +178,29 @@ public class LaunchService {
     }
 
     public void saveFactoryLaunch(LaunchRecord record,User user){
+        completeFactoryLaunch(record, 0);
         record.setOrigin("FABRICA");
         saveManual(record,user);
+    }
+
+    public void updateFactoryLaunch(LaunchRecord record,User user){
+        completeFactoryLaunch(record, record.getId());
+        updateManual(record,user);
+    }
+
+    private void completeFactoryLaunch(LaunchRecord record,long excludedId){
+        Machine machine=resolveMachine(catalog.machineMap(),record.getMachine());
+        if(machine==null)throw new IllegalArgumentException("Máquina inválida.");
+        record.setSector(machine.sector());
+        record.setCapacity24h(machine.capacity());
+        record.setScheduledHours(24);
+        double weight=productUnitWeightG(record.getProduct());
+        if(weight>0)record.setUnitWeightG(weight);
+        ScrapByShift scrap=remainingManualScrapByShift(record.getDate(),record.getOrderNumber(),
+                machine.sector(),record.getMachine(),record.getProduct(),excludedId);
+        record.setScrapAKg(scrap.shiftA());
+        record.setScrapBKg(scrap.shiftB());
+        record.setScrapCKg(scrap.shiftC());
     }
 
     public ProductMetadata productMetadata(String productCode) {
@@ -326,6 +347,10 @@ public class LaunchService {
     }
 
     public ScrapByShift remainingManualScrapByShift(LocalDate productionDate, String orderNumber, String sectorName, String machineName, String launchProduct) {
+        return remainingManualScrapByShift(productionDate,orderNumber,sectorName,machineName,launchProduct,0);
+    }
+
+    private ScrapByShift remainingManualScrapByShift(LocalDate productionDate, String orderNumber, String sectorName, String machineName, String launchProduct,long excludedId) {
         ScrapByShift erp = manualScrapByShift(productionDate, orderNumber, sectorName, machineName, launchProduct);
         if (productionDate == null || Norm.order(orderNumber).isBlank()) return erp;
         double a = 0, b = 0, c = 0;
@@ -333,6 +358,7 @@ public class LaunchService {
         if (targetSector.isBlank() && !Norm.product(launchProduct).isBlank())
             targetSector = Norm.canonicalSector(Norm.scrapSector(launchProduct));
         for (LaunchRecord record : manual(productionDate, productionDate)) {
+            if(record.getId()==excludedId)continue;
             Machine machine = resolveMachine(catalog.machineMap(), record.getMachine());
             String sector = machine == null ? Norm.sectorFromMachineRaw(record.getMachine()) : machine.sector();
             if (!Norm.order(record.getOrderNumber()).equals(Norm.order(orderNumber))

@@ -5731,17 +5731,5 @@ html body .gp-dialog-close :is(vaadin-icon,svg){width:20px!important;height:20px
 @media(max-width:520px){.gp-password-form{grid-template-columns:1fr!important}}
 
 /* Lançamento Fábrica mantém formulário e tabela fora da MainView. */
-.gp-factory-launch-form{
-  display:grid;
-  grid-template-columns:repeat(3,minmax(0,1fr));
-  gap:.15rem .3rem;
-  width:100%;
-  box-sizing:border-box;
-}
 .gp-factory-launch-grid{margin-top:.65rem}
-.gp-factory-title-row{grid-template-columns:minmax(0,1fr) auto}
-.gp-factory-title-row>.gp-new-button{width:auto;min-width:180px}
-@media(max-width:700px){
-  .gp-factory-launch-form{grid-template-columns:1fr}
-  .gp-factory-title-row>.gp-new-button{width:40px;min-width:40px}
-}
+.gp-factory-title-row{grid-template-columns:minmax(0,1fr) auto;align-items:center}

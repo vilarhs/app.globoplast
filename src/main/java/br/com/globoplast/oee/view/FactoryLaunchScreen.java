@@ -65,14 +65,14 @@ final class FactoryLaunchScreen {
         heading.addClassName("gp-section-title");
         Button add = new Button(t("Novo Lançamento"), VaadinIcon.PLUS.create(), event -> open(null));
         add.addThemeVariants(ButtonVariant.PRIMARY);
-        add.addClassName("gp-new-button");
-        Div title = new Div(heading, add);
+        add.addClassNames("gp-new-button", "gp-launch-new-inline-v045");
+        Button filter = LaunchesPage.filterButton(this::t);
+        Div title = new Div(heading, filter);
         title.addClassNames("gp-title-row", "gp-title-row-static", "gp-factory-title-row");
 
-        Button filter = LaunchesPage.filterButton(this::t);
         Popover filterDropdown = filterDropdown(filter);
-        Div toolbar = new Div(filter);
-        toolbar.addClassNames("gp-toolbar", "gp-tab-controls", "gp-factory-filter-toolbar");
+        Div toolbar = new Div(add);
+        toolbar.addClassNames("gp-toolbar", "gp-tab-controls", "gp-launch-toolbar-v045");
 
         grid = new Grid<>(LaunchRecord.class, false);
         grid.addClassNames("gp-launch-grid-v059", "gp-factory-launch-grid");
@@ -122,6 +122,7 @@ final class FactoryLaunchScreen {
         Button clear = new Button(t("Limpar filtros"), event -> {
             filterStart = Norm.productiveToday();
             filterEnd = filterStart;
+            period.setValue(filterStart, filterEnd);
             updateFilterButton(target);
             popover.setOpened(false);
             refresh();
@@ -157,19 +158,20 @@ final class FactoryLaunchScreen {
         LaunchRecord record = editing ? original.copy() : new LaunchRecord();
         if (!editing) record.setDate(Norm.productiveToday());
         Dialog dialog = ViewComponents.dialog(t(editing ? "Editar Lançamento Fábrica" : "Novo Lançamento Fábrica"), t("Fechar"));
-        dialog.addClassName("gp-factory-launch-dialog");
+        dialog.addClassNames("gp-factory-launch-dialog", "gp-launch-dialog");
         dialog.setWidth("min(820px, calc(100vw - 32px))");
 
-        LocalDate[] bounds = launches.manualDateBounds();
         DateRangePicker date = new DateRangePicker(
                 t("Data da Produção"), record.getDate(), record.getDate(),
-                bounds[0], bounds[1], language.get(), this::t, null, true
+                record.getDate().minusYears(20), record.getDate().plusYears(20), language.get(), this::t, null, true
         );
+        date.addClassNames("gp-date-picker", "gp-unified-date-picker-v081", "gp-launch-standard-field-v054");
         TextField order = field(t("Nº da OP"), record.getOrderNumber());
         order.setAllowedCharPattern("[0-9]");
         TextField product = field(t("Código Produto"), record.getProduct());
         product.setReadOnly(true);
         ComboBox<String> machine = new ComboBox<>(t("Máquina"));
+        machine.addClassNames("gp-launch-standard-field-v054", "gp-launch-machine-field-v055");
         List<Machine> allowed = user.get().isAdmin() ? catalog.machines() : catalog.allowedMachines(user.get());
         machine.setItems(allowed.stream().map(Machine::name).toList());
         machine.setWidthFull();
@@ -187,8 +189,14 @@ final class FactoryLaunchScreen {
         order.addValueChangeListener(event -> resolve.run());
         date.setChangeListener(resolve);
 
-        Div form = new Div(date, order, product, machine, shiftA, shiftB, shiftC);
-        form.addClassName("gp-factory-launch-form");
+        Div dateRow = new Div(date);
+        dateRow.addClassNames("gp-launch-row", "gp-launch-row-date");
+        Div basicRow = new Div(order, product, machine);
+        basicRow.addClassNames("gp-launch-row", "gp-launch-row-3");
+        Div shiftsRow = new Div(shiftA, shiftB, shiftC);
+        shiftsRow.addClassNames("gp-launch-row", "gp-launch-row-3");
+        Div form = new Div(dateRow, basicRow, shiftsRow);
+        form.addClassName("gp-launch-form-python");
         dialog.add(form);
 
         Button save = new Button(t(editing ? "Salvar Alterações" : "Salvar Lançamento"));
@@ -196,7 +204,7 @@ final class FactoryLaunchScreen {
         save.addClickListener(event -> {
             try {
                 apply(record, date, order, product, machine, shiftA, shiftB, shiftC);
-                if (editing) launches.updateManual(record, user.get());
+                if (editing) launches.updateFactoryLaunch(record, user.get());
                 else launches.saveFactoryLaunch(record, user.get());
                 dialog.close();
                 afterChange.run();
@@ -283,6 +291,7 @@ final class FactoryLaunchScreen {
 
     private static TextField field(String label, String value) {
         TextField field = new TextField(label);
+        field.addClassName("gp-launch-standard-field-v054");
         field.setValue(value == null ? "" : value);
         field.setWidthFull();
         return field;
