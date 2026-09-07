@@ -64,7 +64,7 @@ final class FactoryLaunchScreen {
         add.addThemeVariants(ButtonVariant.PRIMARY);
         add.addClassName("gp-new-button");
         Div title = new Div(heading, add);
-        title.addClassNames("gp-title-row", "gp-title-row-static");
+        title.addClassNames("gp-title-row", "gp-title-row-static", "gp-factory-title-row");
 
         grid = new Grid<>(LaunchRecord.class, false);
         grid.addClassNames("gp-launch-grid-v059", "gp-factory-launch-grid");
