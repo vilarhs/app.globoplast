@@ -5605,9 +5605,18 @@ html body .gp-filter-popover::part(overlay){
   box-shadow:0 8px 24px rgba(0,0,0,.20)!important;
 }
 
-/* Conteúdo real dos diálogos vive no overlay. Mantém todos os modais com a
-   mesma superfície dos campos do Novo Lançamento, inclusive o DatePicker. */
-html body vaadin-dialog-overlay[theme~="gp-modal-v053"]{
+/* Modais, filtros e calendário usam uma única superfície. Os conteúdos
+   internos são transparentes para não criarem faixas de cor ou rodapé. */
+:root,
+html[theme~="light"],html[data-gp-theme="light"]{
+  --gp-modal-uniform-v058:#e9ebee;
+}
+html[theme~="dark"],html[data-gp-theme="dark"]{
+  --gp-modal-uniform-v058:#2d2f37;
+}
+html body vaadin-dialog-overlay[theme~="gp-modal-v053"],
+html body vaadin-popover-overlay.gp-filter-popover,
+html body vaadin-popover-overlay.gp-period-popover{
   --lumo-base-color:var(--gp-modal-uniform-v058)!important;
   --vaadin-dialog-background:var(--gp-modal-uniform-v058)!important;
   color:var(--gp-text)!important;
@@ -5615,48 +5624,90 @@ html body vaadin-dialog-overlay[theme~="gp-modal-v053"]{
 html body vaadin-dialog-overlay[theme~="gp-modal-v053"]::part(overlay),
 html body vaadin-dialog-overlay[theme~="gp-modal-v053"]::part(header),
 html body vaadin-dialog-overlay[theme~="gp-modal-v053"]::part(content),
-html body vaadin-dialog-overlay[theme~="gp-modal-v053"]::part(footer){
+html body vaadin-dialog-overlay[theme~="gp-modal-v053"]::part(footer),
+html body vaadin-popover-overlay.gp-filter-popover::part(overlay),
+html body vaadin-popover-overlay.gp-filter-popover::part(content),
+html body vaadin-popover-overlay.gp-period-popover::part(overlay),
+html body vaadin-popover-overlay.gp-period-popover::part(content),
+html body .gp-filter-dropdown,
+html body .gp-period-panel{
   background:var(--gp-modal-uniform-v058)!important;
   background-color:var(--gp-modal-uniform-v058)!important;
   color:var(--gp-text)!important;
 }
-html body vaadin-dialog-overlay[theme~="gp-modal-v053"]
+html body :is(.gp-filter-dropdown-grid,.gp-filter-dropdown-actions,
+              .gp-period-header,.gp-period-footer){
+  background:transparent!important;
+  background-color:transparent!important;
+}
+html body .gp-filter-dropdown-actions,
+html body .gp-filter-dropdown-refugo>.gp-filter-dropdown-actions{
+  border-top:0!important;
+  box-shadow:none!important;
+}
+
+/* Campos, rótulos e distâncias seguem o mesmo padrão em modais e filtros. */
+html body :is(vaadin-dialog-overlay[theme~="gp-modal-v053"],
+              .gp-filter-dropdown,.gp-period-panel)
   :is(vaadin-text-field,vaadin-password-field,vaadin-integer-field,
       vaadin-number-field,vaadin-date-picker,vaadin-select,
       vaadin-combo-box,vaadin-multi-select-combo-box){
   --vaadin-input-field-background:var(--gp-modal-uniform-v058)!important;
   --lumo-base-color:var(--gp-modal-uniform-v058)!important;
 }
-html body vaadin-dialog-overlay[theme~="gp-modal-v053"]
+html body :is(vaadin-dialog-overlay[theme~="gp-modal-v053"],
+              .gp-filter-dropdown,.gp-period-panel)
   :is(vaadin-text-field,vaadin-password-field,vaadin-integer-field,
       vaadin-number-field,vaadin-date-picker,vaadin-select,
       vaadin-combo-box,vaadin-multi-select-combo-box)::part(input-field),
-html body vaadin-dialog-overlay[theme~="gp-modal-v053"]
-  :is(vaadin-date-picker,vaadin-combo-box) input{
+html body :is(.gp-launch-standard-field-v054,.gp-filter-dropdown) .gp-period-field,
+html body .gp-period-month::part(input-field),
+html body .gp-period-year::part(input-field){
   background:var(--gp-modal-uniform-v058)!important;
   background-color:var(--gp-modal-uniform-v058)!important;
   border-color:var(--gp-control-border)!important;
   color:var(--gp-text)!important;
+  box-shadow:none!important;
 }
-.gp-password-form{
-  display:flex;
-  flex-direction:column;
-  gap:.7rem;
-  width:100%;
-  box-sizing:border-box;
-}
-
-/* O campo de data do lançamento é um botão/calendário próprio, não um
-   vaadin-date-picker. Por isso a cor precisa ser aplicada ao botão interno. */
-html body .gp-launch-standard-field-v054 .gp-period-field,
-html body vaadin-dialog-overlay .gp-period-field{
-  background:var(--gp-modal-uniform-v058)!important;
-  background-color:var(--gp-modal-uniform-v058)!important;
+html body :is(vaadin-dialog.gp-modal-v053,.gp-filter-dropdown)
+  :is(vaadin-text-field,vaadin-password-field,vaadin-integer-field,
+      vaadin-number-field,vaadin-date-picker,vaadin-select,
+      vaadin-combo-box,vaadin-multi-select-combo-box)::part(label),
+html body .gp-period-label{
+  margin:0 0 .25rem!important;
+  padding:0!important;
+  min-height:1.25rem!important;
+  font-family:"Source Sans 3","Source Sans Pro",sans-serif!important;
+  font-size:.875rem!important;
+  font-weight:400!important;
+  line-height:1.25rem!important;
   color:var(--gp-text)!important;
-  border-color:var(--gp-control-border)!important;
 }
 
-/* Acabamento único dos modais e formulário de lançamento mais compacto. */
+/* Novo Lançamento compacto, com espaçamento regular entre todos os campos. */
+html body vaadin-dialog.gp-launch-dialog::part(content){
+  padding-top:8px!important;
+  padding-bottom:8px!important;
+}
+html body vaadin-dialog.gp-launch-dialog .gp-launch-form-python,
+html body vaadin-dialog.gp-launch-dialog .gp-launch-shift-column{
+  gap:.3rem!important;
+}
+html body vaadin-dialog.gp-launch-dialog .gp-launch-row{
+  column-gap:.6rem!important;
+  row-gap:.3rem!important;
+}
+html body vaadin-dialog.gp-launch-dialog .gp-launch-row
+  :is(vaadin-text-field,vaadin-combo-box)::part(input-field),
+html body vaadin-dialog.gp-launch-dialog .gp-period-field{
+  min-height:36px!important;
+  height:36px!important;
+}
+html body vaadin-dialog-overlay[theme~="gp-modal-v053"] .gp-launch-dialog-actions{
+  padding-top:0!important;
+  gap:.3rem!important;
+}
+
 html body .gp-dialog-close{
   width:40px!important;
   min-width:40px!important;
@@ -5665,88 +5716,14 @@ html body .gp-dialog-close{
   min-height:40px!important;
   max-height:40px!important;
 }
-html body .gp-dialog-close :is(vaadin-icon,svg){
-  width:20px!important;
-  height:20px!important;
-}
-html body vaadin-dialog-overlay[theme~="gp-modal-v053"] .gp-launch-dialog-actions{
-  padding-top:0!important;
-  gap:.28rem!important;
-}
-html body vaadin-dialog-overlay[theme~="gp-modal-v053"] .gp-launch-form-python{
-  gap:.14rem!important;
-}
-html body vaadin-dialog-overlay[theme~="gp-modal-v053"] .gp-launch-row{
-  gap:.3rem!important;
-}
-
-/* Cinza suave comum às superfícies temporárias. */
-:root{--gp-modal-uniform-v058:#e9ebee;--gp-overlay-surface-v315:#f1f2f4}
-html[theme~="dark"],html[data-gp-theme="dark"]{--gp-modal-uniform-v058:#2d2f37;--gp-overlay-surface-v315:#2b2d35}
-html body .gp-filter-popover::part(overlay),
-html body .gp-filter-popover::part(content),
-html body .gp-filter-dropdown,
-html body .gp-filter-dropdown-actions{
-  background:var(--gp-overlay-surface-v315)!important;
-  background-color:var(--gp-overlay-surface-v315)!important;
-}
-
-/* As regras de tema têm seletor mais específico que :root. */
-html[theme~="light"],html[data-gp-theme="light"]{
-  --gp-modal-uniform-v058:#e9ebee;
-  --gp-overlay-surface-v315:#f1f2f4;
-}
-html[theme~="dark"],html[data-gp-theme="dark"]{
-  --gp-modal-uniform-v058:#2d2f37;
-  --gp-overlay-surface-v315:#2b2d35;
-}
-
-/* Novo Lançamento: reduz altura real dos controles, não só o espaçamento. */
-html body vaadin-dialog.gp-launch-dialog::part(content){padding-top:8px!important;padding-bottom:8px!important}
-html body vaadin-dialog.gp-launch-dialog .gp-launch-form-python{gap:.14rem!important}
-html body vaadin-dialog.gp-launch-dialog .gp-launch-row{gap:.3rem!important}
-html body vaadin-dialog.gp-launch-dialog .gp-launch-shift-column{gap:.14rem!important}
-html body vaadin-dialog.gp-launch-dialog .gp-launch-row :is(vaadin-text-field,vaadin-combo-box)::part(input-field),
-html body vaadin-dialog.gp-launch-dialog .gp-period-field{min-height:36px!important;height:36px!important}
+html body .gp-dialog-close :is(vaadin-icon,svg){width:20px!important;height:20px!important}
 
 /* A alteração de senha cabe lado a lado no desktop e mantém leitura no celular. */
-.gp-password-form{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:.7rem!important}
+.gp-password-form{
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:.7rem!important;
+  width:100%;
+  box-sizing:border-box;
+}
 @media(max-width:520px){.gp-password-form{grid-template-columns:1fr!important}}
-
-/* Filtros e calendário: o conteúdo interno usa a mesma superfície do popup. */
-html body vaadin-popover-overlay.gp-filter-popover,
-html body vaadin-popover-overlay.gp-period-popover,
-html body vaadin-popover-overlay.gp-filter-popover::part(overlay),
-html body vaadin-popover-overlay.gp-filter-popover::part(content),
-html body vaadin-popover-overlay.gp-period-popover::part(overlay),
-html body vaadin-popover-overlay.gp-period-popover::part(content),
-html body .gp-filter-dropdown,
-html body .gp-filter-dropdown-actions,
-html body .gp-period-panel{
-  background:var(--gp-overlay-surface-v315)!important;
-  background-color:var(--gp-overlay-surface-v315)!important;
-}
-html body vaadin-popover-overlay.gp-filter-popover
-  :is(vaadin-text-field,vaadin-select,vaadin-combo-box,vaadin-multi-select-combo-box)::part(input-field),
-html body vaadin-popover-overlay.gp-filter-popover .gp-period-field,
-html body vaadin-popover-overlay.gp-period-popover
-  :is(vaadin-select,vaadin-combo-box)::part(input-field){
-  background:var(--gp-overlay-surface-v315)!important;
-  background-color:var(--gp-overlay-surface-v315)!important;
-}
-
-/* Os campos vivem em componentes com Shadow DOM: aplica diretamente neles. */
-html body .gp-filter-multiselect{
-  --vaadin-input-field-background:var(--gp-overlay-surface-v315)!important;
-}
-html body .gp-filter-multiselect::part(input-field),
-html body .gp-filter-dropdown .gp-period-field,
-html body .gp-period-month::part(input-field),
-html body .gp-period-year::part(input-field){
-  background:var(--gp-overlay-surface-v315)!important;
-  background-color:var(--gp-overlay-surface-v315)!important;
-}
-html body .gp-filter-dropdown-grid{
-  background:var(--gp-overlay-surface-v315)!important;
-  background-color:var(--gp-overlay-surface-v315)!important;
-}
