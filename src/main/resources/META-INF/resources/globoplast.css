@@ -5746,3 +5746,7 @@ html body .gp-period-year::part(input-field){
   background:var(--gp-overlay-surface-v315)!important;
   background-color:var(--gp-overlay-surface-v315)!important;
 }
+html body .gp-filter-dropdown-grid{
+  background:var(--gp-overlay-surface-v315)!important;
+  background-color:var(--gp-overlay-surface-v315)!important;
+}
