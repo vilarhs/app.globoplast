@@ -18,8 +18,8 @@ import java.util.*;
 
 @Service
 public class SyncService {
-    private final Database db;private final JsonMapper json;private final CatalogService catalog;
-    public SyncService(Database db,JsonMapper json,CatalogService catalog){this.db=db;this.json=json;this.catalog=catalog;}
+    private final Database db;private final JsonMapper json;private final CatalogService catalog;private final LaunchService launches;
+    public SyncService(Database db,JsonMapper json,CatalogService catalog,LaunchService launches){this.db=db;this.json=json;this.catalog=catalog;this.launches=launches;}
     public Map<String,Object> importBatch(String source,List<Map<String,Object>>records,String connectorId,String sentAt){
         String src=source==null?"":source.toLowerCase(Locale.ROOT);
         if(!Set.of("apontamento","planejamento","refugo").contains(src))throw new IllegalArgumentException("Fonte ERP inválida");
@@ -48,6 +48,7 @@ public class SyncService {
             try(PreparedStatement p=c.prepareStatement("INSERT INTO erp_sync_estado(fonte,ultimo_recebimento,ultimo_erp_id,total_registros) VALUES(?,?,?,?) ON CONFLICT(fonte) DO UPDATE SET ultimo_recebimento=excluded.ultimo_recebimento,ultimo_erp_id=excluded.ultimo_erp_id,total_registros=excluded.total_registros")){p.setString(1,src);p.setString(2,now);if(max==null)p.setNull(3,Types.BIGINT);else p.setLong(3,max);p.setLong(4,total);p.executeUpdate();}
             c.commit();
         }catch(Exception e){throw new IllegalStateException(e);}
+        if (src.equals("refugo") && changed > 0) launches.refreshFactoryScrap();
         Map<String,Object>out=new LinkedHashMap<>();out.put("fonte",src);out.put("recebidos",unique.size());out.put("alterados",changed);out.put("min_erp_id",unique.keySet().stream().min(Long::compareTo).orElse(null));out.put("max_erp_id",unique.keySet().stream().max(Long::compareTo).orElse(null));return out;
     }
 

@@ -45,7 +45,7 @@ class ProductionLifecycleIntegrationTest {
         JsonMapper json = JsonMapper.builder().build();
         launches = new LaunchService(database, catalog, new OeeCalculator(), json);
         scrap = new RefugoService(database);
-        sync = new SyncService(database, json, catalog);
+        sync = new SyncService(database, json, catalog, launches);
 
         catalog.saveSector(null, "COL DE TAMPA");
         catalog.saveMachine(null, "HOT AIR 1", 24_000, "COL DE TAMPA");
@@ -202,6 +202,19 @@ class ProductionLifecycleIntegrationTest {
         LaunchService.TrashItem trash = assertSingle(launches.trash(admin, "MANUAL"));
         launches.restoreTrash(trash.id(), admin);
         assertEquals("FABRICA", assertSingle(launches.factoryLaunches(admin)).getOrigin());
+    }
+
+    @Test
+    void factoryLaunchReceivesScrapAddedAfterItsCreation() {
+        LaunchRecord factory = manualLaunch("990004", "7761234567", 4_000, 0);
+        launches.saveFactoryLaunch(factory, admin);
+
+        sync.importBatch("refugo", List.of(values(
+                "erp_id", 2004L, "data_apon", productionDate.toString(), "ordem", "990004",
+                "maquina", "HOT AIR 1", "produto", "7751234567", "turno", "B",
+                "qtd_refugo", 2.0, "peso_br", 10.0, "qtd_itens", 200)), "test", "test");
+
+        assertEquals(2.0, assertSingle(launches.factoryLaunches(admin)).getScrapBKg(), 0.001);
     }
 
     private LaunchRecord manualLaunch(String order, String product, int shiftB, double scrapBKg) {

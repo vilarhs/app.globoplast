@@ -467,9 +467,19 @@ public class LaunchService {
 
     /** Reconstrói o refugo manual a partir de cada registro ERP, uma única vez por OP/máquina/turno. */
     private void rebuildManualErpScrap() {
+        rebuildErpScrap(null);
+    }
+
+    /** Atualiza lançamentos Fábrica quando o ERP recebe novo refugo. */
+    public void refreshFactoryScrap() {
+        recalculateManualOee(rebuildErpScrap("FABRICA"));
+    }
+
+    private List<LaunchRecord> rebuildErpScrap(String origin) {
         List<LaunchRecord> manual = new ArrayList<>();
         LocalDate start = null, end = null;
-        try (Connection c = db.open(); Statement s = c.createStatement(); ResultSet r = s.executeQuery("SELECT * FROM historico_oee")) {
+        String sql = origin == null ? "SELECT * FROM historico_oee" : "SELECT * FROM historico_oee WHERE origem='FABRICA'";
+        try (Connection c = db.open(); Statement s = c.createStatement(); ResultSet r = s.executeQuery(sql)) {
             while (r.next()) {
                 LaunchRecord record = mapManual(r);
                 manual.add(record);
@@ -477,7 +487,7 @@ public class LaunchService {
                 end = end == null || record.getDate().isAfter(end) ? record.getDate() : end;
             }
         } catch (SQLException e) { throw new IllegalStateException(e); }
-        if (manual.isEmpty() || start == null) return;
+        if (manual.isEmpty() || start == null) return manual;
 
         for (LaunchRecord record : manual) {
             record.setScrapAKg(0); record.setScrapBKg(0); record.setScrapCKg(0);
@@ -523,6 +533,18 @@ public class LaunchService {
             }
             p.executeBatch();
         } catch (SQLException e) { throw new IllegalStateException(e); }
+        return manual;
+    }
+
+    private void recalculateManualOee(Collection<LaunchRecord> records) {
+        Set<String> groups = new LinkedHashSet<>();
+        for (LaunchRecord record : records) {
+            if (record.getDate() != null && record.getMachine() != null) groups.add(record.getDate() + "|" + record.getMachine());
+        }
+        for (String group : groups) {
+            int separator = group.indexOf('|');
+            recalculateManualDay(Norm.isoDate(group.substring(0, separator)), group.substring(separator + 1));
+        }
     }
 
     private String manualSector(LaunchRecord record) {
