@@ -20,11 +20,13 @@ import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.popover.Popover;
 import com.vaadin.flow.component.popover.PopoverPosition;
+import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.renderer.ComponentRenderer;
 import com.vaadin.flow.data.value.ValueChangeMode;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
@@ -66,12 +68,14 @@ final class FactoryLaunchScreen {
         Button add = new Button(t("Novo Lançamento"), VaadinIcon.PLUS.create(), event -> open(null));
         add.addThemeVariants(ButtonVariant.PRIMARY);
         add.addClassNames("gp-new-button", "gp-launch-new-inline-v045");
+        Button summary = new Button(t("Resumo Dia"), event -> openDaySummary());
+        summary.addClassNames("gp-new-button", "gp-factory-day-summary-button");
         Button filter = LaunchesPage.filterButton(this::t);
         Div title = new Div(heading, filter);
         title.addClassNames("gp-title-row", "gp-title-row-static", "gp-factory-title-row");
 
         Popover filterDropdown = filterDropdown(filter);
-        Div toolbar = new Div(add);
+        Div toolbar = new Div(summary, add);
         toolbar.addClassNames("gp-toolbar", "gp-tab-controls", "gp-launch-toolbar-v045");
 
         grid = new Grid<>(LaunchRecord.class, false);
@@ -95,6 +99,57 @@ final class FactoryLaunchScreen {
     private void refresh() {
         if (grid != null) grid.setItems(launches.factoryLaunches(user.get(), filterStart, filterEnd));
     }
+
+    private void openDaySummary() {
+        LocalDate date = filterEnd;
+        List<LaunchRecord> records = launches.factoryLaunches(user.get(), date, date);
+        List<FactoryDayLine> rows = daySummaryRows(records);
+        int totalA = records.stream().mapToInt(LaunchRecord::getShiftA).sum();
+        int totalB = records.stream().mapToInt(LaunchRecord::getShiftB).sum();
+        int totalC = records.stream().mapToInt(LaunchRecord::getShiftC).sum();
+
+        Dialog dialog = ViewComponents.dialog(t("Resumo Dia"), t("Fechar"));
+        dialog.addClassNames("gp-factory-day-summary-dialog", "gp-launch-dialog");
+        dialog.setWidth("min(760px, calc(100vw - 32px))");
+        H2 dateTitle = new H2(Norm.br(date));
+        dateTitle.addClassName("gp-factory-day-summary-date");
+
+        Grid<FactoryDayLine> summaryGrid = new Grid<>(FactoryDayLine.class, false);
+        summaryGrid.addClassNames("gp-launch-grid-v059", "gp-factory-day-summary-grid");
+        summaryGrid.addThemeVariants(GridVariant.LUMO_NO_BORDER, GridVariant.LUMO_ROW_STRIPES);
+        summaryGrid.addColumn(FactoryDayLine::order).setHeader(t("Nº OP")).setAutoWidth(true);
+        summaryGrid.addColumn(FactoryDayLine::product).setHeader(t("Código Produto")).setAutoWidth(true);
+        summaryGrid.addColumn(FactoryDayLine::shift).setHeader(t("Turno")).setAutoWidth(true);
+        summaryGrid.addColumn(row -> formatInteger.apply((long) row.quantity())).setHeader(t("Quantidade"))
+                .setAutoWidth(true).setTextAlign(ColumnTextAlign.END);
+        summaryGrid.setItems(rows);
+        summaryGrid.setAllRowsVisible(true);
+
+        Span totals = new Span(t("Total Turno A") + ": " + formatInteger.apply((long) totalA)
+                + " · " + t("Total Turno B") + ": " + formatInteger.apply((long) totalB)
+                + " · " + t("Total Turno C") + ": " + formatInteger.apply((long) totalC)
+                + " · " + t("Total Geral") + ": " + formatInteger.apply((long) (totalA + totalB + totalC)));
+        totals.addClassName("gp-factory-day-summary-total");
+        dialog.add(dateTitle, summaryGrid, totals);
+        dialog.getFooter().add(new Button(t("Fechar"), event -> dialog.close()));
+        dialog.open();
+    }
+
+    static List<FactoryDayLine> daySummaryRows(List<LaunchRecord> records) {
+        List<FactoryDayLine> rows = new ArrayList<>();
+        for (LaunchRecord record : records) {
+            addDaySummaryRow(rows, record, "A", record.getShiftA());
+            addDaySummaryRow(rows, record, "B", record.getShiftB());
+            addDaySummaryRow(rows, record, "C", record.getShiftC());
+        }
+        return rows;
+    }
+
+    private static void addDaySummaryRow(List<FactoryDayLine> rows, LaunchRecord record, String shift, int quantity) {
+        if (quantity > 0) rows.add(new FactoryDayLine(record.getOrderNumber(), record.getProduct(), shift, quantity));
+    }
+
+    record FactoryDayLine(String order, String product, String shift, int quantity) {}
 
     void showRecordDate(LocalDate date) {
         if (date == null) return;

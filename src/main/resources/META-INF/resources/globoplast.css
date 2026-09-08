@@ -5735,3 +5735,5 @@ html body .gp-dialog-close :is(vaadin-icon,svg){width:20px!important;height:20px
 /* Lançamento Fábrica mantém formulário e tabela fora da MainView. */
 .gp-factory-launch-grid{margin-top:.65rem}
 .gp-factory-title-row{grid-template-columns:minmax(0,1fr) auto;align-items:center}
+.gp-factory-day-summary-date{text-align:center;font-weight:700;margin:.1rem 0 .8rem}
+.gp-factory-day-summary-total{display:block;text-align:right;font-weight:700;margin:.85rem 0 .15rem}
