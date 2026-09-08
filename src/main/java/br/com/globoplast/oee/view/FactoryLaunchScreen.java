@@ -68,8 +68,9 @@ final class FactoryLaunchScreen {
         Button add = new Button(t("Novo Lançamento"), VaadinIcon.PLUS.create(), event -> open(null));
         add.addThemeVariants(ButtonVariant.PRIMARY);
         add.addClassNames("gp-new-button", "gp-launch-new-inline-v045");
-        Button summary = new Button(t("Resumo Dia"), event -> openDaySummary());
-        summary.addClassNames("gp-new-button", "gp-factory-day-summary-button");
+        Button summary = new Button(t("Resumo Dia"), VaadinIcon.CLIPBOARD_TEXT.create(), event -> openDaySummary());
+        summary.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        summary.addClassName("gp-factory-day-summary-button");
         Button filter = LaunchesPage.filterButton(this::t);
         Div title = new Div(heading, filter);
         title.addClassNames("gp-title-row", "gp-title-row-static", "gp-factory-title-row");
@@ -125,14 +126,19 @@ final class FactoryLaunchScreen {
         summaryGrid.setItems(rows);
         summaryGrid.setAllRowsVisible(true);
 
-        Span totals = new Span(t("Total Turno A") + ": " + formatInteger.apply((long) totalA)
-                + " · " + t("Total Turno B") + ": " + formatInteger.apply((long) totalB)
-                + " · " + t("Total Turno C") + ": " + formatInteger.apply((long) totalC)
-                + " · " + t("Total Geral") + ": " + formatInteger.apply((long) (totalA + totalB + totalC)));
-        totals.addClassName("gp-factory-day-summary-total");
+        Div totals = new Div(
+                total(t("Total Turno A"), totalA), total(t("Total Turno B"), totalB),
+                total(t("Total Turno C"), totalC), total(t("Total Geral"), totalA + totalB + totalC));
+        totals.addClassName("gp-factory-day-summary-totals");
         dialog.add(dateTitle, summaryGrid, totals);
         dialog.getFooter().add(new Button(t("Fechar"), event -> dialog.close()));
         dialog.open();
+    }
+
+    private Span total(String label, int value) {
+        Span total = new Span(label + ": " + formatInteger.apply((long) value));
+        total.addClassName("gp-factory-day-summary-total");
+        return total;
     }
 
     static List<FactoryDayLine> daySummaryRows(List<LaunchRecord> records) {
