@@ -268,7 +268,7 @@ public class LaunchService {
             throw new IllegalStateException(e);
         }
         if (nearest != null) return nearest;
-        if (latest != null) return latest;
+        if (latest != null) return productionDate == null ? latest : new OrderLaunchDefaults(latest.product(), "");
         try (Connection c = db.open(); PreparedStatement p = c.prepareStatement(
                 "SELECT produto FROM erp_planejamento_raw WHERE ordem=? AND TRIM(COALESCE(produto,''))<>'' " +
                         "ORDER BY data_plan DESC,sincronizado_em DESC,erp_id DESC")) {

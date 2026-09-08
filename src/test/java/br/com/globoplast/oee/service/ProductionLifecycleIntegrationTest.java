@@ -168,6 +168,7 @@ class ProductionLifecycleIntegrationTest {
         LaunchService.OrderLaunchDefaults defaults = launches.orderLaunchDefaults("991001", "COL DE TAMPA", productionDate);
         assertEquals("7761234567", defaults.product());
         assertEquals("COL DE TAMPA 1", defaults.machine());
+        assertEquals("", launches.orderLaunchDefaults("991001", "COL DE TAMPA", productionDate.plusDays(2)).machine());
     }
 
     @Test
