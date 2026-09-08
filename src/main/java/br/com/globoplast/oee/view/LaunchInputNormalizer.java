@@ -8,17 +8,11 @@ final class LaunchInputNormalizer {
     private LaunchInputNormalizer() {}
 
     static String machineKey(String value) {
-        String normalized = Norm.machine(value == null ? "" : value);
-        String folded = Norm.fold(normalized).replaceAll("[^a-z0-9]+", " ").trim();
-        if (folded.isBlank()) return "";
-        StringBuilder key = new StringBuilder();
-        for (String token : folded.split("\\s+")) {
-            if (token.matches("\\d+")) {
-                try { key.append(Integer.parseInt(token)); }
-                catch (NumberFormatException ignored) { key.append(token); }
-            } else key.append(token);
-        }
-        return key.toString();
+        return Norm.machineKey(value);
+    }
+
+    static String legacyMachineKey(String value) {
+        return Norm.legacyMachineKey(value);
     }
 
     static String product(String raw, Locale locale, String missingLabel) {

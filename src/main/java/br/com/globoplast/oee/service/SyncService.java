@@ -126,9 +126,10 @@ public class SyncService {
             out.put("maquinas_erp_distintas",erpMachines);
             out.put("maquinas_historico_com_capacidade",manualCapacity);
 
-            Map<String,Machine> byKey=new LinkedHashMap<>();
+            Map<String,Machine> byKey=new LinkedHashMap<>(), legacyByKey=new LinkedHashMap<>();
             for(Machine m:catalog.machines()){
                 if(m.capacity()>0&&!Norm.machineKey(m.name()).isBlank())byKey.put(Norm.machineKey(m.name()),m);
+                if(m.capacity()>0&&!Norm.legacyMachineKey(m.name()).isBlank())legacyByKey.put(Norm.legacyMachineKey(m.name()),m);
             }
 
             long resolved=0,unresolved=0;
@@ -139,6 +140,7 @@ public class SyncService {
                 while(rs.next()){
                     String raw=Norm.text(rs.getString(1));
                     Machine match=byKey.get(Norm.machineKey(raw));
+                    if(match==null)match=legacyByKey.get(Norm.legacyMachineKey(raw));
                     Map<String,Object>x=new LinkedHashMap<>();
                     x.put("maquina_erp",raw);
                     x.put("maquina_normalizada",Norm.machine(raw));

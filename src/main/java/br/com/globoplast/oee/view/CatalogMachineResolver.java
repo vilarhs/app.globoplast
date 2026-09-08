@@ -14,6 +14,10 @@ final class CatalogMachineResolver {
         for (Machine machine : catalog.machines()) {
             if (LaunchInputNormalizer.machineKey(machine.name()).equals(wanted)) return machine;
         }
+        String legacy = LaunchInputNormalizer.legacyMachineKey(name);
+        for (Machine machine : catalog.machines()) {
+            if (LaunchInputNormalizer.legacyMachineKey(machine.name()).equals(legacy)) return machine;
+        }
         return null;
     }
 }

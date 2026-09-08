@@ -1084,7 +1084,7 @@ public class LaunchService {
             try(PreparedStatement p=c.prepareStatement("SELECT erp_id,data_apon,ordem,maquina,produto,turno,qtd_refugo,peso_br,qtd_itens,COALESCE(primeiro_sincronizado_em,sincronizado_em) FROM erp_refugo_raw WHERE data_apon BETWEEN ? AND ? ORDER BY erp_id")){p.setString(1,start.toString());p.setString(2,rawEnd.toString());ResultSet r=p.executeQuery();while(r.next()){Object oi=r.getObject(9);Integer items=oi instanceof Number n?n.intValue():null;rr.add(new R(r.getLong(1),Norm.isoDate(r.getString(2)),r.getString(3),r.getString(4),r.getString(5),r.getString(6),r.getDouble(7),r.getDouble(8),items,r.getString(10)));};}
         }catch(SQLException e){throw new IllegalStateException(e);}
         Map<String,LaunchRecord> groups=new LinkedHashMap<>();
-        for(A x:a){LocalDate d=Norm.productiveDate(x.date,x.shift);if(d==null||d.isBefore(start)||d.isAfter(end))continue;String machineNormalized=Norm.machine(x.machine);Machine matchedMachine=resolveMachine(knownMm,machineNormalized);String machine=matchedMachine!=null?matchedMachine.name():machineNormalized,op=Norm.order(x.order),prod=Norm.text(x.product),key=erpKey(d,op,machine,prod);LaunchRecord item=groups.computeIfAbsent(key,k->{LaunchRecord z=new LaunchRecord();z.setErp(true);z.setErpKey(k);z.setId(erpId(k));z.setDate(d);z.setMachine(machine);z.setProduct(prod);z.setOrderNumber(op);Machine cm=matchedMachine!=null?matchedMachine:resolveMachine(knownMm,machine);z.setSector(cm!=null&&!Norm.text(cm.sector()).isBlank()?cm.sector():Norm.sectorFromMachineRaw(x.machine));z.setCapacity24h(cm!=null?cm.capacity():0);z.setOperatorErp(Norm.text(x.operator));z.setDescriptionErp(Norm.text(x.description));z.setClientErp(Norm.text(x.client));return z;});item.getErpIds().add(x.id);int pcs=(int)Math.round(x.qty*1000.0);switch(Norm.token(x.shift)){case"A"->item.setShiftA(item.getShiftA()+pcs);case"B"->item.setShiftB(item.getShiftB()+pcs);case"C"->item.setShiftC(item.getShiftC()+pcs);}item.setTotalProduced(item.getTotalProduced()+pcs);String description=Norm.text(x.description);if(!description.isBlank())item.setDescriptionErp(description);String client=Norm.text(x.client);if(!client.isBlank())item.setClientErp(client);applyMovementIfLater(item,x.sync,true);}
+        for(A x:a){LocalDate d=Norm.productiveDate(x.date,x.shift);if(d==null||d.isBefore(start)||d.isAfter(end))continue;String rawMachine=Norm.text(x.machine);Machine matchedMachine=resolveMachine(knownMm,rawMachine);String machine=matchedMachine!=null?matchedMachine.name():rawMachine,op=Norm.order(x.order),prod=Norm.text(x.product),key=erpKey(d,op,machine,prod);LaunchRecord item=groups.computeIfAbsent(key,k->{LaunchRecord z=new LaunchRecord();z.setErp(true);z.setErpKey(k);z.setId(erpId(k));z.setDate(d);z.setMachine(machine);z.setProduct(prod);z.setOrderNumber(op);Machine cm=matchedMachine!=null?matchedMachine:resolveMachine(knownMm,machine);z.setSector(cm!=null&&!Norm.text(cm.sector()).isBlank()?cm.sector():Norm.sectorFromMachineRaw(x.machine));z.setCapacity24h(cm!=null?cm.capacity():0);z.setOperatorErp(Norm.text(x.operator));z.setDescriptionErp(Norm.text(x.description));z.setClientErp(Norm.text(x.client));return z;});item.getErpIds().add(x.id);int pcs=(int)Math.round(x.qty*1000.0);switch(Norm.token(x.shift)){case"A"->item.setShiftA(item.getShiftA()+pcs);case"B"->item.setShiftB(item.getShiftB()+pcs);case"C"->item.setShiftC(item.getShiftC()+pcs);}item.setTotalProduced(item.getTotalProduced()+pcs);String description=Norm.text(x.description);if(!description.isBlank())item.setDescriptionErp(description);String client=Norm.text(x.client);if(!client.isBlank())item.setClientErp(client);applyMovementIfLater(item,x.sync,true);}
         List<LaunchRecord> items=new ArrayList<>(groups.values());if(items.isEmpty())return items;
         Map<String,List<Integer>> period=new HashMap<>();for(int i=0;i<items.size();i++){LaunchRecord x=items.get(i);if(x.getDate().isBefore(linkStart)||x.getDate().isAfter(linkEnd))continue;String base=Norm.order(x.getOrderNumber())+"|"+Norm.product(x.getProduct());period.computeIfAbsent(base,k->new ArrayList<>()).add(i);}
         Map<Integer,Double> noShiftKg=new HashMap<>();
@@ -1156,6 +1156,10 @@ public class LaunchService {
         return Norm.machineKey(value);
     }
 
+    private static String legacyMachineLookupKey(Object value){
+        return Norm.legacyMachineKey(value);
+    }
+
     private static Machine resolveMachine(Map<String,Machine> machines,String name){
         if(machines==null||machines.isEmpty())return null;
         Machine direct=machines.get(name);
@@ -1164,6 +1168,10 @@ public class LaunchService {
         if(wanted.isBlank())return null;
         for(Machine m:machines.values()){
             if(machineLookupKey(m.name()).equals(wanted))return m;
+        }
+        String legacy=legacyMachineLookupKey(name);
+        for(Machine m:machines.values()){
+            if(legacyMachineLookupKey(m.name()).equals(legacy))return m;
         }
         return null;
     }

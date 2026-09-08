@@ -167,14 +167,7 @@ public final class Norm {
         }
     }
 
-    /**
-     * Nome canônico usado pelos apontamentos ERP.
-     *
-     * Normaliza aliases históricos de COL TPA/EXTRUSÃO/FOR DE OMBRO/DECORAÇÃO.
-     * Na base real foi identificado também o par operacional INJEÇÃO -> INJETORA
-     * e FECHA HOT AIR -> HOT AIR. Esses dois aliases são necessários para que o
-     * catálogo real (maquinas) seja encontrado sem alterar o valor bruto do ERP.
-     */
+    /** Aliases somente para apontamentos históricos do ERP. */
     public static String machine(String value) {
         String name = text(value);
         String u = name.toUpperCase(Locale.ROOT);
@@ -192,13 +185,17 @@ public final class Norm {
         return name;
     }
 
-    /**
-     * Chave estável de equivalência de máquina. Remove acentos/espaços e
-     * normaliza zeros à esquerda do número, mas nunca aproxima famílias
-     * diferentes. Ex.: EXTRUSÃO 03 == EXTRUSORA 3; INJEÇÂO 05 == INJETORA 05.
-     */
+    /** Chave do nome atual: ignora caixa, acentos, espaços e zeros numéricos. */
     public static String machineKey(Object value) {
-        String normalized = machine(text(value));
+        return compactMachineKey(text(value));
+    }
+
+    /** Chave alternativa para nomes antigos já armazenados pelo ERP. */
+    public static String legacyMachineKey(Object value) {
+        return compactMachineKey(machine(text(value)));
+    }
+
+    private static String compactMachineKey(String normalized) {
         String folded = fold(normalized).replaceAll("[^a-z0-9]+", " ").trim();
         if (folded.isBlank()) return "";
         StringBuilder key = new StringBuilder();
