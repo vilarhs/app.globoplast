@@ -34,7 +34,7 @@ public class CatalogService {
                 try(PreparedStatement p=c.prepareStatement("UPDATE setores SET setor=? WHERE id=?")){p.setString(1,v);p.setLong(2,id);p.executeUpdate();}
                 if(!old.equalsIgnoreCase(v)){
                     try(PreparedStatement p=c.prepareStatement("UPDATE maquinas SET setor=? WHERE setor=? COLLATE NOCASE")){p.setString(1,v);p.setString(2,old);p.executeUpdate();}
-                    try(PreparedStatement p=c.prepareStatement("UPDATE usuarios SET setor=? WHERE perfil='padrao' AND setor=? COLLATE NOCASE")){p.setString(1,v);p.setString(2,old);p.executeUpdate();}
+                    try(PreparedStatement p=c.prepareStatement("UPDATE usuarios SET setor=? WHERE perfil IN ('padrao','fabrica') AND setor=? COLLATE NOCASE")){p.setString(1,v);p.setString(2,old);p.executeUpdate();}
                 }
             }
         }catch(SQLException e){
@@ -54,7 +54,7 @@ public class CatalogService {
                 if(rs.next()&&rs.getInt(1)>0)
                     throw new IllegalArgumentException("Não é possível excluir o setor enquanto houver máquinas vinculadas a ele. Reatribua ou exclua essas máquinas primeiro.");
             }
-            try(PreparedStatement q=c.prepareStatement("SELECT COUNT(*) FROM usuarios WHERE perfil='padrao' AND setor=? COLLATE NOCASE")){
+            try(PreparedStatement q=c.prepareStatement("SELECT COUNT(*) FROM usuarios WHERE perfil IN ('padrao','fabrica') AND setor=? COLLATE NOCASE")){
                 q.setString(1,name); ResultSet rs=q.executeQuery();
                 if(rs.next()&&rs.getInt(1)>0) throw new IllegalArgumentException("Não é possível excluir o setor enquanto houver usuários do perfil Padrão vinculados a ele.");
             }

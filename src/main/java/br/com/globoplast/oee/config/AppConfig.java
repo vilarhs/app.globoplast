@@ -7,7 +7,7 @@ import java.util.List;
 public final class AppConfig {
     private AppConfig() {}
 
-    public static final String VERSION = "0.1.339";
+    public static final String VERSION = "0.1.340";
     public static final ZoneId ZONE = ZoneId.of("America/Sao_Paulo");
     public static final int PBKDF2_ITERATIONS = 260_000;
     public static final String DEFAULT_LANGUAGE = "pt-BR";
@@ -16,6 +16,7 @@ public final class AppConfig {
     public static final String PROFILE_STANDARD = "padrao";
     public static final String PROFILE_FOLLOW = "acompanhamento";
     public static final String PROFILE_CHECKER = "conferente";
+    public static final String PROFILE_FACTORY = "fabrica";
     public static final int PAGE_SIZE = 20;
 
     public static Path dbFile() {

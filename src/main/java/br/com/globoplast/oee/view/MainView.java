@@ -293,6 +293,12 @@ public class MainView extends VerticalLayout {
         mainTabs.setWidthFull();
         mainTabs.setOpenOnHover(false);
 
+        if (user.isFactory()) {
+            MenuItem factoryProductionTab = mainTabs.addItem("🏭 " + t("Produção"));
+            factoryProductionTab.addClassName("gp-main-navigation-root");
+            tabKeys.put(factoryProductionTab, "factory_lancamentos");
+            addTabMenuItem(factoryProductionTab.getSubMenu(), t("Lançamentos Fábrica"), () -> selectTab("factory_lancamentos"));
+        } else {
         if (user.isAdmin()) {
             MenuItem onlineProductionTab = mainTabs.addItem("🏭 " + t("Produção (ON)"));
             onlineProductionTab.addClassName("gp-main-navigation-root");
@@ -331,6 +337,7 @@ public class MainView extends VerticalLayout {
         reportsTab.addClassName("gp-main-navigation-root");
         tabKeys.put(reportsTab, SCRAP_REPORT_KEY);
         addTabMenuItem(reportsTab.getSubMenu(), t("Refugo"), () -> openProductionSubPage(SCRAP_REPORT_KEY));
+        }
 
         addSystemMenu(mainTabs);
 
@@ -348,7 +355,7 @@ public class MainView extends VerticalLayout {
     }
 
     private void selectTab(String key) {
-        String normalizedKey = "producao".equals(key) ? "estoque" : key;
+        String normalizedKey = user != null && user.isFactory() ? "factory_lancamentos" : "producao".equals(key) ? "estoque" : key;
         String selectedKey = Set.of("lancamentos", "dia", "mes", "refugo").contains(normalizedKey)
                 ? "lancamentos"
                 : Set.of("manual_lancamentos", "manual_dia", "manual_mes", "factory_lancamentos").contains(normalizedKey)

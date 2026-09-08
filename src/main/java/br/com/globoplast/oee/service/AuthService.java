@@ -107,9 +107,10 @@ public class AuthService {
 
         String p = normalizeProfile(profile,false);
         boolean admin = AppConfig.PROFILE_ADMIN.equals(p);
-        String targetSector = AppConfig.PROFILE_STANDARD.equals(p) ? emptyToNull(sector) : null;
-        if (AppConfig.PROFILE_STANDARD.equals(p) && targetSector == null)
-            throw new IllegalArgumentException("Selecione o setor do usuário Padrão.");
+        boolean sectorProfile = AppConfig.PROFILE_STANDARD.equals(p) || AppConfig.PROFILE_FACTORY.equals(p);
+        String targetSector = sectorProfile ? emptyToNull(sector) : null;
+        if (sectorProfile && targetSector == null)
+            throw new IllegalArgumentException("Selecione o setor do usuário.");
         if (id == null && (password == null || password.isBlank()))
             throw new IllegalArgumentException("Informe uma senha.");
 
@@ -218,7 +219,7 @@ public class AuthService {
 
     private static String normalizeProfile(String profile,boolean admin){
         if(admin)return AppConfig.PROFILE_ADMIN;String p=Norm.fold(profile);
-        if(p.equals("administrador"))return AppConfig.PROFILE_ADMIN;if(p.equals("acompanhamento")||p.equals("visualizador"))return AppConfig.PROFILE_FOLLOW;if(p.equals("conferente"))return AppConfig.PROFILE_CHECKER;return AppConfig.PROFILE_STANDARD;
+        if(p.equals("administrador"))return AppConfig.PROFILE_ADMIN;if(p.equals("acompanhamento")||p.equals("visualizador"))return AppConfig.PROFILE_FOLLOW;if(p.equals("conferente"))return AppConfig.PROFILE_CHECKER;if(p.equals("fabrica"))return AppConfig.PROFILE_FACTORY;return AppConfig.PROFILE_STANDARD;
     }
     private static String profileDb(String p,boolean admin){return normalizeProfile(p,admin);}
     private static User map(ResultSet rs)throws SQLException{return new User(rs.getLong("id"),Norm.username(rs.getString("usuario")),rs.getInt("is_admin")==1,profileDb(rs.getString("perfil"),rs.getInt("is_admin")==1),emptyToNull(rs.getString("setor")),AppConfig.LANGUAGES.contains(rs.getString("idioma"))?rs.getString("idioma"):"pt-BR");}

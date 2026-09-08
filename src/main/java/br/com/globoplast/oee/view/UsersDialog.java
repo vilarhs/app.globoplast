@@ -84,7 +84,7 @@ final class UsersDialog {
         profile.setAllowCustomValue(false);
         profile.setClearButtonVisible(false);
         profile.addClassNames("gp-admin-standard-field-v057", "gp-admin-profile-field-v057");
-        List<String> profileValues = List.of("Padrão", "Acompanhamento", "Conferente", "Administrador");
+        List<String> profileValues = List.of("Padrão", "Fábrica", "Acompanhamento", "Conferente", "Administrador");
         profile.setItems(profileValues); profile.setItemLabelGenerator(this::t);
         ComboBox<String> sector = new ComboBox<>();
         sector.setLabel(t("Setor"));
@@ -102,8 +102,8 @@ final class UsersDialog {
             username.setValue(existing.username()); profile.setValue(profileCanonical(existing.profile()));
             if (existing.sector() != null && sectors.get().contains(existing.sector())) sector.setValue(existing.sector());
         } else profile.setValue("Padrão");
-        profile.addValueChangeListener(e -> sector.setEnabled("Padrão".equals(e.getValue())));
-        sector.setEnabled("Padrão".equals(profile.getValue()));
+        profile.addValueChangeListener(e -> sector.setEnabled(sectorProfile(e.getValue())));
+        sector.setEnabled(sectorProfile(profile.getValue()));
         Div form = new Div(username, profile, sector, password, confirmPassword); form.addClassNames("gp-admin-form", "gp-admin-user-form");
         Button save = new Button(t("Salvar"), e -> {
             try {
@@ -137,8 +137,13 @@ final class UsersDialog {
             case "administrador" -> "Administrador";
             case "acompanhamento" -> "Acompanhamento";
             case "conferente" -> "Conferente";
+            case "fabrica" -> "Fábrica";
             default -> "Padrão";
         };
+    }
+
+    private static boolean sectorProfile(String profile) {
+        return "Padrão".equals(profile) || "Fábrica".equals(profile);
     }
 
     private String profileLabel(String profile) {
@@ -146,4 +151,3 @@ final class UsersDialog {
     }
 
 }
-

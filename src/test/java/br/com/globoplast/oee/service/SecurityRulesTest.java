@@ -18,11 +18,15 @@ class SecurityRulesTest {
         User standard = new User(1, "PADRAO", false, AppConfig.PROFILE_STANDARD, "IMPRESSÃO", "pt-BR");
         User follow = new User(2, "ACOMPANHA", false, AppConfig.PROFILE_FOLLOW, null, "pt-BR");
         User checker = new User(3, "CONFERE", false, AppConfig.PROFILE_CHECKER, null, "pt-BR");
+        User factory = new User(4, "FABRICA", false, AppConfig.PROFILE_FACTORY, "IMPRESSÃO", "pt-BR");
 
         assertTrue(standard.canModifyLaunches());
         assertFalse(follow.canModifyLaunches());
         assertTrue(follow.canSeeSummaries());
         assertFalse(checker.canModifyLaunches());
         assertFalse(checker.canSeeSummaries());
+        assertTrue(factory.canModifyLaunches());
+        assertFalse(factory.canSeeSummaries());
+        assertTrue(factory.isFactory());
     }
 }

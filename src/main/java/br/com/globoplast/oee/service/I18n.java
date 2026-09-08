@@ -115,6 +115,7 @@ public final class I18n {
             Map.entry("Extrusão", "Extrusion"),
             Map.entry("Fechamento de Fundo", "Bottom Sealing"),
             Map.entry("Fechar", "Close"),
+            Map.entry("Fábrica", "Factory"),
             Map.entry("Filtrar por Máquina", "Filter by Machine"),
             Map.entry("Filtrar por Setor", "Filter by Department"),
             Map.entry("Filtrar por Turno", "Filter by Shift"),

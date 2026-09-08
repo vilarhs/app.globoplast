@@ -60,7 +60,7 @@ public class Database {
             s.executeUpdate("UPDATE usuarios SET idioma='pt-BR' WHERE idioma IS NULL OR TRIM(idioma) NOT IN ('pt-BR','en-US')");
             s.executeUpdate("UPDATE usuarios SET perfil='administrador' WHERE is_admin=1");
             s.executeUpdate("UPDATE usuarios SET perfil='acompanhamento' WHERE is_admin=0 AND LOWER(TRIM(perfil))='visualizador'");
-            s.executeUpdate("UPDATE usuarios SET perfil='padrao' WHERE is_admin=0 AND (perfil IS NULL OR TRIM(perfil)='' OR LOWER(TRIM(perfil)) NOT IN ('padrao','acompanhamento','conferente'))");
+            s.executeUpdate("UPDATE usuarios SET perfil='padrao' WHERE is_admin=0 AND (perfil IS NULL OR TRIM(perfil)='' OR LOWER(TRIM(perfil)) NOT IN ('padrao','acompanhamento','conferente','fabrica'))");
             s.executeUpdate("UPDATE usuarios SET usuario=UPPER(TRIM(usuario))");
             s.executeUpdate("UPDATE historico_oee SET movimentado_em=data||'T'||CASE WHEN TRIM(COALESCE(hora_lancamento,''))='' THEN '00:00:00' ELSE substr(hora_lancamento,1,8) END||'-03:00' WHERE movimentado_em IS NULL OR TRIM(movimentado_em)=''");
             s.executeUpdate("INSERT INTO maquinas_snapshot(maquina,capacidade,setor,atualizado_em) SELECT maquina,capacidade,setor,CURRENT_TIMESTAMP FROM maquinas WHERE capacidade>0 ON CONFLICT(maquina) DO UPDATE SET capacidade=excluded.capacidade,setor=excluded.setor,atualizado_em=excluded.atualizado_em");
