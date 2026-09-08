@@ -9,6 +9,7 @@ class LaunchDisplayValuesTest {
     void formatsNumbersAccordingToLanguageAndHidesZero() {
         assertEquals("", LaunchDisplayValues.number(0, "pt-BR"));
         assertEquals("12,5", LaunchDisplayValues.number(12.5, "pt-BR"));
+        assertEquals("1,65", LaunchDisplayValues.number(1.6500000000000001, "pt-BR"));
         assertEquals("12.5", LaunchDisplayValues.number(12.5, "en-US"));
         assertEquals("24", LaunchDisplayValues.integer(24));
         assertEquals("", LaunchDisplayValues.integer(0));
