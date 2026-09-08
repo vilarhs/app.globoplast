@@ -77,7 +77,7 @@ final class FactoryLaunchScreen {
 
         Popover filterDropdown = filterDropdown(filter);
         Div toolbar = new Div(summary, add);
-        toolbar.addClassNames("gp-toolbar", "gp-tab-controls", "gp-launch-toolbar-v045");
+        toolbar.addClassNames("gp-toolbar", "gp-tab-controls", "gp-launch-toolbar-v045", "gp-factory-launch-toolbar");
 
         grid = new Grid<>(LaunchRecord.class, false);
         grid.addClassNames("gp-launch-grid-v059", "gp-factory-launch-grid");
@@ -126,9 +126,10 @@ final class FactoryLaunchScreen {
         summaryGrid.setItems(rows);
         summaryGrid.setAllRowsVisible(true);
 
-        Div totals = new Div(
-                total(t("Total Turno A"), totalA), total(t("Total Turno B"), totalB),
-                total(t("Total Turno C"), totalC), total(t("Total Geral"), totalA + totalB + totalC));
+        Span grandTotal = total(t("Total Geral"), totalA + totalB + totalC);
+        grandTotal.addClassName("gp-factory-day-summary-grand-total");
+        Div totals = new Div(total(t("Total Turno A"), totalA), total(t("Total Turno B"), totalB),
+                total(t("Total Turno C"), totalC), grandTotal);
         totals.addClassName("gp-factory-day-summary-totals");
         dialog.add(dateTitle, summaryGrid, totals);
         dialog.getFooter().add(new Button(t("Fechar"), event -> dialog.close()));
