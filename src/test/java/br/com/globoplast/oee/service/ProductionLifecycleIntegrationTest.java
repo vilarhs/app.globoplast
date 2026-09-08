@@ -152,13 +152,17 @@ class ProductionLifecycleIntegrationTest {
     @Test
     void usesAutomaticLaunchMachineForOrderDefaults() {
         catalog.saveMachine(null, "COL DE TAMPA 1", 50_000, "COL DE TAMPA");
+        catalog.saveMachine(null, "COL DE TAMPA 2", 50_000, "COL DE TAMPA");
         Map<String, Object> production = values(
                 "erp_id", 4101L, "ordem", "991001", "data_apon", productionDate.toString(),
                 "produto", "7761234567", "maquina", "COL DE TAMPA 1", "turno", "A", "qtd_apon", 10.0);
         Map<String, Object> rejection = values(
                 "erp_id", 4102L, "ordem", "991001", "data_apon", productionDate.toString(),
                 "produto", "7751234567", "maquina", "HOT AIR 1", "turno", "A", "qtd_refugo", 1.0);
-        sync.importBatch("apontamento", List.of(production), "test", "test");
+        Map<String, Object> nextDayProduction = values(
+                "erp_id", 4103L, "ordem", "991001", "data_apon", productionDate.plusDays(1).toString(),
+                "produto", "7761234567", "maquina", "COL DE TAMPA 2", "turno", "A", "qtd_apon", 10.0);
+        sync.importBatch("apontamento", List.of(production, nextDayProduction), "test", "test");
         sync.importBatch("refugo", List.of(rejection), "test", "test");
 
         LaunchService.OrderLaunchDefaults defaults = launches.orderLaunchDefaults("991001", "COL DE TAMPA", productionDate);

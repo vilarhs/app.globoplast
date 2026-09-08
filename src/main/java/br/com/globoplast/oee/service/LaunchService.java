@@ -22,7 +22,6 @@ import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -248,7 +247,6 @@ public class LaunchService {
         Map<String, Machine> machines = catalog.machineMap();
         OrderLaunchDefaults latest = null;
         OrderLaunchDefaults nearest = null;
-        long nearestDistance = Long.MAX_VALUE;
         try (Connection c = db.open(); PreparedStatement p = c.prepareStatement(
                 "SELECT data_apon,turno,produto,maquina FROM erp_apontamento_raw " +
                         "WHERE ordem=? AND TRIM(COALESCE(produto,''))<>'' " +
@@ -262,13 +260,7 @@ public class LaunchService {
                     if (!sector.isBlank() && machine != null && !sector.equals(Norm.canonicalSector(machine.sector()))) continue;
                     OrderLaunchDefaults candidate = new OrderLaunchDefaults(product, machine == null ? "" : machine.name());
                     LocalDate date = Norm.productiveDate(Norm.isoDate(r.getString("data_apon")), r.getString("turno"));
-                    if (productionDate != null && date != null) {
-                        long distance = Math.abs(ChronoUnit.DAYS.between(productionDate, date));
-                        if (distance <= 1 && distance < nearestDistance) {
-                            nearest = candidate;
-                            nearestDistance = distance;
-                        }
-                    }
+                    if (productionDate != null && productionDate.equals(date)) nearest = candidate;
                     if (latest == null) latest = candidate;
                 }
             }
