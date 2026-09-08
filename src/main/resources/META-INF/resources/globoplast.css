@@ -5737,8 +5737,8 @@ html body .gp-dialog-close :is(vaadin-icon,svg){width:20px!important;height:20px
 .gp-factory-title-row{grid-template-columns:minmax(0,1fr) auto;align-items:center}
 .gp-factory-day-summary-date{text-align:center;font-weight:700;margin:.1rem 0 .8rem}
 .gp-factory-day-summary-button{flex:0 0 auto!important;min-height:44px!important}
-.gp-factory-launch-toolbar{justify-content:flex-end!important}
-.gp-factory-launch-toolbar>.gp-launch-new-inline-v045{margin-left:0!important}
+html body .gp-launch-toolbar-v045.gp-factory-launch-toolbar{justify-content:flex-end!important}
+html body .gp-launch-toolbar-v045.gp-factory-launch-toolbar>.gp-launch-new-inline-v045{margin-left:0!important}
 .gp-factory-day-summary-totals{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.6rem;margin:.9rem 0 .15rem}
 .gp-factory-day-summary-total{display:block;text-align:center;font-weight:700;padding:.6rem .4rem;border:1px solid var(--gp-border);border-radius:.45rem}
 .gp-factory-day-summary-grand-total{background:var(--gp-surface-2)}
