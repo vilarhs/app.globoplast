@@ -150,7 +150,7 @@ class ProductionLifecycleIntegrationTest {
     }
 
     @Test
-    void usesRecordedScrapMachineForOrderDefaults() {
+    void usesAutomaticLaunchMachineForOrderDefaults() {
         catalog.saveMachine(null, "COL DE TAMPA 1", 50_000, "COL DE TAMPA");
         Map<String, Object> production = values(
                 "erp_id", 4101L, "ordem", "991001", "data_apon", productionDate.toString(),
@@ -163,7 +163,7 @@ class ProductionLifecycleIntegrationTest {
 
         LaunchService.OrderLaunchDefaults defaults = launches.orderLaunchDefaults("991001", "COL DE TAMPA", productionDate);
         assertEquals("7761234567", defaults.product());
-        assertEquals("HOT AIR 1", defaults.machine());
+        assertEquals("COL DE TAMPA 1", defaults.machine());
     }
 
     @Test

@@ -236,7 +236,7 @@ public class LaunchService {
         return productMetadata(productCode).description();
     }
 
-    /** Produto vem do apontamento ERP; máquina vem do Refugo da mesma OP e setor. */
+    /** Máquina e produto mais recentes da OP no processo correspondente ao setor do usuário. */
     public OrderLaunchDefaults orderLaunchDefaults(String orderNumber, String sectorName, LocalDate productionDate) {
         String order = Norm.order(orderNumber);
         String sector = Norm.canonicalSector(sectorName);
@@ -245,8 +245,9 @@ public class LaunchService {
         try { orderValue = Long.parseLong(order); }
         catch (NumberFormatException ignored) { return new OrderLaunchDefaults("", ""); }
 
-        String latest = "";
-        String nearest = "";
+        Map<String, Machine> machines = catalog.machineMap();
+        OrderLaunchDefaults latest = null;
+        OrderLaunchDefaults nearest = null;
         long nearestDistance = Long.MAX_VALUE;
         try (Connection c = db.open(); PreparedStatement p = c.prepareStatement(
                 "SELECT data_apon,turno,produto,maquina FROM erp_apontamento_raw " +
@@ -257,63 +258,40 @@ public class LaunchService {
                 while (r.next()) {
                     String product = Norm.product(r.getString("produto"));
                     if (!sector.isBlank() && !sector.equals(Norm.canonicalSector(Norm.scrapSector(product)))) continue;
+                    Machine machine = resolveMachine(machines, r.getString("maquina"));
+                    if (!sector.isBlank() && machine != null && !sector.equals(Norm.canonicalSector(machine.sector()))) continue;
+                    OrderLaunchDefaults candidate = new OrderLaunchDefaults(product, machine == null ? "" : machine.name());
                     LocalDate date = Norm.productiveDate(Norm.isoDate(r.getString("data_apon")), r.getString("turno"));
                     if (productionDate != null && date != null) {
                         long distance = Math.abs(ChronoUnit.DAYS.between(productionDate, date));
                         if (distance <= 1 && distance < nearestDistance) {
-                            nearest = product;
+                            nearest = candidate;
                             nearestDistance = distance;
                         }
                     }
-                    if (latest.isBlank()) latest = product;
+                    if (latest == null) latest = candidate;
                 }
             }
         } catch (SQLException e) {
             throw new IllegalStateException(e);
         }
-        String product = !nearest.isBlank() ? nearest : latest;
-        if (product.isBlank()) product = plannedProductForOrder(orderValue, sector);
-        return new OrderLaunchDefaults(product, scrapMachineForOrder(orderValue, sector, productionDate));
-    }
-
-    private String plannedProductForOrder(long order, String sector) {
+        if (nearest != null) return nearest;
+        if (latest != null) return latest;
         try (Connection c = db.open(); PreparedStatement p = c.prepareStatement(
                 "SELECT produto FROM erp_planejamento_raw WHERE ordem=? AND TRIM(COALESCE(produto,''))<>'' " +
                         "ORDER BY data_plan DESC,sincronizado_em DESC,erp_id DESC")) {
-            p.setLong(1, order);
+            p.setLong(1, orderValue);
             try (ResultSet r = p.executeQuery()) {
                 while (r.next()) {
                     String product = Norm.product(r.getString(1));
-                    if (sector.isBlank() || sector.equals(Norm.canonicalSector(Norm.scrapSector(product)))) return product;
+                    if (sector.isBlank() || sector.equals(Norm.canonicalSector(Norm.scrapSector(product))))
+                        return new OrderLaunchDefaults(product, "");
                 }
             }
-        } catch (SQLException e) { throw new IllegalStateException(e); }
-        return "";
-    }
-
-    private String scrapMachineForOrder(long order, String sector, LocalDate productionDate) {
-        Machine latest = null, nearest = null;
-        long nearestDistance = Long.MAX_VALUE;
-        try (Connection c = db.open(); PreparedStatement p = c.prepareStatement(
-                "SELECT data_apon,turno,produto,maquina,COALESCE(primeiro_sincronizado_em,sincronizado_em) sincronizado_em " +
-                        "FROM erp_refugo_raw WHERE ordem=? AND TRIM(COALESCE(maquina,''))<>'' " +
-                        "ORDER BY sincronizado_em DESC,erp_id DESC")) {
-            p.setLong(1, order);
-            try (ResultSet r = p.executeQuery()) {
-                while (r.next()) {
-                    if (!sector.isBlank() && !matchesManualScrapLookup(sector, "", r.getString("produto"), r.getString("maquina"))) continue;
-                    Machine machine = resolveMachine(catalog.machineMap(), r.getString("maquina"));
-                    if (machine == null || (!sector.isBlank() && !sector.equals(Norm.canonicalSector(machine.sector())))) continue;
-                    LocalDate date = Norm.productiveScrapDate(Norm.isoDate(r.getString("data_apon")), r.getString("turno"), r.getString("sincronizado_em"));
-                    if (productionDate != null && date != null) {
-                        long distance = Math.abs(ChronoUnit.DAYS.between(productionDate, date));
-                        if (distance <= 1 && distance < nearestDistance) { nearest = machine; nearestDistance = distance; }
-                    }
-                    if (latest == null) latest = machine;
-                }
-            }
-        } catch (SQLException e) { throw new IllegalStateException(e); }
-        return (nearest != null ? nearest : latest) == null ? "" : (nearest != null ? nearest : latest).name();
+        } catch (SQLException e) {
+            throw new IllegalStateException(e);
+        }
+        return new OrderLaunchDefaults("", "");
     }
 
     public double productUnitWeightG(String productCode) {
