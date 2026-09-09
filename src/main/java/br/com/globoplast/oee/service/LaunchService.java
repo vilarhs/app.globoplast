@@ -180,11 +180,73 @@ public class LaunchService {
         completeFactoryLaunch(record, 0);
         record.setOrigin("FABRICA");
         saveManual(record,user);
+        saveFactoryShiftTimes(record, null);
     }
 
     public void updateFactoryLaunch(LaunchRecord record,User user){
+        LaunchRecord previous=factoryRecord(record.getId());
+        if(previous==null)throw new IllegalArgumentException("Lançamento Fábrica não encontrado.");
+        requireFactoryShiftChangesAllowed(previous,record,user);
         completeFactoryLaunch(record, record.getId());
         updateManual(record,user);
+        saveFactoryShiftTimes(record, previous);
+    }
+
+    public boolean factoryDeleteLocked(User user,LaunchRecord record){
+        return isFactoryRecordForFactoryUser(user,record)&&oneHourElapsed(record.getMovementAt());
+    }
+
+    public boolean factoryShiftLocked(User user,LaunchRecord record,String shift){
+        if(!isFactoryRecordForFactoryUser(user,record))return false;
+        return switch(shift){
+            case "A" -> record.getShiftA()>0&&oneHourElapsed(shiftTime(record,"A"));
+            case "B" -> record.getShiftB()>0&&oneHourElapsed(shiftTime(record,"B"));
+            case "C" -> record.getShiftC()>0&&oneHourElapsed(shiftTime(record,"C"));
+            default -> false;
+        };
+    }
+
+    private static boolean isFactoryRecordForFactoryUser(User user,LaunchRecord record){
+        return user!=null&&user.isFactory()&&record!=null&&"FABRICA".equalsIgnoreCase(record.getOrigin());
+    }
+
+    private static boolean oneHourElapsed(String value){
+        if(value==null||value.isBlank())return false;
+        try{return !ZonedDateTime.now(AppConfig.ZONE).isBefore(ZonedDateTime.parse(value).plusHours(1));}
+        catch(Exception ignored){return false;}
+    }
+
+    private static String shiftTime(LaunchRecord record,String shift){
+        String value=switch(shift){case "A" -> record.getShiftALaunchedAt();case "B" -> record.getShiftBLaunchedAt();default -> record.getShiftCLaunchedAt();};
+        return value==null||value.isBlank()?record.getMovementAt():value;
+    }
+
+    private void requireFactoryShiftChangesAllowed(LaunchRecord previous,LaunchRecord record,User user){
+        if(factoryShiftLocked(user,previous,"A")&&previous.getShiftA()!=record.getShiftA())throw new IllegalArgumentException("Turno A não pode ser alterado após 1 hora.");
+        if(factoryShiftLocked(user,previous,"B")&&previous.getShiftB()!=record.getShiftB())throw new IllegalArgumentException("Turno B não pode ser alterado após 1 hora.");
+        if(factoryShiftLocked(user,previous,"C")&&previous.getShiftC()!=record.getShiftC())throw new IllegalArgumentException("Turno C não pode ser alterado após 1 hora.");
+    }
+
+    private LaunchRecord factoryRecord(long id){
+        try(Connection c=db.open();PreparedStatement p=c.prepareStatement("SELECT * FROM historico_oee WHERE id=? AND origem='FABRICA'")){
+            p.setLong(1,id);ResultSet r=p.executeQuery();return r.next()?mapManual(r):null;
+        }catch(SQLException e){throw new IllegalStateException(e);}
+    }
+
+    private void saveFactoryShiftTimes(LaunchRecord record,LaunchRecord previous){
+        String now=ZonedDateTime.now(AppConfig.ZONE).toString();
+        record.setShiftALaunchedAt(shiftLaunchedAt(previous==null?0:previous.getShiftA(),previous==null?"":previous.getShiftALaunchedAt(),record.getShiftA(),record.getMovementAt(),now));
+        record.setShiftBLaunchedAt(shiftLaunchedAt(previous==null?0:previous.getShiftB(),previous==null?"":previous.getShiftBLaunchedAt(),record.getShiftB(),record.getMovementAt(),now));
+        record.setShiftCLaunchedAt(shiftLaunchedAt(previous==null?0:previous.getShiftC(),previous==null?"":previous.getShiftCLaunchedAt(),record.getShiftC(),record.getMovementAt(),now));
+        try(Connection c=db.open();PreparedStatement p=c.prepareStatement("UPDATE historico_oee SET turno_a_lancado_em=?,turno_b_lancado_em=?,turno_c_lancado_em=? WHERE id=?")){
+            p.setString(1,record.getShiftALaunchedAt());p.setString(2,record.getShiftBLaunchedAt());p.setString(3,record.getShiftCLaunchedAt());p.setLong(4,record.getId());p.executeUpdate();
+        }catch(SQLException e){throw new IllegalStateException(e);}
+    }
+
+    private static String shiftLaunchedAt(int previousQuantity,String previousTime,int quantity,String createdAt,String now){
+        if(quantity<=0)return "";
+        if(previousQuantity>0)return previousTime==null||previousTime.isBlank()?createdAt:previousTime;
+        return now;
     }
 
     private void completeFactoryLaunch(LaunchRecord record,long excludedId){
@@ -917,6 +979,7 @@ public class LaunchService {
                 if(snapshot==null)throw new IllegalArgumentException("Lançamento não encontrado.");
                 d=snapshot.getDate();machine=snapshot.getMachine();
                 ensureUserCanActOnMachine(user,machine);
+                if(factoryDeleteLocked(user,snapshot))throw new IllegalArgumentException("Lançamento Fábrica não pode ser excluído após 1 hora.");
                 putInTrash(c,"MANUAL",String.valueOf(id),snapshot,false,null,user);
                 try(PreparedStatement p=c.prepareStatement("DELETE FROM historico_oee WHERE id=?")){p.setLong(1,id);p.executeUpdate();}
                 c.commit();
@@ -1420,7 +1483,7 @@ public class LaunchService {
 
     private void finalizeManual(LaunchRecord r){r.setTotalProduced(Math.max(0,r.getShiftA())+Math.max(0,r.getShiftB())+Math.max(0,r.getShiftC()));r.setScrapTotalKg(Norm.round(Math.max(0,r.getScrapAKg())+Math.max(0,r.getScrapBKg())+Math.max(0,r.getScrapCKg()),2));r.setScrapTotalPcs(r.getUnitWeightG()>0?(int)(r.getScrapTotalKg()*1000.0/r.getUnitWeightG()):0);if(r.getScheduledHours()<=0)r.setScheduledHours(24.0);if(r.getLaunchTime()==null||r.getLaunchTime().isBlank())r.setLaunchTime(LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss")));oee.recalculate(List.of(r));}
     private void recalculateManualDay(LocalDate d,String machine){if(d==null||machine==null)return;List<LaunchRecord>g=new ArrayList<>();try(Connection c=db.open();PreparedStatement p=c.prepareStatement("SELECT * FROM historico_oee WHERE data=? AND maquina=?")){p.setString(1,d.toString());p.setString(2,machine);ResultSet r=p.executeQuery();while(r.next())g.add(mapManual(r));oee.recalculate(g);try(PreparedStatement u=c.prepareStatement("UPDATE historico_oee SET refugo_pct=?,tempo_produzindo_hrs=?,disponibilidade_pct=?,desempenho_pct=?,qualidade_pct=?,oee_pct=? WHERE id=?")){for(LaunchRecord x:g){u.setDouble(1,x.getScrapPct());u.setDouble(2,x.getProducingHours());u.setDouble(3,x.getAvailabilityPct());u.setDouble(4,x.getPerformancePct());u.setDouble(5,x.getQualityPct());u.setDouble(6,x.getOeePct());u.setLong(7,x.getId());u.addBatch();}u.executeBatch();}}catch(SQLException e){throw new IllegalStateException(e);}}
-    private static LaunchRecord mapManual(ResultSet r)throws SQLException{LaunchRecord x=new LaunchRecord();x.setId(r.getLong("id"));x.setErp(false);x.setDate(LocalDate.parse(r.getString("data")));x.setMachine(r.getString("maquina"));x.setProduct(r.getString("produto"));x.setOrderNumber(r.getString("numero_op"));x.setProductionDetail(r.getString("op_producao_detalhe"));x.setScheduledHours(r.getDouble("horas_programadas"));x.setCapacity24h(r.getInt("capacidade_24h"));x.setShiftA(r.getInt("turno_a_pcs"));x.setShiftB(r.getInt("turno_b_pcs"));x.setShiftC(r.getInt("turno_c_pcs"));x.setTotalProduced(r.getInt("total_produzido_pcs"));x.setUnitWeightG(r.getDouble("peso_unitario_g"));x.setScrapAKg(r.getDouble("refugo_a_kg"));x.setScrapBKg(r.getDouble("refugo_b_kg"));x.setScrapCKg(r.getDouble("refugo_c_kg"));x.setScrapTotalKg(r.getDouble("refugo_total_kg"));x.setScrapTotalPcs(r.getInt("refugo_total_pcs"));x.setScrapPct(r.getDouble("refugo_pct"));x.setChangeovers(r.getInt("qtd_trocas"));x.setSetupHours(r.getDouble("tempo_setup_hrs"));x.setBreakdownHours(r.getDouble("horas_paradas_quebra"));x.setProducingHours(r.getDouble("tempo_produzindo_hrs"));x.setAvailabilityPct(r.getDouble("disponibilidade_pct"));x.setPerformancePct(r.getDouble("desempenho_pct"));x.setQualityPct(r.getDouble("qualidade_pct"));x.setOeePct(r.getDouble("oee_pct"));x.setProblem(r.getString("problema"));x.setActionTaken(r.getString("acao_tomada"));x.setLaunchTime(r.getString("hora_lancamento"));x.setMovementAt(r.getString("movimentado_em"));x.setEditedAt(r.getString("editado_em"));x.setOrigin(r.getString("origem"));return x;}
+    private static LaunchRecord mapManual(ResultSet r)throws SQLException{LaunchRecord x=new LaunchRecord();x.setId(r.getLong("id"));x.setErp(false);x.setDate(LocalDate.parse(r.getString("data")));x.setMachine(r.getString("maquina"));x.setProduct(r.getString("produto"));x.setOrderNumber(r.getString("numero_op"));x.setProductionDetail(r.getString("op_producao_detalhe"));x.setScheduledHours(r.getDouble("horas_programadas"));x.setCapacity24h(r.getInt("capacidade_24h"));x.setShiftA(r.getInt("turno_a_pcs"));x.setShiftB(r.getInt("turno_b_pcs"));x.setShiftC(r.getInt("turno_c_pcs"));x.setTotalProduced(r.getInt("total_produzido_pcs"));x.setUnitWeightG(r.getDouble("peso_unitario_g"));x.setScrapAKg(r.getDouble("refugo_a_kg"));x.setScrapBKg(r.getDouble("refugo_b_kg"));x.setScrapCKg(r.getDouble("refugo_c_kg"));x.setScrapTotalKg(r.getDouble("refugo_total_kg"));x.setScrapTotalPcs(r.getInt("refugo_total_pcs"));x.setScrapPct(r.getDouble("refugo_pct"));x.setChangeovers(r.getInt("qtd_trocas"));x.setSetupHours(r.getDouble("tempo_setup_hrs"));x.setBreakdownHours(r.getDouble("horas_paradas_quebra"));x.setProducingHours(r.getDouble("tempo_produzindo_hrs"));x.setAvailabilityPct(r.getDouble("disponibilidade_pct"));x.setPerformancePct(r.getDouble("desempenho_pct"));x.setQualityPct(r.getDouble("qualidade_pct"));x.setOeePct(r.getDouble("oee_pct"));x.setProblem(r.getString("problema"));x.setActionTaken(r.getString("acao_tomada"));x.setLaunchTime(r.getString("hora_lancamento"));x.setMovementAt(r.getString("movimentado_em"));x.setEditedAt(r.getString("editado_em"));x.setOrigin(r.getString("origem"));x.setShiftALaunchedAt(r.getString("turno_a_lancado_em"));x.setShiftBLaunchedAt(r.getString("turno_b_lancado_em"));x.setShiftCLaunchedAt(r.getString("turno_c_lancado_em"));return x;}
     private static void bindManual(PreparedStatement p,LaunchRecord r)throws SQLException{int i=1;p.setString(i++,r.getDate().toString());p.setString(i++,Norm.br(r.getDate()));p.setString(i++,r.getMachine());p.setString(i++,r.getProduct());p.setString(i++,r.getOrderNumber());p.setString(i++,r.getProductionDetail());p.setDouble(i++,r.getScheduledHours());p.setInt(i++,r.getCapacity24h());p.setInt(i++,r.getShiftA());p.setInt(i++,r.getShiftB());p.setInt(i++,r.getShiftC());p.setInt(i++,r.getTotalProduced());p.setDouble(i++,r.getUnitWeightG());p.setDouble(i++,r.getScrapAKg());p.setDouble(i++,r.getScrapBKg());p.setDouble(i++,r.getScrapCKg());p.setDouble(i++,r.getScrapTotalKg());p.setInt(i++,r.getScrapTotalPcs());p.setDouble(i++,r.getScrapPct());p.setInt(i++,r.getChangeovers());p.setDouble(i++,r.getSetupHours());p.setDouble(i++,r.getBreakdownHours());p.setDouble(i++,r.getProducingHours());p.setDouble(i++,r.getAvailabilityPct());p.setDouble(i++,r.getPerformancePct());p.setDouble(i++,r.getQualityPct());p.setDouble(i++,r.getOeePct());p.setString(i++,r.getProblem());p.setString(i++,r.getActionTaken());p.setString(i,r.getLaunchTime());}
     private static String erpKey(LocalDate d,String op,String machine,String product){return d+"|"+Norm.order(op)+"|"+Norm.token(machine)+"|"+Norm.product(product);}
     private static long erpId(String key){try{byte[]b=MessageDigest.getInstance("SHA-1").digest(key.getBytes(StandardCharsets.UTF_8));long v=0;for(int i=0;i<7;i++)v=(v<<8)|(b[i]&255);return 8_000_000_000_000L+(Math.abs(v)%900_000_000_000L);}catch(Exception e){return 8_000_000_000_000L+Math.abs(key.hashCode());}}

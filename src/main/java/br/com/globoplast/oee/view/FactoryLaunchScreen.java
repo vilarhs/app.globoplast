@@ -219,6 +219,10 @@ final class FactoryLaunchScreen {
         Button edit = ViewComponents.actionIcon(VaadinIcon.EDIT, t("Editar"));
         edit.addClickListener(event -> open(record));
         Button delete = ViewComponents.actionIcon(VaadinIcon.TRASH, t("Excluir"));
+        if (launches.factoryDeleteLocked(user.get(), record)) {
+            delete.setEnabled(false);
+            delete.setTooltipText(t("Exclusão bloqueada após 1 hora."));
+        }
         delete.addClickListener(event -> confirmDelete(record));
         return ViewComponents.actionIcons(edit, delete);
     }
@@ -251,6 +255,11 @@ final class FactoryLaunchScreen {
         shiftA.setAllowedCharPattern("[0-9+ .]");
         shiftB.setAllowedCharPattern("[0-9+ .]");
         shiftC.setAllowedCharPattern("[0-9+ .]");
+        if (editing) {
+            shiftA.setReadOnly(launches.factoryShiftLocked(user.get(), record, "A"));
+            shiftB.setReadOnly(launches.factoryShiftLocked(user.get(), record, "B"));
+            shiftC.setReadOnly(launches.factoryShiftLocked(user.get(), record, "C"));
+        }
 
         order.setValueChangeMode(ValueChangeMode.LAZY);
         order.setValueChangeTimeout(300);

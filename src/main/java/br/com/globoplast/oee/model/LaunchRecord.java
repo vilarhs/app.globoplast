@@ -43,6 +43,9 @@ public class LaunchRecord {
     private String movementAt = "";
     private String editedAt = "";
     private String origin = "MANUAL";
+    private String shiftALaunchedAt = "";
+    private String shiftBLaunchedAt = "";
+    private String shiftCLaunchedAt = "";
     private String operatorErp = "";
     private String descriptionErp = "";
     private String clientErp = "";
@@ -127,6 +130,12 @@ public class LaunchRecord {
     public void setEditedAt(String editedAt) { this.editedAt = nz(editedAt); }
     public String getOrigin() { return origin; }
     public void setOrigin(String origin) { this.origin = nz(origin).isBlank() ? "MANUAL" : origin; }
+    public String getShiftALaunchedAt() { return shiftALaunchedAt; }
+    public void setShiftALaunchedAt(String value) { this.shiftALaunchedAt = nz(value); }
+    public String getShiftBLaunchedAt() { return shiftBLaunchedAt; }
+    public void setShiftBLaunchedAt(String value) { this.shiftBLaunchedAt = nz(value); }
+    public String getShiftCLaunchedAt() { return shiftCLaunchedAt; }
+    public void setShiftCLaunchedAt(String value) { this.shiftCLaunchedAt = nz(value); }
     public String getOperatorErp() { return operatorErp; }
     public void setOperatorErp(String operatorErp) { this.operatorErp = nz(operatorErp); }
     public String getDescriptionErp() { return descriptionErp; }
@@ -156,7 +165,7 @@ public class LaunchRecord {
         x.unitWeightG=unitWeightG; x.scrapAKg=scrapAKg; x.scrapBKg=scrapBKg; x.scrapCKg=scrapCKg; x.scrapTotalKg=scrapTotalKg; x.scrapTotalPcs=scrapTotalPcs;
         x.scrapPct=scrapPct; x.changeovers=changeovers; x.setupHours=setupHours; x.breakdownHours=breakdownHours; x.producingHours=producingHours;
         x.availabilityPct=availabilityPct; x.performancePct=performancePct; x.qualityPct=qualityPct; x.oeePct=oeePct;
-        x.problem=problem; x.actionTaken=actionTaken; x.launchTime=launchTime; x.movementAt=movementAt; x.editedAt=editedAt; x.origin=origin; x.operatorErp=operatorErp; x.descriptionErp=descriptionErp; x.clientErp=clientErp; x.launchCount=launchCount;
+        x.problem=problem; x.actionTaken=actionTaken; x.launchTime=launchTime; x.movementAt=movementAt; x.editedAt=editedAt; x.origin=origin; x.shiftALaunchedAt=shiftALaunchedAt; x.shiftBLaunchedAt=shiftBLaunchedAt; x.shiftCLaunchedAt=shiftCLaunchedAt; x.operatorErp=operatorErp; x.descriptionErp=descriptionErp; x.clientErp=clientErp; x.launchCount=launchCount;
         x.orderProgressAvailable=orderProgressAvailable; x.orderPlannedPcs=orderPlannedPcs; x.orderLaunchedPcs=orderLaunchedPcs;
         return x;
     }

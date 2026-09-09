@@ -14,10 +14,12 @@ import tools.jackson.databind.json.JsonMapper;
 
 import java.nio.file.Path;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.time.ZonedDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -215,6 +217,36 @@ class ProductionLifecycleIntegrationTest {
                 "qtd_refugo", 2.0, "peso_br", 10.0, "qtd_itens", 200)), "test", "test");
 
         assertEquals(2.0, assertSingle(launches.factoryLaunches(admin)).getScrapBKg(), 0.001);
+    }
+
+    @Test
+    void factoryProfileLocksOnlyTheShiftLaunchedMoreThanOneHourAgo() throws Exception {
+        User factoryUser = new User(2, "FÁBRICA", false, AppConfig.PROFILE_FACTORY, "COL DE TAMPA", "pt-BR");
+        LaunchRecord factory = manualLaunch("990006", "7761234567", 4_000, 0);
+        launches.saveFactoryLaunch(factory, factoryUser);
+        String oldTime = ZonedDateTime.now(AppConfig.ZONE).minusHours(1).minusSeconds(1).toString();
+        try (Connection connection = database.open(); PreparedStatement update = connection.prepareStatement(
+                "UPDATE historico_oee SET movimentado_em=?,turno_b_lancado_em=? WHERE id=?")) {
+            update.setString(1, oldTime);
+            update.setString(2, oldTime);
+            update.setLong(3, factory.getId());
+            update.executeUpdate();
+        }
+
+        LaunchRecord saved = assertSingle(launches.factoryLaunches(factoryUser));
+        assertTrue(launches.factoryShiftLocked(factoryUser, saved, "B"));
+        assertFalse(launches.factoryShiftLocked(factoryUser, saved, "C"));
+        saved.setShiftB(5_000);
+        assertThrows(IllegalArgumentException.class, () -> launches.updateFactoryLaunch(saved, factoryUser));
+        assertThrows(IllegalArgumentException.class, () -> launches.deleteManual(saved.getId(), factoryUser));
+
+        saved.setShiftB(4_000);
+        saved.setShiftC(1_000);
+        launches.updateFactoryLaunch(saved, admin);
+        LaunchRecord updated = assertSingle(launches.factoryLaunches(admin));
+        assertFalse(updated.getShiftCLaunchedAt().isBlank());
+        assertFalse(launches.factoryShiftLocked(admin, updated, "B"));
+        launches.deleteManual(updated.getId(), admin);
     }
 
     @Test
