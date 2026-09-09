@@ -217,6 +217,17 @@ class ProductionLifecycleIntegrationTest {
         assertEquals(2.0, assertSingle(launches.factoryLaunches(admin)).getScrapBKg(), 0.001);
     }
 
+    @Test
+    void preventsRepeatedOrderForSameDateAndMachineAcrossManualAndFactoryLaunches() {
+        launches.saveManual(manualLaunch("990005", "7761234567", 4_000, 0), admin);
+
+        IllegalArgumentException manualDuplicate = assertThrows(IllegalArgumentException.class,
+                () -> launches.saveManual(manualLaunch("990005", "7761234567", 2_000, 0), admin));
+        assertTrue(manualDuplicate.getMessage().contains("Já existe lançamento"));
+        assertThrows(IllegalArgumentException.class,
+                () -> launches.saveFactoryLaunch(manualLaunch("990005", "7761234567", 2_000, 0), admin));
+    }
+
     private LaunchRecord manualLaunch(String order, String product, int shiftB, double scrapBKg) {
         LaunchRecord record = new LaunchRecord();
         record.setDate(productionDate);

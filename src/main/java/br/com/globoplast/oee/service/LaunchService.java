@@ -837,6 +837,7 @@ public class LaunchService {
         Machine m=catalog.machineMap().get(r.getMachine());
         if(m==null)throw new IllegalArgumentException("Máquina inválida.");
         if(!user.isAdmin()&&(user.sector()==null||!user.sector().equalsIgnoreCase(m.sector())))throw new IllegalArgumentException("Seu perfil não permite lançar dados para o setor desta máquina.");
+        requireUniqueManualOrder(r, 0);
         ZonedDateTime now=ZonedDateTime.now(AppConfig.ZONE);
         r.setSector(m.sector());r.setCapacity24h(m.capacity());r.setErp(false);
         r.setLaunchTime(now.format(DateTimeFormatter.ofPattern("HH:mm:ss")));
@@ -856,6 +857,7 @@ public class LaunchService {
         if(m==null)throw new IllegalArgumentException("Máquina inválida.");
         if(!user.isAdmin()&&(user.sector()==null||!user.sector().equalsIgnoreCase(m.sector())))
             throw new IllegalArgumentException("Seu perfil não permite mover o lançamento para outro setor.");
+        requireUniqueManualOrder(r, r.getId());
         r.setSector(m.sector());
         r.setCapacity24h(m.capacity());
 
@@ -886,6 +888,20 @@ public class LaunchService {
         recalculateManualDay(r.getDate(),r.getMachine());
         if(oldDate!=null&&oldMachine!=null&&(!oldDate.equals(r.getDate())||!oldMachine.equals(r.getMachine())))
             recalculateManualDay(oldDate,oldMachine);
+    }
+
+    private void requireUniqueManualOrder(LaunchRecord record, long excludedId) {
+        String order = Norm.order(record.getOrderNumber());
+        if (order.isBlank() || record.getDate() == null || Norm.text(record.getMachine()).isBlank()) return;
+        try (Connection c = db.open(); PreparedStatement p = c.prepareStatement(
+                "SELECT 1 FROM historico_oee WHERE data=? AND maquina=? COLLATE NOCASE AND numero_op=? AND id<>? LIMIT 1")) {
+            p.setString(1, record.getDate().toString());
+            p.setString(2, record.getMachine());
+            p.setString(3, order);
+            p.setLong(4, excludedId);
+            if (p.executeQuery().next())
+                throw new IllegalArgumentException("Já existe lançamento desta OP para esta máquina e data. Edite o lançamento existente.");
+        } catch (SQLException e) { throw new IllegalStateException(e); }
     }
 
     public void deleteManual(long id,User user){
