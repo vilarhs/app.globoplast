@@ -27,6 +27,7 @@ import com.vaadin.flow.data.value.ValueChangeMode;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
@@ -98,7 +99,9 @@ final class FactoryLaunchScreen {
     }
 
     private void refresh() {
-        if (grid != null) grid.setItems(launches.factoryLaunches(user.get(), filterStart, filterEnd));
+        if (grid != null) grid.setItems(launches.factoryLaunches(user.get(), filterStart, filterEnd).stream()
+                .sorted(Comparator.comparing(LaunchRecord::getMachine, String.CASE_INSENSITIVE_ORDER)
+                        .thenComparing(LaunchRecord::getOrderNumber, String.CASE_INSENSITIVE_ORDER)).toList());
     }
 
     private void openDaySummary() {
@@ -124,7 +127,7 @@ final class FactoryLaunchScreen {
         summaryGrid.addColumn(row -> formatInteger.apply((long) row.quantity())).setHeader(t("Quantidade"))
                 .setAutoWidth(true).setTextAlign(ColumnTextAlign.END);
         summaryGrid.setItems(rows);
-        summaryGrid.setAllRowsVisible(true);
+        summaryGrid.setHeight("min(52vh, 430px)");
 
         Span grandTotal = total(t("Total Geral"), totalA + totalB + totalC);
         grandTotal.addClassName("gp-factory-day-summary-grand-total");
