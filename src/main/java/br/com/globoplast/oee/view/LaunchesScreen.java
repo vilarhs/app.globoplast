@@ -160,6 +160,7 @@ final class LaunchesScreen {
             launchClients.clear();
             launchSearch = "";
             launchLimit = AppConfig.PAGE_SIZE;
+            launchGrid().sort(List.of());
             updateFilterButton(target, launchFiltersActive());
             p.setOpened(false);
             renderLaunches();

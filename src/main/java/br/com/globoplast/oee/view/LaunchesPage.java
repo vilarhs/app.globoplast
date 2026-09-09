@@ -19,6 +19,7 @@ import com.vaadin.flow.data.renderer.ComponentRenderer;
 import com.vaadin.flow.data.value.ValueChangeMode;
 
 import java.util.function.Consumer;
+import java.util.Comparator;
 import java.util.function.DoubleFunction;
 import java.util.function.Function;
 import java.util.function.LongFunction;
@@ -81,7 +82,8 @@ final class LaunchesPage {
         grid.addThemeVariants(GridVariant.LUMO_NO_BORDER, GridVariant.LUMO_ROW_STRIPES);
         grid.addColumn(record -> Norm.br(record.getDate())).setHeader(translate.apply("Data")).setWidth("108px").setFlexGrow(0);
         grid.addColumn(new ComponentRenderer<>(record -> fullTextCell.apply(record.getMachine())))
-                .setHeader(translate.apply("Máquina")).setAutoWidth(true).setFlexGrow(0);
+                .setHeader(translate.apply("Máquina")).setAutoWidth(true).setFlexGrow(0)
+                .setComparator(Comparator.comparing(LaunchRecord::getMachine, String.CASE_INSENSITIVE_ORDER)).setSortable(true);
         grid.addColumn(new ComponentRenderer<>(productCell::apply)).setHeader(translate.apply("Código Produto")).setWidth("140px").setFlexGrow(0);
         grid.addColumn(new ComponentRenderer<>(orderCell::apply)).setHeader(translate.apply("Nº OP")).setWidth("84px").setFlexGrow(0);
         grid.addColumn(record -> formatInteger.apply(record.getTotalProduced())).setHeader(translate.apply("Total Lançamento")).setAutoWidth(true);
@@ -94,7 +96,8 @@ final class LaunchesPage {
                 .setHeader(translate.apply("Produzido (OP)")).setAutoWidth(true);
         grid.addColumn(record -> record.isOrderProgressAvailable() ? formatInteger.apply(record.getOrderRemainingPcs()) : "—")
                 .setHeader(translate.apply("Falta (OP)")).setAutoWidth(true);
-        grid.addColumn(new ComponentRenderer<>(oeeCell::apply)).setHeader("OEE").setWidth("120px").setFlexGrow(0);
+        grid.addColumn(new ComponentRenderer<>(oeeCell::apply)).setHeader("OEE").setWidth("120px").setFlexGrow(0)
+                .setComparator(Comparator.comparingDouble(LaunchRecord::getOeePct)).setSortable(true);
         grid.addColumn(new ComponentRenderer<>(actions::apply)).setHeader(translate.apply("Ações"))
                 .setWidth("116px").setFlexGrow(0).setTextAlign(ColumnTextAlign.CENTER);
         grid.setAllRowsVisible(true);
