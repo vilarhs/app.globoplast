@@ -87,7 +87,9 @@ final class LaunchesPage {
         grid.addColumn(record -> Norm.br(record.getDate())).setHeader(translate.apply("Data")).setWidth("108px").setFlexGrow(0);
         Grid.Column<LaunchRecord> machine = grid.addColumn(new ComponentRenderer<>(record -> fullTextCell.apply(record.getMachine())))
                 .setHeader(translate.apply("Máquina")).setAutoWidth(true).setFlexGrow(0)
-                .setComparator(Comparator.comparing(LaunchRecord::getMachine, String.CASE_INSENSITIVE_ORDER)).setSortable(true);
+                .setComparator(Comparator.comparing(LaunchRecord::getMachine, String.CASE_INSENSITIVE_ORDER)
+                        .thenComparing(LaunchRecord::getMovementAt, Comparator.reverseOrder())
+                        .thenComparing(Comparator.comparingLong(LaunchRecord::getId).reversed())).setSortable(true);
         machine.setKey("machine");
         grid.addColumn(new ComponentRenderer<>(productCell::apply)).setHeader(translate.apply("Código Produto")).setWidth("140px").setFlexGrow(0);
         grid.addColumn(new ComponentRenderer<>(orderCell::apply)).setHeader(translate.apply("Nº OP")).setWidth("84px").setFlexGrow(0);
@@ -102,7 +104,9 @@ final class LaunchesPage {
         grid.addColumn(record -> record.isOrderProgressAvailable() ? formatInteger.apply(record.getOrderRemainingPcs()) : "—")
                 .setHeader(translate.apply("Falta (OP)")).setAutoWidth(true);
         Grid.Column<LaunchRecord> oee = grid.addColumn(new ComponentRenderer<>(oeeCell::apply)).setHeader("OEE").setWidth("120px").setFlexGrow(0)
-                .setComparator(Comparator.comparingDouble(LaunchRecord::getOeePct)).setSortable(true);
+                .setComparator(Comparator.comparingDouble(LaunchRecord::getOeePct)
+                        .thenComparing(LaunchRecord::getMovementAt, Comparator.reverseOrder())
+                        .thenComparing(Comparator.comparingLong(LaunchRecord::getId).reversed())).setSortable(true);
         oee.setKey("oee");
         grid.addColumn(new ComponentRenderer<>(actions::apply)).setHeader(translate.apply("Ações"))
                 .setWidth("116px").setFlexGrow(0).setTextAlign(ColumnTextAlign.CENTER);
