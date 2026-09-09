@@ -14,6 +14,7 @@ import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.popover.Popover;
 import com.vaadin.flow.component.popover.PopoverPosition;
 import com.vaadin.flow.server.VaadinSession;
+import com.vaadin.flow.data.provider.SortDirection;
 import java.time.LocalDate;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -41,6 +42,8 @@ final class LaunchesScreen {
     private final Set<String> launchClients = new LinkedHashSet<>();
     private String launchSearch = "";
     private int launchLimit = AppConfig.PAGE_SIZE;
+    private String launchSort = "";
+    private SortDirection launchSortDirection;
 
 
     LaunchesScreen(CatalogService catalog, LaunchService launches, Supplier<String> language,
@@ -73,6 +76,12 @@ final class LaunchesScreen {
                 value -> { launchSearch = value; launchLimit = AppConfig.PAGE_SIZE; refreshLaunchGrid(); },
                 newLaunch,
                 () -> { launchLimit += AppConfig.PAGE_SIZE; refreshLaunchGrid(); }, grid);
+        LaunchesPage.restoreSort(grid, launchSort, launchSortDirection);
+        LaunchesPage.rememberSort(grid, (column, direction) -> {
+            launchSort = column;
+            launchSortDirection = direction;
+            rememberLaunchFilterState();
+        });
         content.add(page.components());
         refreshLaunchGrid();
         refreshMenuSyncStatus();
@@ -94,7 +103,8 @@ final class LaunchesScreen {
     private void rememberLaunchFilterState() {
         VaadinSession.getCurrent().setAttribute("gp_launch_filter_state", new LaunchFilterState(
                 launchStart, launchEnd, launchSearch,
-                FilterSelections.copy(launchSectors), FilterSelections.copy(launchMachines), FilterSelections.copy(launchClients), launchLimit));
+                FilterSelections.copy(launchSectors), FilterSelections.copy(launchMachines), FilterSelections.copy(launchClients), launchLimit,
+                launchSort, launchSortDirection));
     }
 
     void restoreLaunchFilterState() {
@@ -107,6 +117,8 @@ final class LaunchesScreen {
         FilterSelections.replace(launchMachines, state.machines());
         FilterSelections.replace(launchClients, state.clients());
         launchLimit = Math.max(AppConfig.PAGE_SIZE, state.limit());
+        launchSort = state.sort();
+        launchSortDirection = state.sortDirection();
     }
 
     void showRecordDate(LocalDate date) {
@@ -160,6 +172,8 @@ final class LaunchesScreen {
             launchClients.clear();
             launchSearch = "";
             launchLimit = AppConfig.PAGE_SIZE;
+            launchSort = "";
+            launchSortDirection = null;
             launchGrid().sort(List.of());
             updateFilterButton(target, launchFiltersActive());
             p.setOpened(false);

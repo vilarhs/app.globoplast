@@ -17,9 +17,13 @@ import com.vaadin.flow.component.shared.Tooltip;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.renderer.ComponentRenderer;
 import com.vaadin.flow.data.value.ValueChangeMode;
+import com.vaadin.flow.component.grid.GridSortOrder;
+import com.vaadin.flow.data.provider.SortDirection;
 
 import java.util.function.Consumer;
 import java.util.Comparator;
+import java.util.List;
+import java.util.function.BiConsumer;
 import java.util.function.DoubleFunction;
 import java.util.function.Function;
 import java.util.function.LongFunction;
@@ -81,9 +85,10 @@ final class LaunchesPage {
         grid.addClassName("gp-launch-grid-v059");
         grid.addThemeVariants(GridVariant.LUMO_NO_BORDER, GridVariant.LUMO_ROW_STRIPES);
         grid.addColumn(record -> Norm.br(record.getDate())).setHeader(translate.apply("Data")).setWidth("108px").setFlexGrow(0);
-        grid.addColumn(new ComponentRenderer<>(record -> fullTextCell.apply(record.getMachine())))
+        Grid.Column<LaunchRecord> machine = grid.addColumn(new ComponentRenderer<>(record -> fullTextCell.apply(record.getMachine())))
                 .setHeader(translate.apply("Máquina")).setAutoWidth(true).setFlexGrow(0)
                 .setComparator(Comparator.comparing(LaunchRecord::getMachine, String.CASE_INSENSITIVE_ORDER)).setSortable(true);
+        machine.setKey("machine");
         grid.addColumn(new ComponentRenderer<>(productCell::apply)).setHeader(translate.apply("Código Produto")).setWidth("140px").setFlexGrow(0);
         grid.addColumn(new ComponentRenderer<>(orderCell::apply)).setHeader(translate.apply("Nº OP")).setWidth("84px").setFlexGrow(0);
         grid.addColumn(record -> formatInteger.apply(record.getTotalProduced())).setHeader(translate.apply("Total Lançamento")).setAutoWidth(true);
@@ -96,12 +101,27 @@ final class LaunchesPage {
                 .setHeader(translate.apply("Produzido (OP)")).setAutoWidth(true);
         grid.addColumn(record -> record.isOrderProgressAvailable() ? formatInteger.apply(record.getOrderRemainingPcs()) : "—")
                 .setHeader(translate.apply("Falta (OP)")).setAutoWidth(true);
-        grid.addColumn(new ComponentRenderer<>(oeeCell::apply)).setHeader("OEE").setWidth("120px").setFlexGrow(0)
+        Grid.Column<LaunchRecord> oee = grid.addColumn(new ComponentRenderer<>(oeeCell::apply)).setHeader("OEE").setWidth("120px").setFlexGrow(0)
                 .setComparator(Comparator.comparingDouble(LaunchRecord::getOeePct)).setSortable(true);
+        oee.setKey("oee");
         grid.addColumn(new ComponentRenderer<>(actions::apply)).setHeader(translate.apply("Ações"))
                 .setWidth("116px").setFlexGrow(0).setTextAlign(ColumnTextAlign.CENTER);
         grid.setAllRowsVisible(true);
         return grid;
+    }
+
+    static void restoreSort(Grid<LaunchRecord> grid, String column, SortDirection direction) {
+        if (column == null || direction == null) return;
+        grid.getColumns().stream().filter(item -> column.equals(item.getKey())).findFirst()
+                .ifPresent(item -> grid.sort(List.of(new GridSortOrder<>(item, direction))));
+    }
+
+    static void rememberSort(Grid<LaunchRecord> grid, BiConsumer<String, SortDirection> changed) {
+        grid.addSortListener(event -> {
+            List<GridSortOrder<LaunchRecord>> orders = event.getSortOrder();
+            if (orders.isEmpty()) changed.accept("", null);
+            else changed.accept(orders.getFirst().getSorted().getKey(), orders.getFirst().getDirection());
+        });
     }
 
     static Button filterButton(Function<String, String> translate) {
