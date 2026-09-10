@@ -124,7 +124,7 @@ final class FactoryLaunchScreen {
         summaryGrid.addColumn(FactoryDayLine::machine).setHeader(t("Máquina")).setAutoWidth(true);
         summaryGrid.addColumn(FactoryDayLine::order).setHeader(t("Nº OP")).setAutoWidth(true);
         summaryGrid.addColumn(FactoryDayLine::product).setHeader(t("Código Produto")).setAutoWidth(true);
-        summaryGrid.addColumn(FactoryDayLine::shift).setHeader(t("Turno")).setAutoWidth(true)
+        summaryGrid.addColumn(FactoryDayLine::shift).setHeader(t("Turno")).setWidth("90px").setFlexGrow(0)
                 .setComparator(FactoryDayLine::shift).setSortable(true);
         summaryGrid.addColumn(row -> formatInteger.apply((long) row.quantity())).setHeader(t("Quantidade"))
                 .setAutoWidth(true).setTextAlign(ColumnTextAlign.END);
