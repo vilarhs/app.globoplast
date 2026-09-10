@@ -121,16 +121,15 @@ final class FactoryLaunchScreen {
         Grid<FactoryDayLine> summaryGrid = new Grid<>(FactoryDayLine.class, false);
         summaryGrid.addClassNames("gp-launch-grid-v059", "gp-factory-day-summary-grid");
         summaryGrid.addThemeVariants(GridVariant.LUMO_NO_BORDER, GridVariant.LUMO_ROW_STRIPES);
-        summaryGrid.addColumn(FactoryDayLine::order).setHeader(t("Nº OP")).setWidth("74px").setFlexGrow(0);
-        summaryGrid.addColumn(new ComponentRenderer<>(row -> productSummaryCell(row))).setHeader(t("Código Produto"))
-                .setFlexGrow(1);
-        summaryGrid.addColumn(FactoryDayLine::shift).setHeader(t("Turno")).setWidth("58px").setFlexGrow(0)
+        summaryGrid.addColumn(FactoryDayLine::order).setHeader(t("Nº OP")).setWidth("64px").setFlexGrow(0);
+        summaryGrid.addColumn(FactoryDayLine::product).setHeader(t("Código Produto")).setFlexGrow(1);
+        summaryGrid.addColumn(FactoryDayLine::shift).setHeader(t("Turno")).setWidth("48px").setFlexGrow(0)
                 .setTextAlign(ColumnTextAlign.CENTER)
                 .setComparator(FactoryDayLine::shift).setSortable(true);
         summaryGrid.addColumn(row -> formatInteger.apply((long) row.quantity())).setHeader(t("Quantidade"))
-                .setWidth("112px").setFlexGrow(0).setTextAlign(ColumnTextAlign.END)
-                .setPartNameGenerator(row -> "gp-factory-day-summary-quantity");
+                .setWidth("94px").setFlexGrow(0).setTextAlign(ColumnTextAlign.END);
         summaryGrid.setItems(rows);
+        summaryGrid.setWidthFull();
         summaryGrid.setHeight("min(52vh, 430px)");
 
         Span grandTotal = total(t("Total Geral"), totalA + totalB + totalC);
@@ -147,15 +146,6 @@ final class FactoryLaunchScreen {
         Span total = new Span(label + ": " + formatInteger.apply((long) value));
         total.addClassName("gp-factory-day-summary-total");
         return total;
-    }
-
-    private Div productSummaryCell(FactoryDayLine row) {
-        Span product = new Span(row.product());
-        Span quantity = new Span(t("Quantidade") + ": " + formatInteger.apply((long) row.quantity()));
-        quantity.addClassName("gp-factory-day-summary-mobile-quantity");
-        Div cell = new Div(product, quantity);
-        cell.addClassName("gp-factory-day-summary-product");
-        return cell;
     }
 
     static List<FactoryDayLine> daySummaryRows(List<LaunchRecord> records) {

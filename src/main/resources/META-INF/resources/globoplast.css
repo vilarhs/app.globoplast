@@ -5745,10 +5745,10 @@ html body .gp-launch-toolbar-v045.gp-factory-launch-toolbar>.gp-launch-new-inlin
 .gp-factory-day-summary-grand-total{background:var(--gp-surface-2)}
 @media(max-width:620px){
   .gp-factory-day-summary-totals{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .gp-factory-day-summary-grid::part(gp-factory-day-summary-quantity),
-  .gp-factory-day-summary-grid::part(header-cell):nth-child(4){display:none!important}
-  .gp-factory-day-summary-mobile-quantity{display:block;margin-top:.12rem;color:var(--gp-muted);font-size:.78rem;font-weight:600}
-  .gp-factory-day-summary-product{min-width:0;overflow-wrap:anywhere}
+  .gp-factory-day-summary-grid{min-width:0!important;font-size:.74rem}
+  .gp-factory-day-summary-grid::part(header-cell),
+  .gp-factory-day-summary-grid::part(body-cell){padding-inline:.28rem!important}
+  .gp-factory-day-summary-grid::part(header-cell){font-size:.68rem!important;white-space:nowrap}
 }
 
 /* Mesmo zebrado do relatório de Refugo em todas as tabelas, inclusive modais. */
