@@ -14,6 +14,7 @@ import br.com.globoplast.oee.service.I18n;
 import br.com.globoplast.oee.service.LaunchService;
 import br.com.globoplast.oee.service.RefugoService;
 import br.com.globoplast.oee.service.SyncService;
+import br.com.globoplast.oee.service.StockService;
 import br.com.globoplast.oee.util.Norm;
 import br.com.globoplast.oee.util.DisplayFormat;
 import com.vaadin.flow.component.Component;
@@ -59,6 +60,7 @@ public class MainView extends VerticalLayout {
     private final LaunchService launches;
     private final RefugoService scraps;
     private final SyncService sync;
+    private final StockService stock;
     private final LaunchCells launchCells;
     private final ProductionSummaryScreen productionSummary;
     private final ScrapScreen scrapScreen;
@@ -77,6 +79,7 @@ public class MainView extends VerticalLayout {
     private ProductionSource productionSource = ProductionSource.AUTOMATIC;
 
     private String productionOrderSearch = "";
+    private String inventorySearch = "";
 
     private String lastSyncSignature = "";
 
@@ -94,12 +97,13 @@ public class MainView extends VerticalLayout {
     private Registration syncPollRegistration;
     private MenuItem menuSyncItem = null;
 
-    public MainView(AuthService auth, CatalogService catalog, LaunchService launches, RefugoService scraps, SyncService sync) {
+    public MainView(AuthService auth, CatalogService catalog, LaunchService launches, RefugoService scraps, SyncService sync, StockService stock) {
         this.auth = auth;
         this.catalog = catalog;
         this.launches = launches;
         this.scraps = scraps;
         this.sync = sync;
+        this.stock = stock;
         this.launchCells = new LaunchCells(this::t, this::formatInt, this::format1, this::format);
         this.productionSummary = new ProductionSummaryScreen(launches, launchCells, () -> language,
                 this::cachedLaunchBounds, this::cachedLaunchData, this::launchGrid);
@@ -331,7 +335,8 @@ public class MainView extends VerticalLayout {
         MenuItem stockTab = mainTabs.addItem("📦 " + t("Estoque"));
         stockTab.addClassName("gp-main-navigation-root");
         tabKeys.put(stockTab, "estoque");
-        addTabMenuItem(stockTab.getSubMenu(), t("Buscar"), () -> selectTab("estoque"));
+        addTabMenuItem(stockTab.getSubMenu(), t("Buscar Processos"), () -> selectTab("estoque"));
+        addTabMenuItem(stockTab.getSubMenu(), t("Consultar"), () -> selectTab("estoque_consultar"));
 
         MenuItem reportsTab = mainTabs.addItem("📊 " + t("Relatórios"));
         reportsTab.addClassName("gp-main-navigation-root");
@@ -360,6 +365,7 @@ public class MainView extends VerticalLayout {
                 ? "lancamentos"
                 : Set.of("manual_lancamentos", "manual_dia", "manual_mes", "factory_lancamentos").contains(normalizedKey)
                 ? "manual_lancamentos"
+                : "estoque_consultar".equals(normalizedKey) ? "estoque"
                 : normalizedKey;
         for (var e : tabKeys.entrySet()) {
             if (e.getValue().equals(selectedKey)) {
@@ -532,6 +538,7 @@ public class MainView extends VerticalLayout {
             case "refugo" -> scrapScreen.renderScrap();
             case SCRAP_REPORT_KEY -> scrapScreen.renderScrapReport();
             case "estoque", "producao" -> renderOrderProduction();
+            case "estoque_consultar" -> renderInventoryStock();
             case "manual_lancamentos" -> { productionSource = ProductionSource.MANUAL; launchesScreen.renderLaunches(); }
             case "factory_lancamentos" -> { productionSource = ProductionSource.MANUAL; factoryLaunchScreen.render(); }
             default -> { productionSource = ProductionSource.AUTOMATIC; launchesScreen.renderLaunches(); }
@@ -542,6 +549,13 @@ public class MainView extends VerticalLayout {
         content.removeAll();
         OrderStockPage page = new OrderStockPage(launches, productionOrderSearch,
                 value -> productionOrderSearch = value, this::t, this::formatInt, launchCells::fullText);
+        content.add(page.components());
+    }
+
+    private void renderInventoryStock() {
+        content.removeAll();
+        InventoryStockPage page = new InventoryStockPage(stock, inventorySearch,
+                value -> inventorySearch = value, this::t, this::formatInt, launchCells::fullText);
         content.add(page.components());
     }
 

@@ -152,6 +152,37 @@ class ProductionLifecycleIntegrationTest {
     }
 
     @Test
+    void searchesProcessesByOrderAndCurrentPhysicalInventory() {
+        String order = "56704";
+        sync.importBatch("planejamento", List.of(values(
+                "erp_id", 3101L, "data_plan", productionDate.toString(), "ordem", order,
+                "produto", "7766404068", "descricao", "BISNAGA TESTE", "qtd_plan", 12.0,
+                "qtd_prod", 7.98, "processo", 776)), "test", "test");
+
+        List<LaunchService.OrderProcessProgress> processes = launches.orderProcessProgress(order);
+        assertEquals(1, processes.size());
+        assertEquals("776", processes.getFirst().process());
+        assertEquals(12_000, processes.getFirst().plannedPcs());
+        assertEquals(7_980, processes.getFirst().producedPcs());
+
+        sync.importBatch("estoque", List.of(values(
+                "erp_id", 4101L, "ordem", order, "produto", "7766404068",
+                "descricao", "BISNAGA TESTE", "lote", "LOTE-01", "localizacao", "01.J.01",
+                "divisao", "01", "data_producao", productionDate.toString(),
+                "quantidade", 7.98, "qtd_caixas", 30.0, "conteudo", 266)), "test", "test");
+
+        StockService stock = new StockService(database);
+        StockService.StockItem item = assertSingle(stock.search("56704"));
+        assertEquals("01.J.01", item.location());
+        assertEquals(7_980, item.quantityPcs());
+        assertEquals(1, stock.search("LOTE-01").size());
+
+        Map<String, Object> reconciliation = sync.reconcileEstoqueSnapshot(List.of(), "test", "test");
+        assertEquals(1, reconciliation.get("excluidos"));
+        assertTrue(stock.search(order).isEmpty(), "Item retirado do ENDERECO_EST não pode permanecer na consulta");
+    }
+
+    @Test
     void usesAutomaticLaunchMachineForOrderDefaults() {
         catalog.saveMachine(null, "COL DE TAMPA 1", 50_000, "COL DE TAMPA");
         catalog.saveMachine(null, "COL DE TAMPA 2", 50_000, "COL DE TAMPA");
@@ -247,6 +278,23 @@ class ProductionLifecycleIntegrationTest {
         assertFalse(updated.getShiftCLaunchedAt().isBlank());
         assertFalse(launches.factoryShiftLocked(admin, updated, "B"));
         launches.deleteManual(updated.getId(), admin);
+    }
+
+    @Test
+    void factoryLaunchesAreLimitedToTheLoggedInSector() {
+        catalog.saveSector(null, "EXTRUSÃO");
+        catalog.saveMachine(null, "EXTRUSORA 01", 24_000, "EXTRUSÃO");
+        launches.saveFactoryLaunch(manualLaunch("990007", "7761234567", 4_000, 0), admin);
+        LaunchRecord extrusion = manualLaunch("990008", "7761234568", 4_000, 0);
+        extrusion.setMachine("EXTRUSORA 01");
+        launches.saveFactoryLaunch(extrusion, admin);
+
+        User cap = new User(3, "TAMPA", false, AppConfig.PROFILE_FACTORY, "COLOCAÇÃO DE TAMPA", "pt-BR");
+        User ext = new User(4, "EXTRUSÃO", false, AppConfig.PROFILE_FACTORY, "EXTRUSÃO", "pt-BR");
+        assertEquals(1, launches.factoryLaunches(cap).size());
+        assertEquals("HOT AIR 1", assertSingle(launches.factoryLaunches(cap)).getMachine());
+        assertEquals(1, launches.factoryLaunches(ext).size());
+        assertEquals("EXTRUSORA 01", assertSingle(launches.factoryLaunches(ext)).getMachine());
     }
 
     @Test

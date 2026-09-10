@@ -37,10 +37,10 @@ final class OrderStockPage {
         this.translate = translate;
         this.formatNumber = formatNumber;
         this.selectedOrder = initialOrder;
-        H2 title = new H2(t("Estoque por OP"));
+        H2 title = new H2(t("Buscar Processos"));
         title.addClassName("gp-section-title");
 
-        Paragraph explanation = new Paragraph(t("Dados do ERP separados por OP e processo. OPs atuais usam Planejamento/Estoque; OPs encerradas ausentes do planejamento usam os Apontamentos do ERP."));
+        Paragraph explanation = new Paragraph(t("Dados de produção do ERP separados por OP e processo. OPs atuais usam Planejamento; OPs encerradas ausentes do planejamento usam os Apontamentos do ERP."));
         explanation.addClassName("gp-muted");
 
         TextField order = new TextField(t("Nº da OP"));

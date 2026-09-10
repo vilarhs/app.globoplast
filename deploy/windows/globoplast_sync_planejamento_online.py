@@ -1,17 +1,19 @@
 from __future__ import annotations
 
-"""Sincroniza PLANEJAMENTO do DealerSystem com o Globoplast.
+"""Sincroniza PLANEJAMENTO e o estoque físico do DealerSystem com o Globoplast.
 
-O Firebird é aberto exclusivamente em transação de leitura. A primeira carga
-abrange o histórico desde 01/01/2025; depois, somente a janela recente é relida
-para capturar alterações de QTD_PROD nas OPs em andamento.
+O Firebird é aberto exclusivamente em transação de leitura. O histórico desde
+01/01/2025 é relido porque uma OP antiga pode continuar recebendo produção
+muitos meses após DATA_PLAN.
+ENDERECO_EST é enviado como fotografia completa para refletir apenas o que
+continua fisicamente armazenado no ERP.
 """
 
 import argparse
 import hashlib
 import json
 import sys
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 
@@ -42,7 +44,6 @@ CONNECTOR_ID = "dealersystem-windows-planejamento-online-v1"
 STATE_PATH = APP_DIR / "planejamento_online_state.json"
 LOG_PATH = APP_DIR / "planejamento_online.log"
 HISTORY_START = date(2025, 1, 1)
-RECENT_DAYS = 180
 BATCH_SIZE = 500
 PROCESSES = ("770", "771", "772", "773", "775", "776")
 
@@ -127,6 +128,34 @@ def query_records(cur, start: date) -> list[dict]:
     return records
 
 
+def query_stock_records(cur) -> list[dict]:
+    cur.execute(
+        """
+        SELECT RECORD_ID, OP, PRODUTO, DESCRICAO, LOTE, LOCALIZACAO,
+               DIVISAO, DT_PROD, QUANTIDADE, QTD_CX, CONTEUDO
+        FROM ENDERECO_EST
+        WHERE COALESCE(QUANTIDADE, 0) > 0
+        ORDER BY RECORD_ID
+        """
+    )
+    records = []
+    for row in cur:
+        records.append({
+            "erp_id": int(row[0]),
+            "ordem": integer(row[1]),
+            "produto": text(row[2]),
+            "descricao": text(row[3]),
+            "lote": text(row[4]),
+            "localizacao": text(row[5]),
+            "divisao": text(row[6]),
+            "data_producao": iso_date(row[7]),
+            "quantidade": number(row[8]),
+            "qtd_caixas": number(row[9]),
+            "conteudo": integer(row[10]),
+        })
+    return records
+
+
 def chunks(values: list[dict]):
     for index in range(0, len(values), BATCH_SIZE):
         yield values[index:index + BATCH_SIZE]
@@ -142,8 +171,8 @@ def synchronize() -> None:
 
     state = load_state()
     old_hashes = state.get("hashes") if isinstance(state.get("hashes"), dict) else {}
-    first_load = not bool(state.get("initial_complete"))
-    start = HISTORY_START if first_load else date.today() - timedelta(days=RECENT_DAYS)
+    old_stock_hashes = state.get("stock_hashes") if isinstance(state.get("stock_hashes"), dict) else {}
+    start = HISTORY_START
     log(f"INÍCIO | PLANEJAMENTO desde {start:%d/%m/%Y}")
 
     with connect(DATABASE, user=cfg["usuario"], password=cfg["senha"]) as con:
@@ -153,6 +182,7 @@ def synchronize() -> None:
         cur = ro.cursor()
         try:
             records = query_records(cur, start)
+            stock_records = query_stock_records(cur)
         finally:
             if ro.is_active():
                 ro.rollback()
@@ -194,12 +224,55 @@ def synchronize() -> None:
         if not response.get("ok"):
             raise RuntimeError(f"Servidor rejeitou heartbeat: {response}")
 
+    new_stock_hashes = {}
+    changed_stock = []
+    for record in stock_records:
+        key = str(record["erp_id"])
+        digest = record_hash(record)
+        if old_stock_hashes.get(key) != digest:
+            changed_stock.append(record)
+        new_stock_hashes[key] = digest
+
+    stock_sent = 0
+    for batch in chunks(changed_stock):
+        response = request_assinado(
+            cfg["token"],
+            "/estoque",
+            {
+                "connector_id": CONNECTOR_ID,
+                "sent_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                "records": batch,
+            },
+        )
+        if not response.get("ok"):
+            raise RuntimeError(f"Servidor rejeitou lote de estoque: {response}")
+        stock_sent += len(batch)
+
+    response = request_assinado(
+        cfg["token"],
+        "/estoque",
+        {
+            "connector_id": CONNECTOR_ID,
+            "sent_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "records": [],
+            "snapshot_complete": True,
+            "snapshot_erp_ids": [record["erp_id"] for record in stock_records],
+        },
+    )
+    if not response.get("ok"):
+        raise RuntimeError(f"Servidor rejeitou fotografia do estoque: {response}")
+
     save_state({
         "initial_complete": True,
         "last_success": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "hashes": new_hashes,
+        "stock_hashes": new_stock_hashes,
+        "stock_initial_complete": True,
     })
-    log(f"OK | consultados={len(records)} | alterados_enviados={sent}")
+    log(
+        f"OK | planejamento_consultado={len(records)} | planejamento_enviado={sent} | "
+        f"estoque_consultado={len(stock_records)} | estoque_enviado={stock_sent}"
+    )
 
 
 def main() -> None:

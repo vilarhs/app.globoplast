@@ -28,6 +28,7 @@ public class SyncController {
     @PostMapping(path={"/sync/v1/diagnostico-oee","/java-sync/v1/diagnostico-oee"},consumes=MediaType.APPLICATION_JSON_VALUE,produces=MediaType.APPLICATION_JSON_VALUE)public ResponseEntity<?>diagOee(@RequestBody byte[]body,HttpServletRequest req){if(!auth(body,req))return error(HttpStatus.UNAUTHORIZED,"Autenticação inválida");try{return ResponseEntity.ok(Map.of("ok",true,"diagnostico",sync.oeeDiagnostics()));}catch(Exception e){return error(HttpStatus.INTERNAL_SERVER_ERROR,"Falha interna no diagnóstico OEE");}}
     @PostMapping(path={"/sync/v1/apontamento","/java-sync/v1/apontamento"},consumes=MediaType.APPLICATION_JSON_VALUE,produces=MediaType.APPLICATION_JSON_VALUE)public ResponseEntity<?>ap(@RequestBody byte[]body,HttpServletRequest req){return receive("apontamento",body,req);}
     @PostMapping(path={"/sync/v1/planejamento","/java-sync/v1/planejamento"},consumes=MediaType.APPLICATION_JSON_VALUE,produces=MediaType.APPLICATION_JSON_VALUE)public ResponseEntity<?>pl(@RequestBody byte[]body,HttpServletRequest req){return receive("planejamento",body,req);}
+    @PostMapping(path={"/sync/v1/estoque","/java-sync/v1/estoque"},consumes=MediaType.APPLICATION_JSON_VALUE,produces=MediaType.APPLICATION_JSON_VALUE)public ResponseEntity<?>es(@RequestBody byte[]body,HttpServletRequest req){return receive("estoque",body,req);}
     @PostMapping(path={"/sync/v1/refugo","/java-sync/v1/refugo"},consumes=MediaType.APPLICATION_JSON_VALUE,produces=MediaType.APPLICATION_JSON_VALUE)public ResponseEntity<?>rf(@RequestBody byte[]body,HttpServletRequest req){return receive("refugo",body,req);}
     private static List<Map<String,Object>> mapList(Object value){List<Map<String,Object>>out=new ArrayList<>();if(value instanceof List<?> list)for(Object x:list){if(!(x instanceof Map<?,?>m))continue;Map<String,Object>n=new LinkedHashMap<>();for(var e:m.entrySet())n.put(String.valueOf(e.getKey()),e.getValue());out.add(n);}return out;}
     private ResponseEntity<?>receive(String source,byte[]body,HttpServletRequest req){
@@ -51,14 +52,17 @@ public class SyncController {
             LocalDate snapshotStart=null,snapshotEnd=null;
             List<Long> snapshotIds=List.of();
             if(complete){
-                if(!"refugo".equals(source))throw new IllegalArgumentException("Snapshot completo é permitido somente para Refugo");
-                snapshotStart=isoDate(p.get("snapshot_start"),"snapshot_start");
-                snapshotEnd=isoDate(p.get("snapshot_end"),"snapshot_end");
+                if(!Set.of("refugo","estoque").contains(source))throw new IllegalArgumentException("Snapshot completo não permitido para esta fonte");
+                if("refugo".equals(source)){
+                    snapshotStart=isoDate(p.get("snapshot_start"),"snapshot_start");
+                    snapshotEnd=isoDate(p.get("snapshot_end"),"snapshot_end");
+                }
                 snapshotIds=positiveIds(p.get("snapshot_erp_ids"));
             }
 
             Map<String,Object>result=new LinkedHashMap<>(sync.importBatch(source,records,connector,sentAt));
-            if(complete)result.putAll(sync.reconcileRefugoSnapshot(snapshotStart,snapshotEnd,snapshotIds,connector,sentAt));
+            if(complete&&"refugo".equals(source))result.putAll(sync.reconcileRefugoSnapshot(snapshotStart,snapshotEnd,snapshotIds,connector,sentAt));
+            if(complete&&"estoque".equals(source))result.putAll(sync.reconcileEstoqueSnapshot(snapshotIds,connector,sentAt));
             return ResponseEntity.ok(Map.of("ok",true,"resultado",result));
         }catch(IllegalArgumentException e){return error(HttpStatus.BAD_REQUEST,e.getMessage());}
         catch(Exception e){return error(HttpStatus.INTERNAL_SERVER_ERROR,"Falha interna ao processar sincronização");}

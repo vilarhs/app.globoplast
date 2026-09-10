@@ -170,7 +170,7 @@ public class LaunchService {
                 LaunchRecord item=mapManual(r);
                 Machine machine=resolveMachine(machines,item.getMachine());
                 if(machine!=null)item.setSector(machine.sector());
-                if(user.isAdmin()||(machine!=null&&user.sector()!=null&&user.sector().equalsIgnoreCase(machine.sector())))rows.add(item);
+                if(user.isAdmin() || Norm.canonicalSector(user.sector()).equals(Norm.canonicalSector(item.getSector()))) rows.add(item);
             }
         }catch(SQLException e){throw new IllegalStateException(e);}
         return rows;

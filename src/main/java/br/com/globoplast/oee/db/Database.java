@@ -33,6 +33,7 @@ public class Database {
             s.executeUpdate("CREATE TABLE IF NOT EXISTS refugo_arquivos_recentes (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT NOT NULL, sha256 TEXT NOT NULL UNIQUE, tamanho INTEGER NOT NULL, conteudo BLOB NOT NULL, total_lancamentos INTEGER NOT NULL DEFAULT 0, total_kg REAL NOT NULL DEFAULT 0, aberto_em TEXT NOT NULL)");
             s.executeUpdate("CREATE TABLE IF NOT EXISTS erp_apontamento_raw (erp_id INTEGER PRIMARY KEY, ordem INTEGER, data_apon TEXT NOT NULL, produto TEXT, descricao TEXT, maquina TEXT, qtd_plan REAL, cliente TEXT, turno TEXT, caixa_ini INTEGER, caixa_fin INTEGER, qtd_cx INTEGER, conteudo INTEGER, qtd_apon REAL, operador TEXT, payload_hash TEXT NOT NULL, sincronizado_em TEXT NOT NULL)");
             s.executeUpdate("CREATE TABLE IF NOT EXISTS erp_planejamento_raw (erp_id INTEGER PRIMARY KEY, data_plan TEXT NOT NULL, ordem INTEGER, produto TEXT, descricao TEXT, qtd_plan REAL, qtd_prod REAL, qtd_ent REAL, flag_exe TEXT, processo INTEGER, lote TEXT, qtd_perda REAL, conteudo INTEGER, payload_hash TEXT NOT NULL, sincronizado_em TEXT NOT NULL)");
+            s.executeUpdate("CREATE TABLE IF NOT EXISTS erp_estoque_raw (erp_id INTEGER PRIMARY KEY, ordem INTEGER, produto TEXT, descricao TEXT, lote TEXT, localizacao TEXT, divisao TEXT, data_producao TEXT, quantidade REAL, qtd_caixas REAL, conteudo INTEGER, payload_hash TEXT NOT NULL, sincronizado_em TEXT NOT NULL)");
             s.executeUpdate("CREATE TABLE IF NOT EXISTS erp_refugo_raw (erp_id INTEGER PRIMARY KEY, data_apon TEXT NOT NULL, ordem INTEGER, qtd_planej REAL, maquina TEXT, produto TEXT, descricao TEXT, cliente TEXT, turno TEXT, operador TEXT, qtd_refugo REAL, motivo TEXT, peso_br REAL, qtd_itens INTEGER, payload_hash TEXT NOT NULL, primeiro_sincronizado_em TEXT NOT NULL, sincronizado_em TEXT NOT NULL)");
             s.executeUpdate("CREATE TABLE IF NOT EXISTS erp_refugo_setor_overrides (erp_id INTEGER PRIMARY KEY, setor TEXT NOT NULL, atualizado_por TEXT NOT NULL, atualizado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)");
             s.executeUpdate("CREATE TABLE IF NOT EXISTS erp_refugo_analysis_setor_overrides (analysis_id TEXT PRIMARY KEY, erp_id INTEGER NOT NULL, setor TEXT NOT NULL, atualizado_por TEXT NOT NULL, atualizado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)");
@@ -77,6 +78,9 @@ public class Database {
             s.executeUpdate("CREATE INDEX IF NOT EXISTS idx_erp_apontamento_produto_sync ON erp_apontamento_raw(UPPER(REPLACE(TRIM(produto),' ','')), sincronizado_em DESC)");
             s.executeUpdate("CREATE INDEX IF NOT EXISTS idx_erp_planejamento_ordem_produto ON erp_planejamento_raw(ordem, produto)");
             s.executeUpdate("CREATE INDEX IF NOT EXISTS idx_erp_planejamento_data ON erp_planejamento_raw(data_plan)");
+            s.executeUpdate("CREATE INDEX IF NOT EXISTS idx_erp_estoque_ordem ON erp_estoque_raw(ordem)");
+            s.executeUpdate("CREATE INDEX IF NOT EXISTS idx_erp_estoque_produto ON erp_estoque_raw(produto)");
+            s.executeUpdate("CREATE INDEX IF NOT EXISTS idx_erp_estoque_localizacao ON erp_estoque_raw(localizacao)");
             s.executeUpdate("CREATE INDEX IF NOT EXISTS idx_erp_refugo_data ON erp_refugo_raw(data_apon)");
             s.executeUpdate("CREATE INDEX IF NOT EXISTS idx_erp_refugo_maquina_data ON erp_refugo_raw(maquina, data_apon)");
             s.executeUpdate("CREATE INDEX IF NOT EXISTS idx_erp_refugo_data_sync ON erp_refugo_raw(data_apon, sincronizado_em)");

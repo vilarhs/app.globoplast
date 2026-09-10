@@ -22,7 +22,7 @@ public class SyncService {
     public SyncService(Database db,JsonMapper json,CatalogService catalog,LaunchService launches){this.db=db;this.json=json;this.catalog=catalog;this.launches=launches;}
     public Map<String,Object> importBatch(String source,List<Map<String,Object>>records,String connectorId,String sentAt){
         String src=source==null?"":source.toLowerCase(Locale.ROOT);
-        if(!Set.of("apontamento","planejamento","refugo").contains(src))throw new IllegalArgumentException("Fonte ERP inválida");
+        if(!Set.of("apontamento","planejamento","refugo","estoque").contains(src))throw new IllegalArgumentException("Fonte ERP inválida");
         String table=tableForSource(src);
         Map<Long,Map<String,Object>>unique=new LinkedHashMap<>();
         for(Map<String,Object>r:records){
@@ -39,7 +39,8 @@ public class SyncService {
                 if(hash.equals(old))continue;
                 if(src.equals("apontamento"))upsertApontamento(c,id,r,hash,now);
                 else if(src.equals("planejamento"))upsertPlanejamento(c,id,r,hash,now);
-                else upsertRefugo(c,id,r,hash,now);
+                else if(src.equals("refugo"))upsertRefugo(c,id,r,hash,now);
+                else upsertEstoque(c,id,r,hash,now);
                 changed++;
             }
             try(PreparedStatement p=c.prepareStatement("INSERT INTO erp_sync_lotes(fonte,connector_id,sent_at,recebidos,alterados,recebido_em) VALUES(?,?,?,?,?,?)")){p.setString(1,src);p.setString(2,Norm.text(connectorId));p.setString(3,Norm.text(sentAt));p.setInt(4,unique.size());p.setInt(5,changed);p.setString(6,now);p.executeUpdate();}
@@ -56,8 +57,37 @@ public class SyncService {
         return switch(source){
             case "apontamento" -> "erp_apontamento_raw";
             case "planejamento" -> "erp_planejamento_raw";
-            default -> "erp_refugo_raw";
+            case "refugo" -> "erp_refugo_raw";
+            default -> "erp_estoque_raw";
         };
+    }
+
+    public Map<String,Object> reconcileEstoqueSnapshot(Collection<Long> presentIds,String connectorId,String sentAt){
+        if(presentIds==null)throw new IllegalArgumentException("snapshot_erp_ids é obrigatório");
+        LinkedHashSet<Long> present=new LinkedHashSet<>();
+        for(Long id:presentIds){
+            if(id==null||id<=0)throw new IllegalArgumentException("snapshot_erp_ids contém ERP_ID inválido");
+            present.add(id);
+            if(present.size()>100_000)throw new IllegalArgumentException("Snapshot de Estoque excede 100000 IDs");
+        }
+        String now=ZonedDateTime.now(AppConfig.ZONE).toString();int deleted=0;long total;Long max;
+        try(Connection c=db.open()){
+            c.setAutoCommit(false);
+            List<Long> stale=new ArrayList<>();
+            try(Statement s=c.createStatement();ResultSet rs=s.executeQuery("SELECT erp_id FROM erp_estoque_raw")){
+                while(rs.next())if(!present.contains(rs.getLong(1)))stale.add(rs.getLong(1));
+            }
+            try(PreparedStatement p=c.prepareStatement("DELETE FROM erp_estoque_raw WHERE erp_id=?")){
+                for(Long id:stale){p.setLong(1,id);p.addBatch();}
+                if(!stale.isEmpty())p.executeBatch();
+            }
+            deleted=stale.size();
+            try(Statement s=c.createStatement();ResultSet rs=s.executeQuery("SELECT COUNT(*),MAX(erp_id) FROM erp_estoque_raw")){rs.next();total=rs.getLong(1);max=rs.getObject(2)==null?null:rs.getLong(2);}
+            try(PreparedStatement p=c.prepareStatement("INSERT INTO erp_sync_estado(fonte,ultimo_recebimento,ultimo_erp_id,total_registros) VALUES('estoque',?,?,?) ON CONFLICT(fonte) DO UPDATE SET ultimo_recebimento=excluded.ultimo_recebimento,ultimo_erp_id=excluded.ultimo_erp_id,total_registros=excluded.total_registros")){p.setString(1,now);if(max==null)p.setNull(2,Types.BIGINT);else p.setLong(2,max);p.setLong(3,total);p.executeUpdate();}
+            try(PreparedStatement p=c.prepareStatement("INSERT INTO erp_sync_lotes(fonte,connector_id,sent_at,recebidos,alterados,excluidos,recebido_em) VALUES('estoque',?,?,?,0,?,?)")){p.setString(1,Norm.text(connectorId));p.setString(2,Norm.text(sentAt));p.setInt(3,present.size());p.setInt(4,deleted);p.setString(5,now);p.executeUpdate();}
+            c.commit();
+        }catch(Exception e){throw new IllegalStateException(e);}
+        return Map.of("snapshot_reconciliado",true,"snapshot_presentes",present.size(),"excluidos",deleted,"total_registros",total);
     }
 
     public Map<String,Object> importCatalog(List<String> sectors,List<Map<String,Object>> machines,List<Map<String,Object>> historicalMachines,String connectorId,String sentAt){
@@ -268,6 +298,7 @@ public class SyncService {
     private void upsertApontamento(Connection c,long id,Map<String,Object>r,String h,String now)throws SQLException{try(PreparedStatement p=c.prepareStatement("INSERT INTO erp_apontamento_raw(erp_id,ordem,data_apon,produto,descricao,maquina,qtd_plan,cliente,turno,caixa_ini,caixa_fin,qtd_cx,conteudo,qtd_apon,operador,payload_hash,sincronizado_em) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(erp_id) DO UPDATE SET ordem=excluded.ordem,data_apon=excluded.data_apon,produto=excluded.produto,descricao=excluded.descricao,maquina=excluded.maquina,qtd_plan=excluded.qtd_plan,cliente=excluded.cliente,turno=excluded.turno,caixa_ini=excluded.caixa_ini,caixa_fin=excluded.caixa_fin,qtd_cx=excluded.qtd_cx,conteudo=excluded.conteudo,qtd_apon=excluded.qtd_apon,operador=excluded.operador,payload_hash=excluded.payload_hash,sincronizado_em=excluded.sincronizado_em")){int i=1;p.setLong(i++,id);setLongObj(p,i++,r.get("ordem"));p.setString(i++,date(r.get("data_apon")));p.setString(i++,Norm.text(r.get("produto")));p.setString(i++,Norm.text(r.get("descricao")));p.setString(i++,Norm.text(r.get("maquina")));setDoubleObj(p,i++,r.get("qtd_plan"));p.setString(i++,Norm.text(r.get("cliente")));p.setString(i++,Norm.token(r.get("turno")));setLongObj(p,i++,r.get("caixa_ini"));setLongObj(p,i++,r.get("caixa_fin"));setLongObj(p,i++,r.get("qtd_cx"));setLongObj(p,i++,r.get("conteudo"));setDoubleObj(p,i++,r.get("qtd_apon"));p.setString(i++,Norm.token(r.get("operador")));p.setString(i++,h);p.setString(i,now);p.executeUpdate();}}
     private void upsertPlanejamento(Connection c,long id,Map<String,Object>r,String h,String now)throws SQLException{try(PreparedStatement p=c.prepareStatement("INSERT INTO erp_planejamento_raw(erp_id,data_plan,ordem,produto,descricao,qtd_plan,qtd_prod,qtd_ent,flag_exe,processo,lote,qtd_perda,conteudo,payload_hash,sincronizado_em) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(erp_id) DO UPDATE SET data_plan=excluded.data_plan,ordem=excluded.ordem,produto=excluded.produto,descricao=excluded.descricao,qtd_plan=excluded.qtd_plan,qtd_prod=excluded.qtd_prod,qtd_ent=excluded.qtd_ent,flag_exe=excluded.flag_exe,processo=excluded.processo,lote=excluded.lote,qtd_perda=excluded.qtd_perda,conteudo=excluded.conteudo,payload_hash=excluded.payload_hash,sincronizado_em=excluded.sincronizado_em")){int i=1;p.setLong(i++,id);p.setString(i++,date(r.get("data_plan"),"data_plan"));setLongObj(p,i++,r.get("ordem"));p.setString(i++,Norm.text(r.get("produto")));p.setString(i++,Norm.text(r.get("descricao")));setDoubleObj(p,i++,r.get("qtd_plan"));setDoubleObj(p,i++,r.get("qtd_prod"));setDoubleObj(p,i++,r.get("qtd_ent"));p.setString(i++,Norm.token(r.get("flag_exe")));setLongObj(p,i++,r.get("processo"));p.setString(i++,Norm.text(r.get("lote")));setDoubleObj(p,i++,r.get("qtd_perda"));setLongObj(p,i++,r.get("conteudo"));p.setString(i++,h);p.setString(i,now);p.executeUpdate();}}
     private void upsertRefugo(Connection c,long id,Map<String,Object>r,String h,String now)throws SQLException{try(PreparedStatement p=c.prepareStatement("INSERT INTO erp_refugo_raw(erp_id,data_apon,ordem,qtd_planej,maquina,produto,descricao,cliente,turno,operador,qtd_refugo,motivo,peso_br,qtd_itens,payload_hash,primeiro_sincronizado_em,sincronizado_em) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(erp_id) DO UPDATE SET data_apon=excluded.data_apon,ordem=excluded.ordem,qtd_planej=excluded.qtd_planej,maquina=excluded.maquina,produto=excluded.produto,descricao=excluded.descricao,cliente=excluded.cliente,turno=excluded.turno,operador=excluded.operador,qtd_refugo=excluded.qtd_refugo,motivo=excluded.motivo,peso_br=excluded.peso_br,qtd_itens=excluded.qtd_itens,payload_hash=excluded.payload_hash,sincronizado_em=excluded.sincronizado_em")){int i=1;p.setLong(i++,id);p.setString(i++,date(r.get("data_apon")));setLongObj(p,i++,r.get("ordem"));setDoubleObj(p,i++,r.get("qtd_planej"));p.setString(i++,Norm.text(r.get("maquina")));p.setString(i++,Norm.text(r.get("produto")));p.setString(i++,Norm.text(r.get("descricao")));p.setString(i++,Norm.text(r.get("cliente")));p.setString(i++,Norm.token(r.get("turno")));p.setString(i++,Norm.token(r.get("operador")));setDoubleObj(p,i++,r.get("qtd_refugo"));p.setString(i++,Norm.token(r.get("motivo")));setDoubleObj(p,i++,r.get("peso_br"));setLongObj(p,i++,r.get("qtd_itens"));p.setString(i++,h);p.setString(i++,now);p.setString(i,now);p.executeUpdate();}}
+    private void upsertEstoque(Connection c,long id,Map<String,Object>r,String h,String now)throws SQLException{try(PreparedStatement p=c.prepareStatement("INSERT INTO erp_estoque_raw(erp_id,ordem,produto,descricao,lote,localizacao,divisao,data_producao,quantidade,qtd_caixas,conteudo,payload_hash,sincronizado_em) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(erp_id) DO UPDATE SET ordem=excluded.ordem,produto=excluded.produto,descricao=excluded.descricao,lote=excluded.lote,localizacao=excluded.localizacao,divisao=excluded.divisao,data_producao=excluded.data_producao,quantidade=excluded.quantidade,qtd_caixas=excluded.qtd_caixas,conteudo=excluded.conteudo,payload_hash=excluded.payload_hash,sincronizado_em=excluded.sincronizado_em")){int i=1;p.setLong(i++,id);setLongObj(p,i++,r.get("ordem"));p.setString(i++,Norm.text(r.get("produto")));p.setString(i++,Norm.text(r.get("descricao")));p.setString(i++,Norm.text(r.get("lote")));p.setString(i++,Norm.text(r.get("localizacao")));p.setString(i++,Norm.text(r.get("divisao")));p.setString(i++,Norm.text(r.get("data_producao")));setDoubleObj(p,i++,r.get("quantidade"));setDoubleObj(p,i++,r.get("qtd_caixas"));setLongObj(p,i++,r.get("conteudo"));p.setString(i++,h);p.setString(i,now);p.executeUpdate();}}
     private String hash(Map<String,Object>r){try{return java.util.HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(json.writeValueAsBytes(new TreeMap<>(r))));}catch(Exception e){throw new IllegalStateException(e);}}
     private static long longVal(Object v){try{return Long.parseLong(Norm.text(v).replace(".0",""));}catch(Exception e){return 0;}}
     private static String date(Object v){return date(v,"data_apon");}
