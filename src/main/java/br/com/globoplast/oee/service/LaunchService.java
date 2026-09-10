@@ -900,6 +900,7 @@ public class LaunchService {
         if(m==null)throw new IllegalArgumentException("Máquina inválida.");
         if(!user.isAdmin()&&(user.sector()==null||!user.sector().equalsIgnoreCase(m.sector())))throw new IllegalArgumentException("Seu perfil não permite lançar dados para o setor desta máquina.");
         requireUniqueManualOrder(r, 0);
+        applyNewProductChangeover(r);
         ZonedDateTime now=ZonedDateTime.now(AppConfig.ZONE);
         r.setSector(m.sector());r.setCapacity24h(m.capacity());r.setErp(false);
         r.setLaunchTime(now.format(DateTimeFormatter.ofPattern("HH:mm:ss")));
@@ -963,6 +964,21 @@ public class LaunchService {
             p.setLong(4, excludedId);
             if (p.executeQuery().next())
                 throw new IllegalArgumentException("Já existe lançamento desta OP para esta máquina e data. Edite o lançamento existente.");
+        } catch (SQLException e) { throw new IllegalStateException(e); }
+    }
+
+    private void applyNewProductChangeover(LaunchRecord record) {
+        if (record.getDate() == null || Norm.text(record.getMachine()).isBlank() || Norm.product(record.getProduct()).isBlank()) return;
+        try (Connection c = db.open(); PreparedStatement p = c.prepareStatement(
+                "SELECT 1 FROM historico_oee WHERE data=? AND maquina=? COLLATE NOCASE " +
+                        "AND UPPER(REPLACE(TRIM(produto),' ',''))<>? LIMIT 1")) {
+            p.setString(1, record.getDate().toString());
+            p.setString(2, record.getMachine());
+            p.setString(3, Norm.product(record.getProduct()));
+            if (p.executeQuery().next()) {
+                record.setChangeovers(record.getChangeovers() + 1);
+                record.setSetupHours(Norm.round(record.getSetupHours() + 2, 2));
+            }
         } catch (SQLException e) { throw new IllegalStateException(e); }
     }
 

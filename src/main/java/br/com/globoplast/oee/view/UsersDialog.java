@@ -10,6 +10,7 @@ import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.grid.Grid;
+import com.vaadin.flow.component.grid.GridVariant;
 import com.vaadin.flow.component.grid.ColumnTextAlign;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.Paragraph;
@@ -52,6 +53,7 @@ final class UsersDialog {
         d.addClassName("gp-admin-dialog");
         Grid<User> grid = new Grid<>(User.class, false);
         grid.addClassName("gp-admin-grid");
+        grid.addThemeVariants(GridVariant.LUMO_ROW_STRIPES);
         grid.addColumn(User::username).setHeader(t("Usuário")).setAutoWidth(true).setFlexGrow(1);
         grid.addColumn(u -> profileLabel(u.profile())).setHeader(t("Perfil")).setAutoWidth(true);
         grid.addColumn(u -> u.sector() == null ? "—" : u.sector()).setHeader(t("Setor")).setAutoWidth(true);

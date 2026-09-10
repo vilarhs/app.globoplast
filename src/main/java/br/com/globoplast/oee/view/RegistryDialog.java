@@ -12,6 +12,7 @@ import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.grid.Grid;
+import com.vaadin.flow.component.grid.GridVariant;
 import com.vaadin.flow.component.grid.ColumnTextAlign;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.Paragraph;
@@ -89,6 +90,7 @@ final class RegistryDialog {
 
         Grid<Sector> grid = new Grid<>(Sector.class, false);
         grid.addClassName("gp-admin-grid");
+        grid.addThemeVariants(GridVariant.LUMO_ROW_STRIPES);
         grid.addColumn(Sector::name).setHeader(t("Setor")).setAutoWidth(true).setFlexGrow(1);
         grid.addColumn(new ComponentRenderer<>(sector -> {
             Button edit = actionIcon(VaadinIcon.EDIT, t("Editar"));
@@ -159,6 +161,7 @@ final class RegistryDialog {
 
         Grid<Machine> grid = new Grid<>(Machine.class, false);
         grid.addClassName("gp-admin-grid");
+        grid.addThemeVariants(GridVariant.LUMO_ROW_STRIPES);
         grid.addColumn(Machine::name).setHeader(t("Máquina")).setAutoWidth(true).setFlexGrow(1);
         grid.addColumn(m -> formatInteger.apply(m.capacity())).setHeader(t("Capacidade 24h")).setAutoWidth(true);
         grid.addColumn(Machine::sector).setHeader(t("Setor")).setAutoWidth(true);
@@ -217,4 +220,3 @@ final class RegistryDialog {
     }
 
 }
-

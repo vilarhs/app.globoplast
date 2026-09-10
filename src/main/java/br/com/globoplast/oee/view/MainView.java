@@ -649,6 +649,8 @@ public class MainView extends VerticalLayout {
                     invalidateDataCaches();
                     if (!record.isErp() && !"manual_lancamentos".equals(renderedTabKey)) {
                         selectTab("manual_lancamentos");
+                    } else if (Set.of("lancamentos", "manual_lancamentos").contains(renderedTabKey)) {
+                        launchesScreen.refreshLaunchGrid();
                     } else {
                         launchesScreen.renderLaunches();
                     }

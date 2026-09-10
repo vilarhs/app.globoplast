@@ -260,6 +260,20 @@ class ProductionLifecycleIntegrationTest {
                 () -> launches.saveFactoryLaunch(manualLaunch("990005", "7761234567", 2_000, 0), admin));
     }
 
+    @Test
+    void addsChangeoverOnlyWhenNewLaunchChangesProductOnSameMachineAndDay() {
+        launches.saveManual(manualLaunch("990010", "7761234567", 1_000, 0), admin);
+        LaunchRecord sameProduct = manualLaunch("990011", "7761234567", 1_000, 0);
+        launches.saveManual(sameProduct, admin);
+        assertEquals(0, sameProduct.getChangeovers());
+        assertEquals(0, sameProduct.getSetupHours(), 0.001);
+
+        LaunchRecord changedProduct = manualLaunch("990012", "7761234568", 1_000, 0);
+        launches.saveManual(changedProduct, admin);
+        assertEquals(1, changedProduct.getChangeovers());
+        assertEquals(2, changedProduct.getSetupHours(), 0.001);
+    }
+
     private LaunchRecord manualLaunch(String order, String product, int shiftB, double scrapBKg) {
         LaunchRecord record = new LaunchRecord();
         record.setDate(productionDate);
