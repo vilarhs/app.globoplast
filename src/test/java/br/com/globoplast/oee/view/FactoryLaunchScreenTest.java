@@ -11,6 +11,7 @@ class FactoryLaunchScreenTest {
     @Test
     void expandsOnlyFilledShiftsForDailySummary() {
         LaunchRecord record = new LaunchRecord();
+        record.setMachine("COL DE TAMPA 02");
         record.setOrderNumber("59501");
         record.setProduct("7764040068");
         record.setShiftA(120);
@@ -19,7 +20,7 @@ class FactoryLaunchScreenTest {
 
         List<FactoryLaunchScreen.FactoryDayLine> rows = FactoryLaunchScreen.daySummaryRows(List.of(record));
         assertEquals(List.of(
-                new FactoryLaunchScreen.FactoryDayLine("59501", "7764040068", "A", 120),
-                new FactoryLaunchScreen.FactoryDayLine("59501", "7764040068", "C", 80)), rows);
+                new FactoryLaunchScreen.FactoryDayLine("COL DE TAMPA 02", "59501", "7764040068", "A", 120),
+                new FactoryLaunchScreen.FactoryDayLine("COL DE TAMPA 02", "59501", "7764040068", "C", 80)), rows);
     }
 }

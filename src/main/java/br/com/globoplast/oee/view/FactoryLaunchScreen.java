@@ -83,10 +83,10 @@ final class FactoryLaunchScreen {
         grid = new Grid<>(LaunchRecord.class, false);
         grid.addClassNames("gp-launch-grid-v059", "gp-factory-launch-grid");
         grid.addThemeVariants(GridVariant.LUMO_NO_BORDER, GridVariant.LUMO_ROW_STRIPES);
-        grid.addColumn(row -> Norm.br(row.getDate())).setHeader(t("Data")).setWidth("108px").setFlexGrow(0);
+        grid.addColumn(LaunchRecord::getMachine).setHeader(t("Máquina")).setFlexGrow(1);
         grid.addColumn(LaunchRecord::getOrderNumber).setHeader(t("Nº OP")).setAutoWidth(true);
         grid.addColumn(LaunchRecord::getProduct).setHeader(t("Código Produto")).setAutoWidth(true);
-        grid.addColumn(LaunchRecord::getMachine).setHeader(t("Máquina")).setFlexGrow(1);
+        grid.addColumn(row -> Norm.br(row.getDate())).setHeader(t("Data")).setWidth("108px").setFlexGrow(0);
         grid.addColumn(row -> formatInteger.apply(row.getShiftA())).setHeader(t("Produção A (pçs)")).setAutoWidth(true);
         grid.addColumn(row -> formatInteger.apply(row.getShiftB())).setHeader(t("Produção B (pçs)")).setAutoWidth(true);
         grid.addColumn(row -> formatInteger.apply(row.getShiftC())).setHeader(t("Produção C (pçs)")).setAutoWidth(true);
@@ -114,13 +114,14 @@ final class FactoryLaunchScreen {
 
         Dialog dialog = ViewComponents.dialog(t("Resumo Dia"), t("Fechar"));
         dialog.addClassNames("gp-factory-day-summary-dialog", "gp-launch-dialog");
-        dialog.setWidth("min(760px, calc(100vw - 32px))");
+        dialog.setWidth("min(900px, calc(100vw - 32px))");
         H2 dateTitle = new H2(Norm.br(date));
         dateTitle.addClassName("gp-factory-day-summary-date");
 
         Grid<FactoryDayLine> summaryGrid = new Grid<>(FactoryDayLine.class, false);
         summaryGrid.addClassNames("gp-launch-grid-v059", "gp-factory-day-summary-grid");
         summaryGrid.addThemeVariants(GridVariant.LUMO_NO_BORDER, GridVariant.LUMO_ROW_STRIPES);
+        summaryGrid.addColumn(FactoryDayLine::machine).setHeader(t("Máquina")).setAutoWidth(true);
         summaryGrid.addColumn(FactoryDayLine::order).setHeader(t("Nº OP")).setAutoWidth(true);
         summaryGrid.addColumn(FactoryDayLine::product).setHeader(t("Código Produto")).setAutoWidth(true);
         summaryGrid.addColumn(FactoryDayLine::shift).setHeader(t("Turno")).setAutoWidth(true)
@@ -157,10 +158,10 @@ final class FactoryLaunchScreen {
     }
 
     private static void addDaySummaryRow(List<FactoryDayLine> rows, LaunchRecord record, String shift, int quantity) {
-        if (quantity > 0) rows.add(new FactoryDayLine(record.getOrderNumber(), record.getProduct(), shift, quantity));
+        if (quantity > 0) rows.add(new FactoryDayLine(record.getMachine(), record.getOrderNumber(), record.getProduct(), shift, quantity));
     }
 
-    record FactoryDayLine(String order, String product, String shift, int quantity) {}
+    record FactoryDayLine(String machine, String order, String product, String shift, int quantity) {}
 
     void showRecordDate(LocalDate date) {
         if (date == null) return;
