@@ -5743,13 +5743,7 @@ html body .gp-launch-toolbar-v045.gp-factory-launch-toolbar>.gp-launch-new-inlin
 .gp-factory-day-summary-totals{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.6rem;margin:.9rem 0 .15rem}
 .gp-factory-day-summary-total{display:block;text-align:center;white-space:nowrap;font-size:16px!important;line-height:1.25;font-weight:700;padding:.6rem .4rem;border:1px solid var(--gp-border);border-radius:.45rem}
 .gp-factory-day-summary-grand-total{background:var(--gp-surface-2)}
-@media(max-width:620px){
-  .gp-factory-day-summary-totals{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .gp-factory-day-summary-grid{min-width:0!important;font-size:.74rem}
-  .gp-factory-day-summary-grid::part(header-cell),
-  .gp-factory-day-summary-grid::part(body-cell){padding-inline:.28rem!important}
-  .gp-factory-day-summary-grid::part(header-cell){font-size:.68rem!important;white-space:nowrap}
-}
+@media(max-width:620px){.gp-factory-day-summary-totals{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
 /* Mesmo zebrado do relatório de Refugo em todas as tabelas, inclusive modais. */
 html body vaadin-grid::part(odd-row-cell){

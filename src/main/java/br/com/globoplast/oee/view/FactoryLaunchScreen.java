@@ -121,15 +121,13 @@ final class FactoryLaunchScreen {
         Grid<FactoryDayLine> summaryGrid = new Grid<>(FactoryDayLine.class, false);
         summaryGrid.addClassNames("gp-launch-grid-v059", "gp-factory-day-summary-grid");
         summaryGrid.addThemeVariants(GridVariant.LUMO_NO_BORDER, GridVariant.LUMO_ROW_STRIPES);
-        summaryGrid.addColumn(FactoryDayLine::order).setHeader(t("Nº OP")).setWidth("64px").setFlexGrow(0);
-        summaryGrid.addColumn(FactoryDayLine::product).setHeader(t("Código Produto")).setFlexGrow(1);
-        summaryGrid.addColumn(FactoryDayLine::shift).setHeader(t("Turno")).setWidth("48px").setFlexGrow(0)
-                .setTextAlign(ColumnTextAlign.CENTER)
+        summaryGrid.addColumn(FactoryDayLine::order).setHeader(t("Nº OP")).setAutoWidth(true);
+        summaryGrid.addColumn(FactoryDayLine::product).setHeader(t("Código Produto")).setAutoWidth(true);
+        summaryGrid.addColumn(FactoryDayLine::shift).setHeader(t("Turno")).setAutoWidth(true)
                 .setComparator(FactoryDayLine::shift).setSortable(true);
         summaryGrid.addColumn(row -> formatInteger.apply((long) row.quantity())).setHeader(t("Quantidade"))
-                .setWidth("94px").setFlexGrow(0).setTextAlign(ColumnTextAlign.END);
+                .setAutoWidth(true).setTextAlign(ColumnTextAlign.END);
         summaryGrid.setItems(rows);
-        summaryGrid.setWidthFull();
         summaryGrid.setHeight("min(52vh, 430px)");
 
         Span grandTotal = total(t("Total Geral"), totalA + totalB + totalC);
