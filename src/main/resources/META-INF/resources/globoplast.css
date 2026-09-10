@@ -10,7 +10,6 @@
   --gp-border:rgba(49,51,63,.20);
   --gp-control-border:rgba(49,51,63,.28);
   --gp-hover:rgba(49,51,63,.06);
-  --gp-grid-stripe:rgba(49,51,63,.035);
   --lumo-primary-color:#ff4b4b;
   --lumo-primary-text-color:#ff4b4b;
   --lumo-base-color:var(--gp-bg);
@@ -26,7 +25,6 @@ html[theme~="dark"]{
   --gp-border:rgba(250,250,250,.18);
   --gp-control-border:rgba(250,250,250,.24);
   --gp-hover:rgba(250,250,250,.08);
-  --gp-grid-stripe:rgba(250,250,250,.045);
   --lumo-base-color:#0e1117;
   --lumo-body-text-color:#fafafa;
   --lumo-secondary-text-color:#b8bcc6;
@@ -48,7 +46,6 @@ html[theme~="light"]{
   --gp-border:rgba(49,51,63,.20);
   --gp-control-border:rgba(49,51,63,.28);
   --gp-hover:rgba(49,51,63,.06);
-  --gp-grid-stripe:rgba(49,51,63,.035);
   --lumo-base-color:#ffffff;
   --lumo-body-text-color:#31333f;
 }
@@ -63,7 +60,6 @@ html[theme~="light"]{
     --gp-border:rgba(250,250,250,.18);
     --gp-control-border:rgba(250,250,250,.24);
     --gp-hover:rgba(250,250,250,.08);
-    --gp-grid-stripe:rgba(250,250,250,.045);
     --lumo-base-color:#0e1117;
     --lumo-body-text-color:#fafafa;
     --lumo-secondary-text-color:#b8bcc6;
@@ -115,7 +111,7 @@ html[theme~="light"] .gp-logo-dark{display:none}
 .gp-sync-status{display:block;text-align:right;font-size:.82rem;color:var(--gp-muted);margin:.15rem 0 .35rem}
 .gp-sync-status[theme~="online"]{color:#16853f}
 
-vaadin-grid{font-size:14px;background:var(--gp-bg);color:var(--gp-text);--vaadin-grid-cell-background:var(--gp-bg);--vaadin-grid-row-stripe-background:var(--gp-grid-stripe)}
+vaadin-grid{font-size:14px;background:var(--gp-bg);color:var(--gp-text);--vaadin-grid-cell-background:var(--gp-bg);--vaadin-grid-row-stripe-background:var(--gp-surface-2)}
 vaadin-grid::part(header-cell){background:var(--gp-bg);color:var(--gp-text)}
 vaadin-grid::part(body-cell){color:var(--gp-text)}
 vaadin-text-field::part(input-field),vaadin-password-field::part(input-field),vaadin-date-picker::part(input-field),vaadin-select::part(input-field),vaadin-multi-select-combo-box::part(input-field),vaadin-integer-field::part(input-field){background:var(--gp-surface);color:var(--gp-text);border-color:var(--gp-control-border)}
@@ -5748,3 +5744,11 @@ html body .gp-launch-toolbar-v045.gp-factory-launch-toolbar>.gp-launch-new-inlin
 .gp-factory-day-summary-total{display:block;text-align:center;font-weight:700;padding:.6rem .4rem;border:1px solid var(--gp-border);border-radius:.45rem}
 .gp-factory-day-summary-grand-total{background:var(--gp-surface-2)}
 @media(max-width:620px){.gp-factory-day-summary-totals{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Mesmo zebrado do relatório de Refugo em todas as tabelas, inclusive modais. */
+html body vaadin-grid::part(odd-row-cell){
+  background:var(--gp-surface)!important;
+}
+html body vaadin-grid::part(even-row-cell){
+  background:color-mix(in srgb,var(--gp-text) 3%,var(--gp-surface))!important;
+}
