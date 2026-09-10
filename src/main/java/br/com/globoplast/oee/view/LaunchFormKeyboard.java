@@ -1,6 +1,7 @@
 package br.com.globoplast.oee.view;
 
 import com.vaadin.flow.component.html.Div;
+import com.vaadin.flow.component.textfield.TextField;
 
 final class LaunchFormKeyboard {
     private LaunchFormKeyboard() {}
@@ -61,5 +62,11 @@ final class LaunchFormKeyboard {
                 })();
                 """
         );
+    }
+
+    static void numeric(TextField field) {
+        field.getElement().setAttribute("data-gp-inputmode", "numeric");
+        field.addAttachListener(event -> field.getElement().executeJs(
+                "const input=this.inputElement||this.shadowRoot?.querySelector('input');if(input)input.inputMode='numeric';"));
     }
 }

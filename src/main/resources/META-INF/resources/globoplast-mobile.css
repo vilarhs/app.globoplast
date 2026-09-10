@@ -632,10 +632,7 @@
   }
 
   .gp-footer-signature {
-    position: static !important;
-    display: block !important;
-    margin-top: 4px !important;
-    transform: none !important;
+    display: none !important;
   }
 }
 

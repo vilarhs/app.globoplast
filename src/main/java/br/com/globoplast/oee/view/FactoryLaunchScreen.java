@@ -246,6 +246,7 @@ final class FactoryLaunchScreen {
         date.addClassNames("gp-date-picker", "gp-unified-date-picker-v081", "gp-launch-standard-field-v054");
         TextField order = field(t("Nº da OP"), record.getOrderNumber());
         order.setAllowedCharPattern("[0-9]");
+        LaunchFormKeyboard.numeric(order);
         TextField product = field(t("Código Produto"), record.getProduct());
         ComboBox<String> machine = new ComboBox<>(t("Máquina"));
         machine.addClassNames("gp-launch-standard-field-v054", "gp-launch-machine-field-v055");

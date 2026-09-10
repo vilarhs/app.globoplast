@@ -48,6 +48,7 @@ final class OrderStockPage {
         order.setValue(initialOrder);
         order.setClearButtonVisible(true);
         order.getElement().setAttribute("autocomplete", "off");
+        LaunchFormKeyboard.numeric(order);
         Button search = new Button(t("Buscar"), VaadinIcon.SEARCH.create());
         search.addThemeVariants(ButtonVariant.PRIMARY);
         Runnable apply = () -> {
